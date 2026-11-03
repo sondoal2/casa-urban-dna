@@ -405,6 +405,9 @@ window.Ex13=(()=>{
     [...data.layers.bus_overlap.features].filter(inB).sort((a,c)=>(a.n||1)-(c.n||1)).forEach(f=>{const t=((f.n||1)-1)/Math.max(1,data.busMax-1);g+=`<path fill="none" stroke="${R.bus(t)}" stroke-width="${(.2+t*.9).toFixed(2)}" stroke-linecap="round" d="${pd(f.r)}"/>`})}
    if(k==='busstops'&&data.layers.bus_stops){[...data.layers.bus_stops.features].filter(p=>inF(p.c)).sort((a,c)=>(a.n||1)-(c.n||1)).forEach(p=>g+=`<circle cx="${X(p.c[0])}" cy="${Y(p.c[1])}" r="${(.22*Math.sqrt(p.n||1)).toFixed(2)}" fill="${R.bus(((p.n||1)-1)/Math.max(1,data.stopMax-1))}" stroke="#120403" stroke-width=".04"/>`);
     data.layers.transport_hubs.features.filter(p=>inF(p.c)).forEach(p=>g+=`<circle cx="${X(p.c[0])}" cy="${Y(p.c[1])}" r="${(.22*Math.sqrt(p.n||1)+.35).toFixed(2)}" fill="none" stroke="${site?'#eeeeea':'#111'}" stroke-width=".18"/>`)}
+   // History: every traced / GHSL extent, newest underneath, plus dated buildings by style family.
+   if(k==='histext'&&window.Timeline13)[...Timeline13.extents()].filter(e=>e.traced).reverse().forEach(e=>g+=`<path id="extent-${e.y}" fill="${e.c}" fill-opacity="${e.y<1950?.35:.12}" stroke="${e.c}" stroke-width="${e.y<1950?.45:.3}" fill-rule="evenodd" d="${pd(e.f.r)}Z"/>`);
+   if(k==='histbuild'&&window.Timeline13)(data.history?.items||[]).filter(b=>inF(b.c)).forEach(b=>g+=`<circle cx="${X(b.c[0])}" cy="${Y(b.c[1])}" r=".75" fill="${Timeline13.FAM[b.family]||(b.year!=null?'#f4f1ea':'#8d8a82')}" stroke="#111" stroke-width=".12"/>`);
    if(k==='dots')data.commerce.forEach(p=>g+=`<circle cx="${X(p.c[0])}" cy="${Y(p.c[1])}" r="${site?.3:.35}" fill="${FOOD.has(p.fclass)?'#e0a400':site?'#d8d8d0':'#333'}"/>`);
    if(k==='wind'&&wind){const w=wind[windSeason];w.freq.forEach((f,i)=>{if(f<.04)return;const to=(i*22.5+180)*Math.PI/180;for(let n=0;n<Math.round(f*220);n++){const x=lerp(FRAME[0],FRAME[2],Math.random()),y=lerp(FRAME[1],FRAME[3],Math.random()),l=w.speed[i]*120;g+=`<line x1="${X(x)}" y1="${Y(y)}" x2="${X(x+Math.sin(to)*l)}" y2="${Y(y+Math.cos(to)*l)}" stroke="#1f6fd1" stroke-width=".45" stroke-opacity=".9" stroke-linecap="round"/>`}})}
    if(g)body+=`<g id="${k}" opacity="${op}">${g}</g>`}
@@ -482,17 +485,31 @@ window.Ex13=(()=>{
    else if(k==='civic'){col+=`<rect x="${cx+.9}" y="${y-1.9}" width="1.2" height="1.2" fill="#fff" stroke="#111" stroke-width=".15"/>`+en(cx+4,y,2.1,'public institution',` fill="${INK}"`);y+=3.6}
    else if(k==='inst'){col+=`<path d="M${cx+1.5},${y-2} l.8,.8 l-.8,.8 l-.8,-.8Z" fill="#2a9fd0"/>`+en(cx+4,y,2.1,'institution',` fill="${INK}"`);y+=3.6}
    else if(k==='contours'){col+=en(cx,y,2.1,'thin 10 m · bold 50 m · m a.s.l.',` fill="${INK}"`);y+=3.6}
+   else if(k==='histext'&&window.Timeline13)Timeline13.extents().filter(e=>e.traced).forEach(e=>{col+=sw(e.c,`${e.ghsl?'GHSL '+e.y:e.y+(e.y===1918?' · dense core':'')} · ${e.km2.toFixed(1)} km²`);y+=3.4});
+   else if(k==='histbuild'&&window.Timeline13){const it=data.history?.items||[];[['artdeco','Art Deco','آرت ديكو'],['neomoorish','Neo-Moorish','نيو-موريسكي'],['modern','Modernism','الحداثة'],[null,'other dated building','مبنى مؤرَّخ آخر']].forEach(([f,e,a])=>{const n=it.filter(b=>f?b.family===f:!Timeline13.FAM[b.family]&&b.year!=null).length;col+=`<circle cx="${cx+1.5}" cy="${y-1}" r=".9" fill="${f?Timeline13.FAM[f]:'#f4f1ea'}"/>`+en(cx+4,y,2.1,`${e} (${n})`,` fill="${INK}"`)+ar(R0,y,1.9,a,` fill="${MU}"`);y+=3.4})}
    else if(k==='wind'&&wind){const w=wind[windSeason],i=w.freq.indexOf(Math.max(...w.freq));col+=ln('#1f6fd1',.45,`${windSeason} · from ${i*22.5}° · ${Math.round(w.freq[i]*100)}% · ${w.speed[i]} m/s`);y+=3.6}
    wrap(d.src,Math.floor(cw/0.95)).forEach(l=>{col+=en(cx,y,1.7,l,` fill="${MU}"`);y+=2.4});y+=3.2}
+  // History: the periods (from the studio's Miro research) in the column, and a year strip under the map.
+  const hist=T.id==='history'&&window.Timeline13;let shift=0;
+  if(hist){const SHORT=[['Medina and anchorage','المدينة القديمة والمرسى'],['Colonial turn, modern port','التحول الاستعماري والميناء'],['Prost plan, the Habous','مخطط بروست والأحباس'],['Art Deco, Anfa','الآرت ديكو وأنفا'],['Écochard, shantytowns, Aïn Chock','إيكوشار، الصفيح، عين الشق'],['Independence, growth to the edges','الاستقلال والتوسع للأطراف'],['Renewal, Casa Anfa','التجديد الحضري وكازا أنفا']];
+   col+=`<line x1="${cx}" y1="${y-2}" x2="${R0}" y2="${y-2}" stroke="${MU}" stroke-width=".15"/>`;y+=2;
+   col+=en(cx,y,2.4,'Periods',` fill="${INK}" font-weight="600"`)+ar(R0,y,2.2,'الحقب',` fill="${MU}"`);y+=4;
+   Timeline13.ERAS.forEach(([a,b,c],i)=>{col+=`<rect x="${cx}" y="${(y-2.3).toFixed(2)}" width="2" height="5.6" fill="${c}"/>`+en(cx+3.5,y,2.1,`${a}–${b} · ${SHORT[i][0]}`,` fill="${INK}"`);y+=2.9;col+=ar(R0,y,1.9,SHORT[i][1],` fill="${MU}"`);y+=3.6});
+   const sy=my+mm.map+7,x0=10,x1=R0,yx=v=>x0+(v-1880)/(2026-1880)*(x1-x0);let st='';
+   Timeline13.ERAS.forEach(([a,b,c])=>{st+=`<rect x="${yx(a).toFixed(2)}" y="${sy}" width="${(yx(Math.min(2026,b+1))-yx(a)).toFixed(2)}" height="2.6" fill="${c}"/>`+en(yx(a),sy+5.4,1.7,String(a),` fill="${MU}"`)});
+   st+=en(x1,sy+5.4,1.7,'2026',` fill="${MU}" text-anchor="end"`);
+   Timeline13.extents().filter(e=>e.traced).forEach(e=>{const ex=yx(e.y);st+=`<line x1="${ex.toFixed(2)}" y1="${sy-2.6}" x2="${ex.toFixed(2)}" y2="${sy+2.6}" stroke="${e.c}" stroke-width=".5"/><circle cx="${ex.toFixed(2)}" cy="${sy-2.6}" r=".7" fill="${e.c}"/>`});
+   st+=en(x0,sy-4,1.7,'● EXTENT SNAPSHOTS  ·  PERIODS 1880–2026',` fill="${MU}" letter-spacing=".4"`);
+   out+=`<g id="timeline">${st}</g>`;shift=12}
   out+=`<g id="column">${col}</g>`;
   // conclusion: English left, Arabic right
   let saved=null;try{saved=localStorage.getItem('casa13-concl-'+T.id)}catch{}
   const D=DRAFTS[T.id]||['',''],isAr=s=>/[؀-ۿ]/.test(s||'');
   const tAr=strip(saved&&isAr(saved)?saved:D[0]),tEn=strip(saved&&!isAr(saved)?saved:D[1]);
-  const by=my+mm.map+8,half=(R0-10-8)/2;let cb='';
+  const by=my+mm.map+8+shift,half=(R0-10-8)/2,maxL=hist?3:6;let cb='';
   cb+=en(10,by,2,'CONCLUSION',` fill="${RED}" letter-spacing=".6"`)+ar(R0,by,2.2,'الاستنتاج',` fill="${RED}"`);
-  wrap(tEn,Math.floor(half/1.32)).slice(0,6).forEach((l,i)=>cb+=en(10,by+4.6+i*3.7,2.5,l,` fill="${INK}"`));
-  wrap(tAr,Math.floor(half/1.42)).slice(0,6).forEach((l,i)=>cb+=ar(R0,by+4.6+i*3.9,2.5,l,` fill="${INK}"`));
+  wrap(tEn,Math.floor(half/1.32)).slice(0,maxL).forEach((l,i)=>cb+=en(10,by+4.6+i*3.7,2.5,l,` fill="${INK}"`));
+  wrap(tAr,Math.floor(half/1.42)).slice(0,maxL).forEach((l,i)=>cb+=ar(R0,by+4.6+i*3.9,2.5,l,` fill="${INK}"`));
   out+=`<g id="conclusion">${cb}</g>`;
   out+=en(10,mm.h-4.5,1.7,`Frame 15 × 15 km · WGS84 / UTM 29N (EPSG:32629) · © OpenStreetMap contributors, GHSL, NOAA, Landsat · Studio 5 Urban Transformation · ${new Date().toISOString().slice(0,10)}`,` fill="${MU}"`);
   return `<svg xmlns="http://www.w3.org/2000/svg" width="${mm.w}mm" height="${mm.h}mm" viewBox="0 0 ${mm.w} ${mm.h}" ${LA}><rect id="sheet" width="100%" height="100%" fill="#0e0e0e"/>${out}</svg>`}
