@@ -15,7 +15,11 @@ window.Ex13=(()=>{
   pop:ramp(['#2a2117','#5a3a1c','#98682c','#d39a4a','#f3cf87','#fff3d2']),
   built:ramp(['#202020','#4a4a46','#7c7c76','#adada6','#dcdcd4','#ffffff']),
   bus:ramp(['#c97b6e','#d9452f','#f0281a','#ff1f10']),
+  height:ramp(['#1e2433','#34466e','#5f78a8','#9fb2d6','#e6e2d6','#ffffff']),
   night:ramp(['#000000','#2b1600','#8a4a00','#e09a2a','#ffe3a0','#fffdf2'])};
+ // Sun at 33.6° N, solar time (declination ±23.44°). Azimuth from north, clockwise.
+ const SUN={dec12:{alt:33.0,az:180,t:['21 ديسمبر · 12:00','21 Dec · 12:00']},dec15:{alt:18.7,az:223.2,t:['21 ديسمبر · 15:00','21 Dec · 15:00']},jun12:{alt:79.8,az:180,t:['21 يونيو · 12:00','21 Jun · 12:00']},jun15:{alt:49.5,az:267.6,t:['21 يونيو · 15:00','21 Jun · 15:00']}};
+ let sun='dec15';
  const ZONES=[['centre_historic','#ffd166','المركز التاريخي','Historic centre'],['centre_modern','#7ad7ff','المركز الحديث','Modern centre'],['centre_contemporary','#c58cff','المركز المعاصر','Contemporary centre'],['centre_port','#8ce0a0','الميناء / الاقتصادي','Port / economic']];
  const popBreaks=[0,25,50,100,200,400,800,1600],builtBreaks=[0,10,25,40,55,70,85];
  const classOf=(v,br)=>{let k=0;for(let i=0;i<br.length;i++)if(v>=br[i])k=i;return k/(br.length-1)};
@@ -34,6 +38,8 @@ window.Ex13=(()=>{
   centres:{t:['تركّز التجارة والخدمات / كم²','Commerce + services per km²'],type:'circles',src:'OpenStreetMap POIs',frame:true},
   civic:{t:['المؤسسات العامة','Public institutions'],type:'civic',src:'OpenStreetMap POIs',frame:true},
   stops:{t:['محطات الباص والترام','Bus + tram stops'],type:'stops',src:'OpenStreetMap',frame:true},
+  height:{t:['ارتفاع المباني · متوسط لكل 100 م','Building height · 100 m average'],type:'value',unit:['متر','m'],min:0,max:25,ramp:'height',src:'GHSL GHS-BUILT-H ANBH 2018, 100 m',frame:true},
+  shadow:{t:['الظل التقريبي','Approximate shadow'],type:'shadow',src:'GHS-BUILT-H heights + sun position at 33.6° N',frame:true},
   patterns:{t:['أنماط شبكة الشوارع','Street-network patterns'],type:'morph',src:'OSM streets + GHS-BUILT · explicit rules per 400 m cell',frame:true},
   zones:{t:['المراكز الأربعة: تاريخي، حديث، معاصر، ميناء','Four centres: historic, modern, contemporary, port'],type:'zones',src:'Studio GIS layers: historic, modern, contemporary, port centres',frame:true},
   inst:{t:['المؤسسات','Institutions'],type:'inst',src:'Studio GIS layer: Institutions_Only (OSM)',frame:true},
@@ -50,7 +56,7 @@ window.Ex13=(()=>{
   boundary:{t:['حدود الدار البيضاء','Casablanca boundary'],type:'outline',src:'OSM admin boundary',frame:false}
  };
  const TOPICS=[
-  {id:'density',n:'01',t:['الكثافة','Density'],q:['أين المدينة كثيفة — بالناس أم بالبناء؟','Where is the city dense — in people or in buildings?'],layers:['pop','built','boundary'],form:['شبكة خلايا 100 م','100 m grid']},
+  {id:'density',n:'01',t:['الكثافة','Density'],q:['أين المدينة كثيفة — بالناس أم بالبناء؟','Where is the city dense — in people or in buildings?'],layers:['pop','built','height','shadow','boundary'],form:['شبكة خلايا 100 م','100 m grid']},
   {id:'morphology',n:'02',t:['المورفولوجيا','Morphology'],q:['مِمّ صُنعت المدينة، وأين يتبدّل منطقها؟','What is the city made of, and where does its logic change?'],layers:['patterns','landuse','rail','boundary'],form:['مليء وفارغ + حدود','Figure-ground + edges'],base:true},
   {id:'centre',n:'03',t:['مركز المدينة','City centre'],q:['أين القلب — وهل هو واحد؟','Where is the heart — and is there only one?'],layers:['zones','centres','inst','civic','busstops','busflow','boundary'],form:['دوائر متناسبة','Proportional circles']},
   {id:'climate',n:'04',t:['المناخ','Climate'],q:['أين الحرّ وأين أقل — وبكم درجة؟','Where is it hot, where less — and by how much?'],layers:['heat','ndvi','flood','water','contours','wind','boundary'],form:['حقل متصل + خطوط تساوٍ','Continuous field + isolines'],play:['heat','ndvi','flood','contours']},
@@ -61,7 +67,9 @@ window.Ex13=(()=>{
 
  /* ---------- data ---------- */
  function load(){if(data)return Promise.resolve();if(loading)return loading;
-  loading=Promise.all([fetch('data/ex13.json').then(r=>r.json()),fetch('data/wind.json?v=2').then(r=>r.json()),fetch('data/layers13b.json?v=2').then(r=>r.ok?r.json():{layers:{}}).catch(()=>({layers:{}}))]).then(([d,w,b])=>{data=d;wind=w;Object.assign(data.layers,b.layers);prepare()});return loading}
+  loading=Promise.all([fetch('data/ex13.json').then(r=>r.json()),fetch('data/wind.json?v=2').then(r=>r.json()),fetch('data/layers13b.json?v=2').then(r=>r.ok?r.json():{layers:{}}).catch(()=>({layers:{}})),fetch('data/heights.json?v=1').then(r=>r.ok?r.json():null).catch(()=>null)]).then(([d,w,b,h])=>{data=d;wind=w;Object.assign(data.layers,b.layers);
+   if(h)data.hIndex=new Map(h.cells.map(([x,y,v])=>[Math.floor(x/h.res)+','+Math.floor(y/h.res),v]));
+   if(h)data.layers.height={kind:'poly',features:h.cells.map(([x,y,v])=>({v,r:[[[x,y],[x+h.res,y],[x+h.res,y+h.res],[x,y+h.res],[x,y]]]}))};prepare()});return loading}
  const pathOf=rings=>{const p=new Path2D();for(const r of rings)r.forEach((v,i)=>i?p.lineTo(v[0],-v[1]):p.moveTo(v[0],-v[1]));return p};
  const bbox=rings=>{let a=[1e9,1e9,-1e9,-1e9];for(const r of rings)for(const v of r){if(v[0]<a[0])a[0]=v[0];if(v[1]<a[1])a[1]=v[1];if(v[0]>a[2])a[2]=v[0];if(v[1]>a[3])a[3]=v[1]}return a};
  const inF=c=>c[0]>=FRAME[0]&&c[0]<=FRAME[2]&&c[1]>=FRAME[1]&&c[1]<=FRAME[3];
@@ -94,17 +102,17 @@ window.Ex13=(()=>{
   if(k){const def=LAYERS[k],fn=R[def.ramp],val=f=>def.type==='grid'?classOf(f.v,def.breaks):Math.max(0,Math.min(1,(f.v-def.min)/(def.max-def.min)));
    const list=data.layers[k].features.filter(f=>f.b&&inF([(f.b[0]+f.b[2])/2,(f.b[1]+f.b[3])/2])).map(f=>({f,t:val(f),w:((f.b[0]+f.b[2])/2-view.x)+((f.b[1]+f.b[3])/2-view.y)})).sort((a,b)=>b.w-a.w);
    ctx.globalAlpha=state[k].op;ctx.lineJoin='round';
-   for(const {f,t} of list){const b=f.b,h=t*ISO_H*(k==='pop'?1:.6),c=fn(t),P=[[b[0],b[1]],[b[2],b[1]],[b[2],b[3]],[b[0],b[3]]],lo=P.map(p=>isoProject(p[0],p[1],0,s)),hi=P.map(p=>isoProject(p[0],p[1],h,s));
+   for(const {f,t} of list){const b=f.b,h=k==='height'?f.v*15:t*ISO_H*(k==='pop'?1:.6),c=fn(t),P=[[b[0],b[1]],[b[2],b[1]],[b[2],b[3]],[b[0],b[3]]],lo=P.map(p=>isoProject(p[0],p[1],0,s)),hi=P.map(p=>isoProject(p[0],p[1],h,s));
     if(h>1){for(const [i,j,f2] of [[0,1,.62],[1,2,.8]]){ctx.fillStyle=shade(c,f2);ctx.beginPath();ctx.moveTo(...lo[i]);ctx.lineTo(...lo[j]);ctx.lineTo(...hi[j]);ctx.lineTo(...hi[i]);ctx.closePath();ctx.fill()}}
     ctx.fillStyle=c;ctx.beginPath();hi.forEach((p,i)=>i?ctx.lineTo(...p):ctx.moveTo(...p));ctx.closePath();ctx.fill()}}
   ctx.restore()}
  /* ---------- section: profiles of the cell layers and elevation along a drawn line ---------- */
  const section={pts:[],drawing:false,rows:null};
- const SEC_VARS=[['pop',['السكان','Population'],'/ha'],['built',['المبني','Built-up'],'%'],['heat',['الحرارة','Heat'],'°C'],['ndvi',['NDVI','NDVI'],''],['elev',['الارتفاع','Elevation'],'m']];
+ const SEC_VARS=[['pop',['السكان','Population'],'/ha'],['built',['المبني','Built-up'],'%'],['height',['ارتفاع المباني','Building height'],'m'],['heat',['الحرارة','Heat'],'°C'],['ndvi',['NDVI','NDVI'],''],['elev',['الارتفاع','Elevation'],'m']];
  let samplers=null;
  function makeSamplers(){if(samplers)return samplers;samplers={};const B=200;
   const pip=(rings,x,y)=>{let c=false;for(const r of rings)for(let i=0,j=r.length-1;i<r.length;j=i++){if((r[i][1]>y)!==(r[j][1]>y)&&x<(r[j][0]-r[i][0])*(y-r[i][1])/(r[j][1]-r[i][1])+r[i][0])c=!c}return c};
-  for(const k of ['pop','built','heat','ndvi']){const idx=new Map();for(const f of data.layers[k]?.features||[]){if(!f.b)continue;for(let i=Math.floor(f.b[0]/B);i<=Math.floor(f.b[2]/B);i++)for(let j=Math.floor(f.b[1]/B);j<=Math.floor(f.b[3]/B);j++){const q=i+','+j;(idx.get(q)||idx.set(q,[]).get(q)).push(f)}}
+  for(const k of ['pop','built','height','heat','ndvi']){const idx=new Map();for(const f of data.layers[k]?.features||[]){if(!f.b)continue;for(let i=Math.floor(f.b[0]/B);i<=Math.floor(f.b[2]/B);i++)for(let j=Math.floor(f.b[1]/B);j<=Math.floor(f.b[3]/B);j++){const q=i+','+j;(idx.get(q)||idx.set(q,[]).get(q)).push(f)}}
    samplers[k]=(x,y)=>{for(const f of idx.get(Math.floor(x/B)+','+Math.floor(y/B))||[])if(x>=f.b[0]&&x<=f.b[2]&&y>=f.b[1]&&y<=f.b[3]&&pip(f.r,x,y))return f.v;return null}}
   // Elevation ≈ value of the nearest 10 m contour vertex within 400 m.
   const E=new Map(),EB=400;for(const f of data.layers.contours.features)for(const r of f.r)for(const s of r){const [x,y]=typeof s==='string'?s.split(' ').map(Number):s;const q=Math.floor(x/EB)+','+Math.floor(y/EB);(E.get(q)||E.set(q,[]).get(q)).push([x,y,f.v])}
@@ -115,7 +123,7 @@ window.Ex13=(()=>{
  function sectionSVG(){const w=300,rh=52,pad=34;let g='';
   SEC_VARS.forEach(([k,name,u],r)=>{const v=section.rows[r],ok=v.filter(x=>x!=null);const y0=r*rh+16;g+=`<text x="${pad}" y="${y0-4}" class="sl">${L(...name)}</text>`;if(!ok.length){g+=`<text x="${pad}" y="${y0+20}" class="sv">${L('لا بيانات على الخط','no data on this line')}</text>`;return}
    const mn=Math.min(...ok),mx=Math.max(...ok),sc=x=>y0+rh-12-(mx===mn?.5:(x-mn)/(mx-mn))*(rh-20);let d='',pen=false;v.forEach((x,i)=>{if(x==null){pen=false;return}const X=pad+(w-pad-4)*i/(v.length-1);d+=(pen?'L':'M')+X.toFixed(1)+' '+sc(x).toFixed(1);pen=true});
-   g+=`<path d="${d}" fill="none" stroke="${['#f3cf87','#dcdcd4','#f7a13b','#4f9e48','#8fd0ff'][r]}" stroke-width="1.4"/><text x="${pad-3}" y="${y0+8}" class="sv" text-anchor="end">${fmt(mx,k==='ndvi'?2:0)}</text><text x="${pad-3}" y="${y0+rh-12}" class="sv" text-anchor="end">${fmt(mn,k==='ndvi'?2:0)}</text><text x="${w-2}" y="${y0-4}" class="sv" text-anchor="end">${u}</text>`});
+   g+=`<path d="${d}" fill="none" stroke="${['#f3cf87','#dcdcd4','#9fb2d6','#f7a13b','#4f9e48','#8fd0ff'][r]}" stroke-width="1.4"/><text x="${pad-3}" y="${y0+8}" class="sv" text-anchor="end">${fmt(mx,k==='ndvi'?2:0)}</text><text x="${pad-3}" y="${y0+rh-12}" class="sv" text-anchor="end">${fmt(mn,k==='ndvi'?2:0)}</text><text x="${w-2}" y="${y0-4}" class="sv" text-anchor="end">${u}</text>`});
   const H2=SEC_VARS.length*rh+20;g+=`<text x="${pad}" y="${H2-4}" class="sv">A</text><text x="${w-4}" y="${H2-4}" class="sv" text-anchor="end">B · ${fmt(section.len/1000,1)} km</text>`;
   return `<svg class="sectionChart" viewBox="0 0 ${w} ${H2}" width="100%" direction="ltr" style="direction:ltr"><style>.sl{font:600 9px sans-serif;fill:#eee}.sv{font:8px sans-serif;fill:#aaa}</style>${g}</svg><p class="tiny">${L('عيّنة كل ≈50 م. الارتفاع تقريبي من خطوط كنتور كل 10 م.','Sampled every ≈50 m. Elevation is approximate, from 10 m contours.')}</p>`}
  canvas.addEventListener('pointerdown',e=>{if(!section.drawing)return;e.stopImmediatePropagation();e.preventDefault();section.pts.push(world(e.clientX,e.clientY));
@@ -127,7 +135,7 @@ window.Ex13=(()=>{
   if(!data)return;const s=view.s,vis=order.filter(k=>state[k].on);if(!vis.length)return;
   if(iso){paintIso(ctx,[...vis].reverse(),s);return}
   for(const k of vis){if(k==='boundary')continue;const def=LAYERS[k];
-   if(def.type==='grid'||def.type==='value'){drawOpaque(ctx,k,def,bounds,s);continue}
+   if(def.type==='grid'||def.type==='value'||def.type==='shadow'){drawOpaque(ctx,k,def,bounds,s);continue}
    ctx.save();ctx.globalAlpha=state[k].op;
    if(def.frame&&clipFrame){ctx.beginPath();ctx.rect(FRAME[0],-FRAME[3],FRAME[2]-FRAME[0],FRAME[3]-FRAME[1]);ctx.clip()}
    draw[def.type](ctx,k,def,bounds,s);ctx.restore()}
@@ -173,6 +181,13 @@ window.Ex13=(()=>{
   circles(ctx,k,def,b,s){ctx.strokeStyle='#ffb347';ctx.fillStyle='rgba(255,179,71,.28)';ctx.lineWidth=1/s;for(const c of data.centreCells){if(c.n<3)continue;const r=Math.sqrt(c.d/data.maxD)*480;ctx.beginPath();ctx.arc(c.c[0],-c.c[1],r,0,7);ctx.fill();ctx.stroke()}},
   civic(ctx,k,def,b,s){ctx.fillStyle='#fff';ctx.strokeStyle='#111';ctx.lineWidth=1/s;const r=Math.max(25,3.2/s);for(const p of data.civic){ctx.beginPath();ctx.rect(p.c[0]-r,-p.c[1]-r,2*r,2*r);ctx.fill();ctx.stroke()}},
   stops(ctx,k,def,b,s){ctx.fillStyle='#ff3b30';const r=Math.max(12,1.8/s);for(const p of data.stops){ctx.beginPath();ctx.arc(p.c[0],-p.c[1],r,0,7);ctx.fill()}},
+  // Each OSM footprint takes the average height of its 100 m cell and is swept along the shadow direction
+  // by h / tan(sun altitude); footprints are drawn on top. Below street scale only (zoom in).
+  shadow(ctx,k,def,b,s){if(!data.hIndex||s<.12)return;const S=SUN[sun],L=1/Math.tan(S.alt*Math.PI/180),a=(S.az+180)*Math.PI/180,ux=Math.sin(a),uy=Math.cos(a),p=new Path2D(),fp=new Path2D();
+   for(const bd of buildings){if(!overlap(bd.b,b))continue;const h=data.hIndex.get(Math.floor((bd.b[0]+bd.b[2])/200)+','+Math.floor((bd.b[1]+bd.b[3])/200));if(!h)continue;const dx=ux*h*L,dy=uy*h*L,q=bd.r[0];
+    for(let i=0;i<q.length-1;i++){const A=q[i],B=q[i+1];p.moveTo(A[0],-A[1]);p.lineTo(B[0],-B[1]);p.lineTo(B[0]+dx,-(B[1]+dy));p.lineTo(A[0]+dx,-(A[1]+dy));p.closePath()}
+    q.forEach((v,i)=>i?fp.lineTo(v[0],-v[1]):fp.moveTo(v[0],-v[1]));fp.closePath()}
+   ctx.fillStyle=light?'#2a2f55':'#6f7cff';ctx.fill(p,'nonzero');ctx.fillStyle=light?'#9a9a94':'#d8d6cf';ctx.fill(fp,'nonzero')},
   morph(ctx,k,def,b,s){if(!window.Morph13?.cells)return;const P=Morph13.streetPaths();ctx.lineCap='round';
    for(const [id,,,c] of Morph13.RULES){ctx.strokeStyle=c;ctx.lineWidth=(id==='mixed'?.7:1.8)/s;ctx.globalAlpha=state[k].op*(id==='mixed'?.5:1);ctx.stroke(P[id])}
    if(s>.35){ctx.globalAlpha=state[k].op;const r=Math.max(2.5,2.2/s);for(const j of Morph13.junctions){if(j.c[0]<b[0]||j.c[0]>b[2]||j.c[1]<b[1]||j.c[1]>b[3])continue;ctx.beginPath();ctx.arc(j.c[0],-j.c[1],r,0,7);if(j.t===1){ctx.strokeStyle='#fff';ctx.lineWidth=1/s;ctx.stroke()}else{ctx.fillStyle=j.t===3?'#ffb347':'#5fb4ff';ctx.fill()}}}},
@@ -235,6 +250,7 @@ window.Ex13=(()=>{
   if(k==='centres')return `<div class="lg"><span><em class="circ"></em>${L('مساحة الدائرة = عدد المحلات والخدمات في كم²','circle area = shops + services per km²')}</span><small>${L('أعلى خلية','max cell')}: ${data?data.maxD:''} / km² · ${L('خلايا 500 م','500 m cells')}</small></div>`;
   if(k==='civic')return `<div class="lg"><span>${swatch('#fff')}${data?data.civic.length:''} ${L('مؤسسة: بلدية، محكمة، جامعة، مستشفى، مدرسة، بنك…','institutions: town hall, court, university, hospital, school, bank…')}</span></div>`;
   if(k==='stops')return `<div class="lg"><span>${swatch('#ff3b30')}${data?data.stops.length:''} ${L('محطة (OSM)','stops (OSM)')}</span></div>`;
+  if(k==='shadow'){const S=SUN[sun];return `<div class="lg"><div class="seg">${Object.entries(SUN).map(([id,x])=>`<button data-sun="${id}" class="${sun===id?'on':''}">${L(...x.t)}</button>`).join('')}</div><span>${swatch(light?'#2a2f55':'#6f7cff')}${L('ظل','shadow')} · ${L('ارتفاع الشمس','sun altitude')} ${S.alt}° · ${L('مبنى 10 م يرمي ظلًا','a 10 m building casts')} ${fmt(10/Math.tan(S.alt*Math.PI/180),0)} ${L('م','m')}</span><small>${L('كل مبنى (OSM) يأخذ متوسط ارتفاع خليته (100 م) من GHS-BUILT-H، فالظل تقريبي: المبنى الأعلى من متوسط حيّه يرمي ظلًا أطول في الواقع. قرّب على الحي لرؤيته. التوقيت شمسي.','Each OSM building takes its 100 m cell\'s average height from GHS-BUILT-H, so shadows are approximate: a building taller than its block average casts longer in reality. Zoom in to a neighbourhood to see it. Solar time.')}</small></div>`}
   if(k==='patterns'&&window.Morph13?.cells){const n={};for(const c of Morph13.cells)n[c.type]=(n[c.type]||0)+1;return `<div class="lg morphLg">${Morph13.RULES.map(([id,,name,c,rule])=>`<span>${swatch(c)}<b>${L(...name)}</b> · ${n[id]||0} ${L('خلية','cells')}<small>${L(...rule)}</small></span>`).join('')}<small>${L('عند التكبير: ○ طريق مسدود · ● برتقالي تقاطع T · ● أزرق تقاطع +','Zoomed in: ○ dead end · orange ● T-junction · blue ● four-way')}</small></div>`}
   if(k==='zones')return `<div class="lg">${ZONES.map(([,c,a,e])=>`<span>${swatch(c)}${L(a,e)}</span>`).join('')}</div>`;
   if(k==='inst'&&data?.layers.institutions){const n={};for(const p of data.layers.institutions.features)n[p.fclass]=(n[p.fclass]||0)+1;return `<div class="lg"><span><em class="circ" style="background:#7ad7ff;border-radius:0;transform:rotate(45deg)"></em>${data.layers.institutions.features.length} ${L('مؤسسة','institutions')}</span><small>${Object.entries(n).sort((a,b)=>b[1]-a[1]).map(([k,v])=>k+' '+v).join(' · ')}</small></div>`}
@@ -307,6 +323,7 @@ window.Ex13=(()=>{
   el.addEventListener('click',e=>{const b=e.target.closest('button');if(!b||b.dataset.w)return;
    if(b.dataset.up||b.dataset.down){const k=b.dataset.up||b.dataset.down,i=order.indexOf(k),j=i+(b.dataset.up?1:-1);if(j>=0&&j<order.length){[order[i],order[j]]=[order[j],order[i]];fill();render()}}
    if(b.dataset.season){windSeason=b.dataset.season;particles=[];fill()}
+   if(b.dataset.sun){sun=b.dataset.sun;fill();render()}
    if(b.dataset.speed){speed=+b.dataset.speed;if(playTimer){stopPlay();play()}fill()}
    if(b.id==='play13')playTimer?stopPlay():play();
    if(b.dataset.export)exportSVG(b.dataset.export);if(b.dataset.pdf)exportSVG(b.dataset.pdf,'pdf');
