@@ -30,6 +30,11 @@ window.Morph13=(()=>{
    const near=i=>p[(i+17)%18]+p[i]+p[(i+1)%18],right=near(top)+near((top+9)%18);
    Object.assign(c,{dead:c.n1/nj,tShare:c.n3/Math.max(1,c.n3+c.n4),xShare:c.n4/Math.max(1,c.n3+c.n4),order,right,axis:near(top),idens:(c.n3+c.n4)/km2,topDeg:top*10+5});
    c.type=classify(c);cells.push(c)}
+  // 4. A fishbone quarter is wider than its densest core: dense, right-angled T-cells touching a core cell
+  // (8 neighbours, one pass) belong to the same fabric. This spans all of sample 04 Aïn Chock.
+  const core=new Set(cells.filter(c=>c.type==='fishbone').map(c=>c.i+','+c.j));
+  for(const c of cells){if(c.type==='fishbone'||!(c.tShare>=.85&&c.right>=.5&&c.idens>=300&&c.dead<.15))continue;
+   for(let di=-1;di<=1&&!c.ext;di++)for(let dj=-1;dj<=1;dj++)if(core.has((c.i+di)+','+(c.j+dj))){c.ext=c.type;c.type='fishbone';break}}
   return cells}
  // Explicit rules, checked in this order. Calibrated on known places: Maarif and Hay Mohammadi (grid),
  // the colonial downtown (radial), the old medina, Aïn Chock and Derb Sultan (dense T-combs).
@@ -39,7 +44,7 @@ window.Morph13=(()=>{
   ['medina',c=>c.tShare>=.9&&c.idens>=250&&c.built>=30&&c.dead>=.15&&c.order<.3,['نسيج عضوي / مدينة قديمة','Organic / old medina'],'#e8b04a',['تقاطعات T ≥ 90%، ≥ 250 تقاطعًا/كم²، مبني ≥ 30%، طرق مسدودة ≥ 15%، اتجاهات متفرّقة','T-junctions ≥ 90%, ≥ 250 junctions/km², built ≥ 30%, dead ends ≥ 15%, scattered bearings']],
   // Fishbone calibrated on Aïn Chock's spine-and-rib housing: ribs every ~20 m give ≥ 650 junctions/km²,
   // all meeting the spine at right angles as T-junctions. Looser dense T-fabrics fall to 'tgrid'.
-  ['fishbone',c=>c.idens>=650&&c.right>=.7&&c.tShare>=.7&&c.xShare<.3&&c.axis>=.3,['سمكة: محور وأضلاع متوازية','Fishbone: spine with parallel ribs'],'#ff3d6e',['أضلاع قصيرة متوازية كل ≈20 م (≥ 650 تقاطعًا/كم²)، تلتقي بالمحور بزاوية قائمة (≥ 70%) كتقاطعات T (≥ 70%)، وتقاطعات + أقل من 30%. مُعايَر على عين الشق.','Short parallel ribs every ≈20 m (≥ 650 junctions/km²) meeting the spine at right angles (≥ 70%) as T-junctions (≥ 70%), under 30% four-way. Calibrated on Aïn Chock.']],
+  ['fishbone',c=>c.idens>=650&&c.right>=.7&&c.tShare>=.7&&c.xShare<.3&&c.axis>=.3,['سمكة: محور وأضلاع متوازية','Fishbone: spine with parallel ribs'],'#ff3d6e',['أضلاع قصيرة متوازية كل ≈20 م (≥ 650 تقاطعًا/كم²)، تلتقي بالمحور بزاوية قائمة (≥ 70%) كتقاطعات T (≥ 70%)، وتقاطعات + أقل من 30%. وتمتد للخلايا المجاورة التي فيها T ≥ 85% بزوايا قائمة (≥ 300/كم²). مُعايَر على عين الشق (04).','Short parallel ribs every ≈20 m (≥ 650 junctions/km²) meeting the spine at right angles (≥ 70%) as T-junctions (≥ 70%), under 30% four-way; extends to touching cells with ≥ 85% right-angled T-junctions (≥ 300/km²). Calibrated on Aïn Chock (04).']],
   ['tgrid',c=>c.tShare>=.85&&c.idens>=350&&c.right>=.5,['شبكة كثيفة بتقاطعات T','Dense T-junction grid'],'#d0904a',['تقاطعات T ≥ 85% وكثيفة (≥ 350/كم²) بزوايا قائمة، لكن بدون أضلاع منتظمة كالسمكة','T-junctions ≥ 85%, dense (≥ 350/km²), right-angled, but without the fishbone\'s regular ribs']],
   ['honeycomb',c=>c.tShare>=.8&&c.right<.5,['خلية نحل: تقاطعات ثلاثية بلا اتجاه','Honeycomb: three-way junctions, no direction'],'#c58cff',['تقاطعات T ≥ 80% والشوارع لا تتبع اتجاهين متعامدين (< 50%)','T-junctions ≥ 80% and streets follow no perpendicular pair (< 50%)']],
   ['mixed',()=>true,['انتقالي / مختلط','Transitional / mixed'],'#6d6d66',['لا يطابق أي قاعدة أعلاه','matches none of the rules above']]];
