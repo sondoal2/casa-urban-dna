@@ -34,12 +34,13 @@ window.Ex13=(()=>{
   centres:{t:['تركّز التجارة والخدمات / كم²','Commerce + services per km²'],type:'circles',src:'OpenStreetMap POIs',frame:true},
   civic:{t:['المؤسسات العامة','Public institutions'],type:'civic',src:'OpenStreetMap POIs',frame:true},
   stops:{t:['محطات الباص والترام','Bus + tram stops'],type:'stops',src:'OpenStreetMap',frame:true},
+  patterns:{t:['أنماط شبكة الشوارع','Street-network patterns'],type:'morph',src:'OSM streets + GHS-BUILT · explicit rules per 400 m cell',frame:true},
   zones:{t:['المراكز الأربعة: تاريخي، حديث، معاصر، ميناء','Four centres: historic, modern, contemporary, port'],type:'zones',src:'Studio GIS layers: historic, modern, contemporary, port centres',frame:true},
   inst:{t:['المؤسسات','Institutions'],type:'inst',src:'Studio GIS layer: Institutions_Only (OSM)',frame:true},
   nightlights:{t:['الإضاءة الليلية · VIIRS 2025','Night lights · VIIRS 2025'],type:'glow',unit:['nW/cm²/sr','nW/cm²/sr'],src:'NOAA/EOG VIIRS VNL v2 2025, ≈460 m cells',frame:true},
   busflow:{t:['خطوط الباص · التداخل والنبض','Bus lines · overlap + pulse'],type:'busflow',src:'Studio GIS layers: Bus_Routes_Colored, Bus_Street_Overlap (Casabus, OSM)',frame:true},
   busstops:{t:['المحطات حسب عدد الخطوط','Stops by number of lines'],type:'busstops',src:'Studio GIS layers: Bus_Stops_With_Lines, Major_Transport_Hubs',frame:true},
-  heat:{t:['حرارة سطح الأرض LST','Land surface temperature'],type:'value',unit:['°C','°C'],min:21,max:57,ramp:'heat',src:'Landsat 9 C2 L2 · 17.07.2025 (single day)',frame:true},
+  heat:{t:['حرارة سطح الأرض LST','Land surface temperature'],type:'value',unit:['°C','°C'],min:30,max:57,ramp:'heat',src:'Landsat 9 C2 L2 · 17.07.2025 (single day)',frame:true},
   ndvi:{t:['الغطاء النباتي NDVI','Vegetation NDVI'],type:'value',unit:['NDVI','NDVI'],min:-0.2,max:0.5,ramp:'ndvi',src:'Sentinel/Landsat NDVI (user export)',frame:true},
   flood:{t:['أرض قابلة للغمر','Flood-prone ground'],type:'fill',color:'#3d8bff',alpha:.55,src:'GIS: HAND < 5 m above drainage lines · SRTM 1″ (2000)',frame:true},
   water:{t:['المجاري ووادي بوسكورة','Streams + Oued Bouskoura'],type:'water',src:'Hydrology (user) + OSM',frame:true},
@@ -50,7 +51,7 @@ window.Ex13=(()=>{
  };
  const TOPICS=[
   {id:'density',n:'01',t:['الكثافة','Density'],q:['أين المدينة كثيفة — بالناس أم بالبناء؟','Where is the city dense — in people or in buildings?'],layers:['pop','built','boundary'],form:['شبكة خلايا 100 م','100 m grid']},
-  {id:'morphology',n:'02',t:['المورفولوجيا','Morphology'],q:['مِمّ صُنعت المدينة، وأين يتبدّل منطقها؟','What is the city made of, and where does its logic change?'],layers:['landuse','rail','boundary'],form:['مليء وفارغ + حدود','Figure-ground + edges'],base:true},
+  {id:'morphology',n:'02',t:['المورفولوجيا','Morphology'],q:['مِمّ صُنعت المدينة، وأين يتبدّل منطقها؟','What is the city made of, and where does its logic change?'],layers:['patterns','landuse','rail','boundary'],form:['مليء وفارغ + حدود','Figure-ground + edges'],base:true},
   {id:'centre',n:'03',t:['مركز المدينة','City centre'],q:['أين القلب — وهل هو واحد؟','Where is the heart — and is there only one?'],layers:['zones','centres','inst','civic','busstops','busflow','boundary'],form:['دوائر متناسبة','Proportional circles']},
   {id:'climate',n:'04',t:['المناخ','Climate'],q:['أين الحرّ وأين أقل — وبكم درجة؟','Where is it hot, where less — and by how much?'],layers:['heat','ndvi','flood','water','contours','wind','boundary'],form:['حقل متصل + خطوط تساوٍ','Continuous field + isolines'],play:['heat','ndvi','flood','contours']},
   {id:'human',n:'05',t:['البعد الإنساني','Human dimension'],q:['أين الناس فعلًا — أين يشترون ويلتقون؟','Where are people actually — buying, meeting?'],layers:['dots','nightlights','busflow','busstops','boundary'],form:['كثافة نقاط','Dot density']}
@@ -68,6 +69,7 @@ window.Ex13=(()=>{
   for(const k in data.layers)for(const f of data.layers[k].features||[])if(f.r)f.b=bbox(f.r);
   data.busMax=Math.max(1,...(data.layers.bus_overlap?.features||[]).map(f=>f.n||1));
   data.stopMax=Math.max(1,...(data.layers.bus_stops?.features||[]).map(f=>f.n||1));
+  if(window.Morph13)Morph13.compute(data.layers.built.features);
   data.nightMax=Math.max(1,...(data.layers.night_lights?.cells||[]).map(c=>c[2]));
   data.hubIds=new Set((data.layers.transport_hubs?.features||[]).map(f=>f.c.join(',')));
   const P=data.layers.pois.features;
@@ -82,8 +84,48 @@ window.Ex13=(()=>{
  }
 
  /* ---------- painting (world coords, y flipped) ---------- */
+ /* ---------- 3D: isometric extrusion of the top visible cell layer (height = value) ---------- */
+ let iso=false;const ISO_H=1600; // metres of column height at the layer's maximum, for legibility
+ function isoProject(x,y,h,s){const dx=x-view.x,dy=y-view.y,u=(dx-dy)*.7071,w=(dx+dy)*.7071;return[W/2+u*s,H/2-w*s*.5-h*s]}
+ function shade(rgb,f){const m=rgb.match(/\d+/g);return`rgb(${m.slice(0,3).map(v=>Math.round(v*f)).join(',')})`}
+ function paintIso(ctx,vis,s){const k=vis.find(k=>LAYERS[k].type==='grid'||LAYERS[k].type==='value');
+  ctx.save();const d=Math.min(devicePixelRatio||1,1.5);ctx.setTransform(d,0,0,d,0,0);
+  if(state.boundary.on){ctx.strokeStyle='#e0a050';ctx.lineWidth=1.4;for(const f of data.layers.boundary.features)for(const r of f.r){ctx.beginPath();r.forEach((p,i)=>{const q=isoProject(p[0],p[1],0,s);i?ctx.lineTo(...q):ctx.moveTo(...q)});ctx.stroke()}}
+  if(k){const def=LAYERS[k],fn=R[def.ramp],val=f=>def.type==='grid'?classOf(f.v,def.breaks):Math.max(0,Math.min(1,(f.v-def.min)/(def.max-def.min)));
+   const list=data.layers[k].features.filter(f=>f.b&&inF([(f.b[0]+f.b[2])/2,(f.b[1]+f.b[3])/2])).map(f=>({f,t:val(f),w:((f.b[0]+f.b[2])/2-view.x)+((f.b[1]+f.b[3])/2-view.y)})).sort((a,b)=>b.w-a.w);
+   ctx.globalAlpha=state[k].op;ctx.lineJoin='round';
+   for(const {f,t} of list){const b=f.b,h=t*ISO_H*(k==='pop'?1:.6),c=fn(t),P=[[b[0],b[1]],[b[2],b[1]],[b[2],b[3]],[b[0],b[3]]],lo=P.map(p=>isoProject(p[0],p[1],0,s)),hi=P.map(p=>isoProject(p[0],p[1],h,s));
+    if(h>1){for(const [i,j,f2] of [[0,1,.62],[1,2,.8]]){ctx.fillStyle=shade(c,f2);ctx.beginPath();ctx.moveTo(...lo[i]);ctx.lineTo(...lo[j]);ctx.lineTo(...hi[j]);ctx.lineTo(...hi[i]);ctx.closePath();ctx.fill()}}
+    ctx.fillStyle=c;ctx.beginPath();hi.forEach((p,i)=>i?ctx.lineTo(...p):ctx.moveTo(...p));ctx.closePath();ctx.fill()}}
+  ctx.restore()}
+ /* ---------- section: profiles of the cell layers and elevation along a drawn line ---------- */
+ const section={pts:[],drawing:false,rows:null};
+ const SEC_VARS=[['pop',['السكان','Population'],'/ha'],['built',['المبني','Built-up'],'%'],['heat',['الحرارة','Heat'],'°C'],['ndvi',['NDVI','NDVI'],''],['elev',['الارتفاع','Elevation'],'m']];
+ let samplers=null;
+ function makeSamplers(){if(samplers)return samplers;samplers={};const B=200;
+  const pip=(rings,x,y)=>{let c=false;for(const r of rings)for(let i=0,j=r.length-1;i<r.length;j=i++){if((r[i][1]>y)!==(r[j][1]>y)&&x<(r[j][0]-r[i][0])*(y-r[i][1])/(r[j][1]-r[i][1])+r[i][0])c=!c}return c};
+  for(const k of ['pop','built','heat','ndvi']){const idx=new Map();for(const f of data.layers[k]?.features||[]){if(!f.b)continue;for(let i=Math.floor(f.b[0]/B);i<=Math.floor(f.b[2]/B);i++)for(let j=Math.floor(f.b[1]/B);j<=Math.floor(f.b[3]/B);j++){const q=i+','+j;(idx.get(q)||idx.set(q,[]).get(q)).push(f)}}
+   samplers[k]=(x,y)=>{for(const f of idx.get(Math.floor(x/B)+','+Math.floor(y/B))||[])if(x>=f.b[0]&&x<=f.b[2]&&y>=f.b[1]&&y<=f.b[3]&&pip(f.r,x,y))return f.v;return null}}
+  // Elevation ≈ value of the nearest 10 m contour vertex within 400 m.
+  const E=new Map(),EB=400;for(const f of data.layers.contours.features)for(const r of f.r)for(const s of r){const [x,y]=typeof s==='string'?s.split(' ').map(Number):s;const q=Math.floor(x/EB)+','+Math.floor(y/EB);(E.get(q)||E.set(q,[]).get(q)).push([x,y,f.v])}
+  samplers.elev=(x,y)=>{let best=null,bd=EB*EB;const i0=Math.floor(x/EB),j0=Math.floor(y/EB);for(let a=-1;a<=1;a++)for(let b=-1;b<=1;b++)for(const p of E.get((i0+a)+','+(j0+b))||[]){const d=(p[0]-x)**2+(p[1]-y)**2;if(d<bd){bd=d;best=p[2]}}return best};
+  return samplers}
+ function computeSection(){const S=makeSamplers(),[A,B]=section.pts,len=Math.hypot(B[0]-A[0],B[1]-A[1]),n=Math.max(20,Math.min(300,Math.round(len/50)));
+  section.len=len;section.rows=SEC_VARS.map(([k])=>{const v=[];for(let i=0;i<=n;i++){const t=i/n;v.push(S[k](A[0]+(B[0]-A[0])*t,A[1]+(B[1]-A[1])*t))}return v})}
+ function sectionSVG(){const w=300,rh=52,pad=34;let g='';
+  SEC_VARS.forEach(([k,name,u],r)=>{const v=section.rows[r],ok=v.filter(x=>x!=null);const y0=r*rh+16;g+=`<text x="${pad}" y="${y0-4}" class="sl">${L(...name)}</text>`;if(!ok.length){g+=`<text x="${pad}" y="${y0+20}" class="sv">${L('لا بيانات على الخط','no data on this line')}</text>`;return}
+   const mn=Math.min(...ok),mx=Math.max(...ok),sc=x=>y0+rh-12-(mx===mn?.5:(x-mn)/(mx-mn))*(rh-20);let d='',pen=false;v.forEach((x,i)=>{if(x==null){pen=false;return}const X=pad+(w-pad-4)*i/(v.length-1);d+=(pen?'L':'M')+X.toFixed(1)+' '+sc(x).toFixed(1);pen=true});
+   g+=`<path d="${d}" fill="none" stroke="${['#f3cf87','#dcdcd4','#f7a13b','#4f9e48','#8fd0ff'][r]}" stroke-width="1.4"/><text x="${pad-3}" y="${y0+8}" class="sv" text-anchor="end">${fmt(mx,k==='ndvi'?2:0)}</text><text x="${pad-3}" y="${y0+rh-12}" class="sv" text-anchor="end">${fmt(mn,k==='ndvi'?2:0)}</text><text x="${w-2}" y="${y0-4}" class="sv" text-anchor="end">${u}</text>`});
+  const H2=SEC_VARS.length*rh+20;g+=`<text x="${pad}" y="${H2-4}" class="sv">A</text><text x="${w-4}" y="${H2-4}" class="sv" text-anchor="end">B · ${fmt(section.len/1000,1)} km</text>`;
+  return `<svg class="sectionChart" viewBox="0 0 ${w} ${H2}" width="100%" direction="ltr" style="direction:ltr"><style>.sl{font:600 9px sans-serif;fill:#eee}.sv{font:8px sans-serif;fill:#aaa}</style>${g}</svg><p class="tiny">${L('عيّنة كل ≈50 م. الارتفاع تقريبي من خطوط كنتور كل 10 م.','Sampled every ≈50 m. Elevation is approximate, from 10 m contours.')}</p>`}
+ canvas.addEventListener('pointerdown',e=>{if(!section.drawing)return;e.stopImmediatePropagation();e.preventDefault();section.pts.push(world(e.clientX,e.clientY));
+  if(section.pts.length===2){section.drawing=false;canvas.style.cursor='grab';computeSection();let el=wins.find(w=>w.dataset.ex==='section');if(!el)el=makeWin('section',L('مقطع A–B','SECTION A–B'),0,0,wins.length);el.querySelector('.winbody').innerHTML=sectionSVG()}
+  fill();render()},{capture:true});
+ function setIso(on){iso=on;if(topic){showBuildings=on?false:topic.id==='morphology'||topic.id==='human';showRoads=on?false:topic.id!=='morphology'}render()}
+
  function paint(ctx,bounds){
   if(!data)return;const s=view.s,vis=order.filter(k=>state[k].on);if(!vis.length)return;
+  if(iso){paintIso(ctx,[...vis].reverse(),s);return}
   for(const k of vis){if(k==='boundary')continue;const def=LAYERS[k];
    if(def.type==='grid'||def.type==='value'){drawOpaque(ctx,k,def,bounds,s);continue}
    ctx.save();ctx.globalAlpha=state[k].op;
@@ -91,6 +133,8 @@ window.Ex13=(()=>{
    draw[def.type](ctx,k,def,bounds,s);ctx.restore()}
   if(maskOut&&state.boundary.on!==undefined&&topic){ctx.save();const big=new Path2D();big.rect(-60000,-60000,120000,120000);for(const f of data.layers.boundary.features)big.addPath(f.p||(f.p=pathOf(f.r)));ctx.fillStyle=light?'rgba(244,244,240,.8)':'rgba(8,8,8,.78)';ctx.fill(big,'evenodd');ctx.restore()}
   if(state.boundary.on){ctx.save();draw.outline(ctx,'boundary',LAYERS.boundary,bounds,s);ctx.restore()}
+  if(section.pts.length){ctx.save();ctx.strokeStyle='#ff4d40';ctx.fillStyle='#ff4d40';ctx.lineWidth=2/s;ctx.setLineDash([8/s,5/s]);const [A,B]=section.pts;ctx.beginPath();ctx.moveTo(A[0],-A[1]);if(B)ctx.lineTo(B[0],-B[1]);ctx.stroke();ctx.setLineDash([]);
+   for(const [p,t] of [[A,'A'],[B,'B']]){if(!p)continue;ctx.beginPath();ctx.arc(p[0],-p[1],5/s,0,7);ctx.fill();ctx.save();ctx.setTransform(1,0,0,1,0,0);const d=Math.min(devicePixelRatio||1,1.5),q=screen(p[0],p[1]);ctx.setTransform(d,0,0,d,0,0);ctx.font='600 13px sans-serif';ctx.fillText(t,q[0]+8,q[1]-8);ctx.restore()}ctx.restore()}
   // frame outline on top
   ctx.save();ctx.strokeStyle=light?'#111':'#fff';ctx.lineWidth=1/s;ctx.setLineDash([6/s,5/s]);ctx.strokeRect(FRAME[0],-FRAME[3],FRAME[2]-FRAME[0],FRAME[3]-FRAME[1]);ctx.restore();
  }
@@ -129,6 +173,9 @@ window.Ex13=(()=>{
   circles(ctx,k,def,b,s){ctx.strokeStyle='#ffb347';ctx.fillStyle='rgba(255,179,71,.28)';ctx.lineWidth=1/s;for(const c of data.centreCells){if(c.n<3)continue;const r=Math.sqrt(c.d/data.maxD)*480;ctx.beginPath();ctx.arc(c.c[0],-c.c[1],r,0,7);ctx.fill();ctx.stroke()}},
   civic(ctx,k,def,b,s){ctx.fillStyle='#fff';ctx.strokeStyle='#111';ctx.lineWidth=1/s;const r=Math.max(25,3.2/s);for(const p of data.civic){ctx.beginPath();ctx.rect(p.c[0]-r,-p.c[1]-r,2*r,2*r);ctx.fill();ctx.stroke()}},
   stops(ctx,k,def,b,s){ctx.fillStyle='#ff3b30';const r=Math.max(12,1.8/s);for(const p of data.stops){ctx.beginPath();ctx.arc(p.c[0],-p.c[1],r,0,7);ctx.fill()}},
+  morph(ctx,k,def,b,s){if(!window.Morph13?.cells)return;const P=Morph13.streetPaths();ctx.lineCap='round';
+   for(const [id,,,c] of Morph13.RULES){ctx.strokeStyle=c;ctx.lineWidth=(id==='mixed'?.7:1.8)/s;ctx.globalAlpha=state[k].op*(id==='mixed'?.5:1);ctx.stroke(P[id])}
+   if(s>.35){ctx.globalAlpha=state[k].op;const r=Math.max(2.5,2.2/s);for(const j of Morph13.junctions){if(j.c[0]<b[0]||j.c[0]>b[2]||j.c[1]<b[1]||j.c[1]>b[3])continue;ctx.beginPath();ctx.arc(j.c[0],-j.c[1],r,0,7);if(j.t===1){ctx.strokeStyle='#fff';ctx.lineWidth=1/s;ctx.stroke()}else{ctx.fillStyle=j.t===3?'#ffb347':'#5fb4ff';ctx.fill()}}}},
   zones(ctx,k,def,b,s){for(const [key,c] of ZONES){const f=data.layers[key]?.features[0];if(!f)continue;const p=f.p||(f.p=pathOf(f.r));ctx.fillStyle=c+'2e';ctx.fill(p,'evenodd');ctx.strokeStyle=c;ctx.lineWidth=2/s;ctx.stroke(p)}
    ctx.save();ctx.setTransform(1,0,0,1,0,0);ctx.font='600 12px "Readex Pro","Noto Kufi Arabic",sans-serif';ctx.textAlign='center';
    for(const [key,c,a,e] of ZONES){const f=data.layers[key]?.features[0];if(!f)continue;const [x,y]=screen((f.b[0]+f.b[2])/2,f.b[3]),d=Math.min(devicePixelRatio||1,1.5),t=L(a,e);ctx.setTransform(d,0,0,d,0,0);ctx.fillStyle='#0e0e0ecc';const w=ctx.measureText(t).width+12;ctx.fillRect(x-w/2,y-22,w,18);ctx.fillStyle=c;ctx.fillText(t,x,y-9)}ctx.restore()},
@@ -181,13 +228,14 @@ window.Ex13=(()=>{
  const swatch=c=>`<i style="background:${c}"></i>`;
  function legend(k){const d=LAYERS[k],u=d.unit?L(d.unit[0],d.unit[1]):'';
   if(d.type==='grid'){const br=d.breaks;return `<div class="lg">${br.map((v,i)=>`<span>${swatch(R[d.ramp](i/(br.length-1)))}${i===br.length-1?'≥ '+v:v+'–'+br[i+1]}</span>`).join('')}<small>${u}</small></div>`}
-  if(d.type==='value'){const n=8,ticks=[...Array(n+1)].map((_,i)=>d.min+(d.max-d.min)*i/n);return `<div class="lg grad"><b style="background:linear-gradient(90deg,${ticks.map((v,i)=>R[d.ramp](i/n)).join(',')})"></b><div>${ticks.filter((_,i)=>i%2===0).map(v=>`<span>${k==='ndvi'?v.toFixed(2):Math.round(v)}</span>`).join('')}</div><small>${u}${k==='heat'?L(' · 37 قيمة أصلية من 21 إلى 57',' · 37 source values, 21–57'):''}</small></div>`}
+  if(d.type==='value'){const n=8,ticks=[...Array(n+1)].map((_,i)=>d.min+(d.max-d.min)*i/n);return `<div class="lg grad"><b style="background:linear-gradient(90deg,${ticks.map((v,i)=>R[d.ramp](i/n)).join(',')})"></b><div>${ticks.filter((_,i)=>i%2===0).map(v=>`<span>${k==='ndvi'?v.toFixed(2):Math.round(v)}</span>`).join('')}</div><small>${u}${k==='heat'?L(' · القيم الأصلية 21–57؛ التدرّج يبدأ من 30 لإظهار الفروق',' · source values 21–57; the ramp starts at 30 to show the differences'):''}</small></div>`}
   if(k==='flood')return `<div class="lg">${swatch('#3d8bff')}<span>${L('أرض قابلة للغمر · أقل من 5 م فوق أقرب مجرى','Flood-prone ground · under 5 m above nearest stream')}</span></div>`;
   if(k==='water')return `<div class="lg"><span>${swatch('#5fb4ff')}${L('مجاري مائية','streams')}</span><span>${swatch('#8fd0ff')}Oued Bouskoura</span></div>`;
   if(k==='contours')return `<div class="lg"><span>${swatch('#d8c9a6')}${L('كل 50 م','every 50 m')}</span><span>${swatch('#8f8670')}10 م</span><small>0–${data?Math.round(data.contourMax):''} ${u}</small></div>`;
   if(k==='centres')return `<div class="lg"><span><em class="circ"></em>${L('مساحة الدائرة = عدد المحلات والخدمات في كم²','circle area = shops + services per km²')}</span><small>${L('أعلى خلية','max cell')}: ${data?data.maxD:''} / km² · ${L('خلايا 500 م','500 m cells')}</small></div>`;
   if(k==='civic')return `<div class="lg"><span>${swatch('#fff')}${data?data.civic.length:''} ${L('مؤسسة: بلدية، محكمة، جامعة، مستشفى، مدرسة، بنك…','institutions: town hall, court, university, hospital, school, bank…')}</span></div>`;
   if(k==='stops')return `<div class="lg"><span>${swatch('#ff3b30')}${data?data.stops.length:''} ${L('محطة (OSM)','stops (OSM)')}</span></div>`;
+  if(k==='patterns'&&window.Morph13?.cells){const n={};for(const c of Morph13.cells)n[c.type]=(n[c.type]||0)+1;return `<div class="lg morphLg">${Morph13.RULES.map(([id,,name,c,rule])=>`<span>${swatch(c)}<b>${L(...name)}</b> · ${n[id]||0} ${L('خلية','cells')}<small>${L(...rule)}</small></span>`).join('')}<small>${L('عند التكبير: ○ طريق مسدود · ● برتقالي تقاطع T · ● أزرق تقاطع +','Zoomed in: ○ dead end · orange ● T-junction · blue ● four-way')}</small></div>`}
   if(k==='zones')return `<div class="lg">${ZONES.map(([,c,a,e])=>`<span>${swatch(c)}${L(a,e)}</span>`).join('')}</div>`;
   if(k==='inst'&&data?.layers.institutions){const n={};for(const p of data.layers.institutions.features)n[p.fclass]=(n[p.fclass]||0)+1;return `<div class="lg"><span><em class="circ" style="background:#7ad7ff;border-radius:0;transform:rotate(45deg)"></em>${data.layers.institutions.features.length} ${L('مؤسسة','institutions')}</span><small>${Object.entries(n).sort((a,b)=>b[1]-a[1]).map(([k,v])=>k+' '+v).join(' · ')}</small></div>`}
   if(k==='nightlights'&&data?.layers.night_lights){const m=Math.round(data.nightMax);return `<div class="lg grad"><b style="background:linear-gradient(90deg,${[0,.2,.4,.6,.8,1].map(t=>R.night(t)).join(',')})"></b><div><span>0</span><span>${Math.round(m/2)}</span><span>${m}</span></div><small>${L('إشعاع ليلي','night radiance')} · nW/cm²/sr</small></div>`}
@@ -230,11 +278,11 @@ window.Ex13=(()=>{
   bind(el);wins.push(el);return el}
  async function closeWins(list,step=90){for(const el of [...list].reverse()){el.classList.add('leaving');await wait(step);el.remove()}}
  async function closeSiteWindows(){try{const list=[...windows.values()].map(w=>w.el);windows.clear();await closeWins(list,80)}catch{}}
- async function closeAll(){stopPlay();setWind(false);setBus(false);const list=wins;wins=[];await closeWins(list);for(const k in state)state[k].on=false;topic=null;fg(false);showBuildings=true;showRoads=true;roadGroups={major:true,local:true,walking:true};render()}
+ async function closeAll(){stopPlay();setWind(false);setBus(false);iso=false;section.pts=[];section.drawing=false;const list=wins;wins=[];await closeWins(list);for(const k in state)state[k].on=false;topic=null;fg(false);showBuildings=true;showRoads=true;roadGroups={major:true,local:true,walking:true};render()}
 
  function open(id){if(typeof setMenu==='function')setMenu(false);
   switching=switching.then(async()=>{
-   const prev=wins;wins=[];stopPlay();setWind(false);setBus(false);
+   const prev=wins;wins=[];stopPlay();setWind(false);setBus(false);iso=false;section.pts=[];section.drawing=false;
    await Promise.all([closeWins(prev),closeSiteWindows()]);
    try{if(window.Imagery){Imagery.state.swipe=false;Imagery.state.enabled=false;Imagery.sync?.()}}catch{}
    topic=TOPICS.find(t=>t.id===id);for(const k in state){state[k].on=false;state[k].op=1}
@@ -254,19 +302,21 @@ window.Ex13=(()=>{
    if(e.target.id==='concl13'&&topic){try{localStorage.setItem('casa13-concl-'+topic.id,e.target.value)}catch{}}});
   el.addEventListener('change',e=>{const k=e.target.dataset.on;if(k){state[k].on=e.target.checked;if(k==='wind')setWind(e.target.checked);if(k==='busflow')setBus(e.target.checked);fill();render()}
    if(e.target.id==='clipF'){clipFrame=e.target.checked;render()}if(e.target.id==='maskF'){maskOut=e.target.checked;render()}
-   if(e.target.id==='streetsF'){showRoads=e.target.checked;render()}});
+   if(e.target.id==='streetsF'){showRoads=e.target.checked;render()}
+   if(e.target.id==='iso13')setIso(e.target.checked)});
   el.addEventListener('click',e=>{const b=e.target.closest('button');if(!b||b.dataset.w)return;
    if(b.dataset.up||b.dataset.down){const k=b.dataset.up||b.dataset.down,i=order.indexOf(k),j=i+(b.dataset.up?1:-1);if(j>=0&&j<order.length){[order[i],order[j]]=[order[j],order[i]];fill();render()}}
    if(b.dataset.season){windSeason=b.dataset.season;particles=[];fill()}
    if(b.dataset.speed){speed=+b.dataset.speed;if(playTimer){stopPlay();play()}fill()}
    if(b.id==='play13')playTimer?stopPlay():play();
    if(b.dataset.export)exportSVG(b.dataset.export);if(b.dataset.pdf)exportSVG(b.dataset.pdf,'pdf');
+   if(b.dataset.section!==undefined){if(iso){iso=false;setIso(false)}section.drawing=true;section.pts=[];canvas.style.cursor='crosshair';toast(L('اضغط نقطتين على الخريطة: A ثم B.','Click two points on the map: A, then B.'));fill();render()}
    if(b.dataset.conclReset&&topic){try{localStorage.removeItem('casa13-concl-'+topic.id)}catch{}fill()}})}
  const body=id=>wins.find(w=>w.dataset.ex===id)?.querySelector('.winbody');
  function fill(){if(!topic)return;const T=topic;
   const lay=body('layers');if(lay)lay.innerHTML=`<div class="ex13">${T.play?`<div class="playRow"><button id="play13" class="act">${playTimer?'■ '+L('إيقاف','Stop'):'▶ '+L('تشغيل متتابع','Play sequence')}</button><span class="seg"><button data-speed="1000" class="${speed===1000?'on':''}">1 ${L('ث','s')}</button><button data-speed="2000" class="${speed===2000?'on':''}">2 ${L('ث','s')}</button></span></div>`:''}${[...order].reverse().map(k=>{const d=LAYERS[k],s=state[k];return `<div class="row ${s.on?'on':''}"><label><input type="checkbox" data-on="${k}" ${s.on?'checked':''}> ${L(d.t[0],d.t[1])}</label><span class="ord"><button data-up="${k}" title="up">▲</button><button data-down="${k}" title="down">▼</button></span>${s.on&&k!=='wind'?`<input type="range" min="0" max="1" step=".05" value="${s.op}" data-op="${k}">`:''}</div>`}).join('')}</div>`;
   const lg=body('legend');if(lg)lg.innerHTML=`<div class="ex13"><p class="q">${L(T.q[0],T.q[1])}</p><p class="form">${L('شكل التمثيل','Representation')}: ${L(T.form[0],T.form[1])}</p>${[...order].reverse().filter(k=>state[k].on&&k!=='wind').map(k=>`<div class="row on"><b>${L(LAYERS[k].t[0],LAYERS[k].t[1])}</b>${legend(k)}<small class="src">${LAYERS[k].src}</small>${NOTES[k]?`<small class="note">${L(...NOTES[k])}</small>`:''}</div>`).join('')}</div>`;
-  const ex=body('export');if(ex)ex.innerHTML=`<div class="ex13"><label class="clip"><input type="checkbox" id="maskF" ${maskOut?'checked':''}> ${L('تعتيم ما خارج حدود كازا','Dim outside Casablanca')}</label><label class="clip"><input type="checkbox" id="clipF" ${clipFrame?'checked':''}> ${L('قصّ على إطار 15×15 كم','Clip to 15×15 km frame')}</label>${T.id==='morphology'?`<label class="clip"><input type="checkbox" id="streetsF" ${showRoads?'checked':''}> ${L('إظهار الشوارع','Show streets')}</label>`:''}<div class="exp"><span>SVG</span><button data-export="25">25 × 25 cm</button><button data-export="A3">A3</button></div><div class="exp"><span>PDF</span><button data-pdf="25">25 × 25 cm</button><button data-pdf="A3">A3</button></div><label class="fieldLabel">${L('الاستنتاج · يُطبع تحت الخريطة، عدّله كما تريد','Conclusion · printed under the map, edit freely')}<textarea id="concl13" rows="7">${esc(conclusion(T))}</textarea></label><button class="textAction" data-concl-reset>${L('استرجاع المسودة','Restore draft')} ↺</button><p class="tiny">${L('PDF: اختر «حفظ كـ PDF» في نافذة الطباعة. كل عنصر في SVG مجموعة مستقلة تُفتح كطبقة في Illustrator.','PDF: choose “Save as PDF” in the print dialog. Each SVG element is its own group and opens as a layer in Illustrator.')}</p></div>`;
+  const ex=body('export');if(ex)ex.innerHTML=`<div class="ex13"><label class="clip"><input type="checkbox" id="maskF" ${maskOut?'checked':''}> ${L('تعتيم ما خارج حدود كازا','Dim outside Casablanca')}</label><label class="clip"><input type="checkbox" id="clipF" ${clipFrame?'checked':''}> ${L('قصّ على إطار 15×15 كم','Clip to 15×15 km frame')}</label>${T.id==='morphology'?`<label class="clip"><input type="checkbox" id="streetsF" ${showRoads?'checked':''}> ${L('إظهار الشوارع','Show streets')}</label>`:''}${T.layers.some(k=>LAYERS[k].type==='grid'||LAYERS[k].type==='value')?`<label class="clip"><input type="checkbox" id="iso13" ${iso?'checked':''}> ${L('3D أيزومتريك · ارتفاع العمود = قيمة أعلى طبقة خلايا ظاهرة','3D isometric · column height = value of the top visible cell layer')}</label>`:''}<button class="action" data-section>${section.drawing?L('اضغط نقطتين على الخريطة…','Click two points on the map…'):L('رسم مقطع ✕','Draw a section ✕')}</button><div class="exp"><span>SVG</span><button data-export="25">25 × 25 cm</button><button data-export="A3">A3</button></div><div class="exp"><span>PDF</span><button data-pdf="25">25 × 25 cm</button><button data-pdf="A3">A3</button></div><label class="fieldLabel">${L('الاستنتاج · يُطبع تحت الخريطة، عدّله كما تريد','Conclusion · printed under the map, edit freely')}<textarea id="concl13" rows="7">${esc(conclusion(T))}</textarea></label><button class="textAction" data-concl-reset>${L('استرجاع المسودة','Restore draft')} ↺</button><p class="tiny">${L('PDF: اختر «حفظ كـ PDF» في نافذة الطباعة. كل عنصر في SVG مجموعة مستقلة تُفتح كطبقة في Illustrator.','PDF: choose “Save as PDF” in the print dialog. Each SVG element is its own group and opens as a layer in Illustrator.')}</p></div>`;
   const wd=body('wind');if(wd)wd.innerHTML=`<div class="ex13">${legend('wind')}</div>`}
  function play(){const seq=topic.play;let i=0;const step=()=>{seq.forEach(k=>state[k].on=false);state[seq[i%seq.length]].on=true;state.boundary.on=true;i++;fill();render()};step();playTimer=setInterval(step,speed);fill()}
  function stopPlay(){clearInterval(playTimer);playTimer=null;fill()}
@@ -274,6 +324,7 @@ window.Ex13=(()=>{
   centres:['كل دائرة = خلية 500 م. نعدّ فيها المحلات والمقاهي والبنوك والمؤسسات العامة من OSM، ونحوّلها لعدد في الكم². مساحة الدائرة تتناسب مع العدد.','Each circle = a 500 m cell. We count shops, cafés, banks and public institutions from OSM and convert to count per km². Circle area is proportional to the count.'],
   flood:['قابلية غمر تقديرية: أرض ارتفاعها أقل من 5 م فوق أقرب مجرى (HAND)، محسوبة في GIS على الـstreams. ليست فيضانًا مرصودًا. مقصوصة على إطار 15×15 كم.','Indicative flood-prone ground: land less than 5 m above the nearest drainage line (HAND), computed in GIS from the streams. Not an observed flood. Clipped to the 15 × 15 km frame.'],
   nightlights:['أسطع مكان هو الميناء (إضاءة كاشفة)، والمدينة القديمة أقل منه رغم أنها أكثر ازدحامًا بالناس: الضوء لا يساوي الناس. دقة البيانات ≈460 م؛ التنعيم للعرض فقط.','The brightest place is the port (floodlights); the old medina is dimmer though far more crowded: light is not people. Data resolution ≈460 m; smoothing is for display only.'],
+  patterns:['لكل خلية 400 م نقيس من شبكة شوارع OSM: نوع التقاطعات (مسدود، T، +)، كثافتها، انتظام اتجاهات الشوارع ونسبة الزوايا القائمة، ومن GHS-BUILT نسبة البناء. القواعد مكتوبة أعلاه وتُطبّق بالترتيب؛ لا يوجد تجميع آلي. الأنماط مأخوذة من قراءة المدينة (קריאת העיר) وتمرين 1.2.','For each 400 m cell we measure from the OSM street graph: junction types (dead end, T, four-way), their density, bearing order and right-angle share, and built cover from GHS-BUILT. The rules above are applied in order; there is no clustering. Pattern names follow the course readings and exercise 1.2.'],
   zones:['حدود المراكز رُسمت يدويًا في GIS.','Centre boundaries drawn by hand in GIS.'],
   heat:['صورة يوم واحد صيفي (17.07.2025). تُظهر حرارة سطح الأرض، وليس حرارة الهواء.','A single summer day (17.07.2025). Shows land surface temperature, not air temperature.'],
   busflow:['النقاط المتحركة تمثيل توضيحي لتداخل الخطوط، وليست باصات حقيقية (لا يوجد جدول رحلات). كل نقطة تترك ذيلًا أحمر شفافيته 10%، فكلما مرّ خط أكثر على نفس الشارع اشتدّ الأحمر.','Moving dots illustrate line overlap; they are not real buses (no timetable). Each leaves a 10%-opacity red tail, so streets shared by more lines turn brighter red.'],
@@ -312,6 +363,7 @@ window.Ex13=(()=>{
    if(k==='centres')data.centreCells.filter(c=>c.n>=3&&inF(c.c)).forEach(c=>g+=`<circle cx="${X(c.c[0])}" cy="${Y(c.c[1])}" r="${(Math.sqrt(c.d/data.maxD)*480*S).toFixed(2)}" fill="#ffb347" fill-opacity=".3" stroke="#d27d12" stroke-width=".2"/>`);
    if(k==='civic')data.civic.forEach(p=>g+=`<rect x="${(X(p.c[0])-.6).toFixed(2)}" y="${(Y(p.c[1])-.6).toFixed(2)}" width="1.2" height="1.2" fill="#fff" stroke="#111" stroke-width=".15"/>`);
    if(k==='stops')data.stops.forEach(p=>g+=`<circle cx="${X(p.c[0])}" cy="${Y(p.c[1])}" r=".45" fill="#ff3b30"/>`);
+   if(k==='patterns'&&window.Morph13?.cells){const S2=Morph13.segmentsByType;for(const [id,,name,c] of Morph13.RULES){const d=S2[id].filter(([a,b])=>inF(a)||inF(b)).map(([a,b])=>`M${X(a[0])} ${Y(a[1])}L${X(b[0])} ${Y(b[1])}`).join('');if(d)g+=`<path id="pattern-${id}" fill="none" stroke="${c}" stroke-width="${id==='mixed'?.12:.3}" stroke-linecap="round"${id==='mixed'?' stroke-opacity=".5"':''} d="${d}"/>`}}
    if(k==='zones')for(const [key,c,,e] of ZONES){const f=data.layers[key]?.features[0];if(f)g+=`<path fill="${c}" fill-opacity=".18" stroke="${c}" stroke-width=".35" fill-rule="evenodd" d="${pd(f.r)}Z"/><text x="${X((f.b[0]+f.b[2])/2)}" y="${(+Y(f.b[3])-1).toFixed(2)}" font-size="2.4" text-anchor="middle" fill="#333">${e}</text>`}
    if(k==='inst')(data.layers.institutions?.features||[]).filter(p=>inF(p.c)).forEach(p=>{const x=+X(p.c[0]),y=+Y(p.c[1]);g+=`<path d="M${x},${(y-.7).toFixed(2)}L${(x+.7).toFixed(2)},${y}L${x},${(y+.7).toFixed(2)}L${(x-.7).toFixed(2)},${y}Z" fill="#2a9fd0" stroke="#0b2530" stroke-width=".08"/>`});
    if(k==='nightlights'){const gl=nightGlow();if(gl)g=`<image href="${gl.canvas.toDataURL('image/png')}" x="${X(gl.box[0])}" y="${Y(gl.box[3])}" width="${((gl.box[2]-gl.box[0])*S).toFixed(2)}" height="${((gl.box[3]-gl.box[1])*S).toFixed(2)}" preserveAspectRatio="none"/>`}
@@ -331,6 +383,7 @@ window.Ex13=(()=>{
    else if(d.type==='value'){const n=8;for(let i=0;i<n;i++)legendTxt+=`<rect x="${mx+i*12}" y="${ly}" width="12" height="3" fill="${R[d.ramp]((i+.5)/n)}"/>`;for(let i=0;i<=n;i+=2){const v=d.min+(d.max-d.min)*i/n;legendTxt+=`<text x="${mx+i*12}" y="${ly+6}" font-size="2.3" text-anchor="middle">${k==='ndvi'?v.toFixed(2):Math.round(v)}</text>`}legendTxt+=`<text x="${mx+n*12+4}" y="${ly+2.5}" font-size="2.3" fill="#666">${d.unit[1]}</text>`;ly+=12}
    else if(k==='wind'&&wind){const w=wind[windSeason],i=w.freq.indexOf(Math.max(...w.freq));legendTxt+=`<line x1="${mx}" y1="${ly+1.5}" x2="${mx+8}" y2="${ly+1.5}" stroke="#1f6fd1" stroke-width=".45"/><text x="${mx+10}" y="${ly+2.5}" font-size="2.3">${windSeason} · prevailing from ${(i*22.5)}° (${Math.round(w.freq[i]*100)}% of hours, ${w.speed[i]} m/s) · line length ∝ speed · single-station reference</text>`;ly+=8}
    else if(k==='centres'){legendTxt+=`<circle cx="${mx+3}" cy="${ly+2}" r="2" fill="#ffb347" fill-opacity=".3" stroke="#d27d12" stroke-width=".2"/><text x="${mx+7}" y="${ly+2.8}" font-size="2.3">circle area ∝ shops + services per km² (500 m cells) · max ${data.maxD}/km²</text>`;ly+=6}
+   else if(k==='patterns'&&window.Morph13?.cells){Morph13.RULES.forEach(([id,,name,c],i)=>{const x=mx+(i%3)*(mm.map/3),y=ly+Math.floor(i/3)*4;legendTxt+=`<line x1="${x}" y1="${y+1.5}" x2="${x+5}" y2="${y+1.5}" stroke="${c}" stroke-width=".8"/><text x="${x+7}" y="${y+2.5}" font-size="2.3">${name[1]}</text>`});ly+=Math.ceil(Morph13.RULES.length/3)*4+2}
    else if(k==='busflow'){for(let i=0;i<4;i++)legendTxt+=`<rect x="${mx+i*12}" y="${ly}" width="12" height="3" fill="${R.bus(i/3)}"/>`;legendTxt+=`<text x="${mx}" y="${ly+6}" font-size="2.3">1</text><text x="${mx+48}" y="${ly+6}" font-size="2.3" text-anchor="end">${data.busMax}</text><text x="${mx+52}" y="${ly+2.5}" font-size="2.3" fill="#666">bus lines sharing the street segment · line width ∝ overlap</text>`;ly+=10}
    else if(k==='busstops'){[1,Math.round(data.stopMax/2),data.stopMax].forEach((v,i)=>{const x=mx+3+i*16;legendTxt+=`<circle cx="${x}" cy="${ly+2}" r="${(.22*Math.sqrt(v)*2).toFixed(2)}" fill="${R.bus((v-1)/Math.max(1,data.stopMax-1))}"/><text x="${x+4}" y="${ly+2.8}" font-size="2.3">${v} lines</text>`});legendTxt+=`<text x="${mx+52}" y="${ly+2.8}" font-size="2.3" fill="#666">ring = major hub · circle area ∝ lines</text>`;ly+=7}
    else if(k==='contours'){legendTxt+=`<text x="${mx}" y="${ly+2.5}" font-size="2.3">thin = 10 m · bold = 50 m · m a.s.l.</text>`;ly+=5}
