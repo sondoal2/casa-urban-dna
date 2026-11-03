@@ -27,11 +27,20 @@ window.Timeline13=(()=>{
  const eraOf=y=>ERAS.find(e=>y>=e[0]&&y<=e[1])||ERAS.at(-1);
  function attach(d,cb){data=d;onChange=cb}
  const area=rings=>{let s=0;for(const r of rings){let a=0;for(let i=0,j=r.length-1;i<r.length;j=i++)a+=(r[j][0]+r[i][0])*(r[j][1]-r[i][1]);s+=a/2}return Math.abs(s)};
- function extents(){return EXTENTS.map(([k,y,c,name])=>{const f=data?.layers[k]?.features[0];return f?{k,y,c,name,f,km2:area(f.r)/1e6}:null}).filter(Boolean)}
+ // Plus extents traced here from the georeferenced 1918 and 1942 plans (prep/extents.py).
+ const TRACED={1918:['#f4d35e',['1918 · نواة كثيفة','1918 · dense core']],1942:['#e85d75',['1942','1942']]};
+ function extents(){const a=EXTENTS.map(([k,y,c,name])=>{const f=data?.layers[k]?.features[0];return f?{k,y,c,name,f,km2:area(f.r)/1e6}:null}).filter(Boolean);
+  for(const [y,e] of Object.entries(data?.histExtents||{})){const t=TRACED[y];if(t)a.push({k:'traced'+y,y:+y,c:t[0],name:L(...t[1]),f:e,km2:e.km2,traced:true})}
+  return a.sort((p,q)=>p.y-q.y)}
+ // Georeferenced plan shown under the extents: the latest one not after the cursor year.
+ const imgs={};
+ function paintPlan(ctx,op){const plans=data?.histPlans||[],p=[...plans].reverse().find(p=>p.year<=year)||null;if(!p)return null;
+  let im=imgs[p.year];if(!im){im=imgs[p.year]=new Image();im.onload=()=>onChange();im.src='data/'+p.meta.image}
+  if(!im.complete||!im.naturalWidth)return p;const b=p.meta.box;ctx.save();ctx.globalAlpha=op;ctx.imageSmoothingEnabled=true;ctx.drawImage(im,b[0],-b[3],b[2]-b[0],b[3]-b[1]);ctx.restore();return p}
 
  /* ---------- map ---------- */
  function paintExtents(ctx,s){for(const e of extents()){if(e.y>year)continue;const p=e.f.p||(e.f.p=pathFromRings(e.f.r)),latest=extents().filter(x=>x.y<=year).at(-1)===e;
-   ctx.fillStyle=e.c+(latest?'66':'26');ctx.fill(p,'evenodd');ctx.strokeStyle=e.c;ctx.lineWidth=(latest?2:1)/s;ctx.stroke(p)}}
+   ctx.fillStyle=e.c+(latest?'55':'1f');ctx.fill(p,'evenodd');ctx.strokeStyle=e.c;ctx.lineWidth=(latest?2.2:1)/s;ctx.setLineDash(e.traced?[]:[7/s,4/s]);ctx.stroke(p);ctx.setLineDash([])}}
  function pathFromRings(rings){const p=new Path2D();for(const r of rings)r.forEach((v,i)=>i?p.lineTo(v[0],-v[1]):p.moveTo(v[0],-v[1]));return p}
  const FAM={artdeco:'#ffd166',neomoorish:'#ff8a5b',modern:'#7ad7ff'};
  function paintBuildings(ctx,s){const items=data?.history?.items||[],r=Math.max(18,4.5/s);
@@ -43,12 +52,13 @@ window.Timeline13=(()=>{
  function x(y,w){return 118+(y-Y0)/(Y1-Y0)*(w-130)}
  function svg(w){const rowH=22,top=26;let g='',y=top;
   // Bars that would overlap (span or label) drop to the next lane of their stream.
-  const rows=STREAMS.map(([name,bars],i)=>{if(i===4)return{name,lanes:1,items:[]};const ends=[],items=bars.map(bar=>{const [a,b,ar,en]=bar,x0=x(a,w),x1=Math.max(x(b,w),x0+L(ar,en).length*5.6+10);let lane=ends.findIndex(e=>e<=x0+3);if(lane<0){lane=ends.length;ends.push(0)}ends[lane]=x1;return{bar,lane}});return{name,lanes:Math.max(1,ends.length),items}});
+  const rows=STREAMS.map(([name,bars],i)=>{if(i===4)return{name,lanes:2,items:[]};const ends=[],items=bars.map(bar=>{const [a,b,ar,en]=bar,x0=x(a,w),x1=Math.max(x(b,w),x0+L(ar,en).length*5.6+10);let lane=ends.findIndex(e=>e<=x0+3);if(lane<0){lane=ends.length;ends.push(0)}ends[lane]=x1;return{bar,lane}});return{name,lanes:Math.max(1,ends.length),items}});
   const total=rows.reduce((s,r)=>s+r.lanes*rowH,0);
   ERAS.forEach(([a,b,c])=>{g+=`<rect x="${x(a,w)}" y="0" width="${x(b+1,w)-x(a,w)}" height="${top+total+6}" fill="${c}" opacity="${eraOf(year)[0]===a?.28:.1}"/>`});
   for(let yy=1880;yy<=2020;yy+=10)g+=`<line x1="${x(yy,w)}" x2="${x(yy,w)}" y1="${top-4}" y2="${top+total}" class="tk"/><text x="${x(yy,w)}" y="${top-8}" class="ty">${yy}</text>`;
   rows.forEach((row,i)=>{g+=`<text x="110" y="${y+14}" class="tl">${L(...row.name)}</text>`;
-   if(i===4){extents().forEach(e=>{const r=Math.max(3,Math.sqrt(e.km2)*3.2);g+=`<circle cx="${x(e.y,w)}" cy="${y+10}" r="${r}" fill="${e.c}" fill-opacity=".8"/><text x="${x(e.y,w)+r+3}" y="${y+14}" class="tv">${e.name} · ${fmt(e.km2,1)} km²</text>`})}
+   // Extent circles on one line; labels alternate between a top and a bottom line so neighbours never collide.
+   if(i===4){extents().forEach((e,j)=>{const r=Math.max(3,Math.sqrt(e.km2)*2.6),cy=y+rowH,ly=j%2?y+rowH*2-2:y+9;g+=`<circle cx="${x(e.y,w)}" cy="${cy}" r="${r}" fill="${e.c}" fill-opacity=".8"/><line x1="${x(e.y,w)}" x2="${x(e.y,w)}" y1="${j%2?cy+r:cy-r}" y2="${j%2?ly-8:ly+2}" stroke="${e.c}"/><text x="${x(e.y,w)+3}" y="${ly}" class="tv">${e.name} · ${fmt(e.km2,1)} km²</text>`})}
    else row.items.forEach(({bar:[a,b,ar,en,fam],lane})=>{const on=year>=a&&year<=b,sel=fam&&family===fam,yy=y+lane*rowH;g+=`<g class="bar${fam?' fam':''}" data-fam="${fam||''}" data-y="${a}"><rect x="${x(a,w)}" y="${yy+3}" width="${Math.max(4,x(b,w)-x(a,w))}" height="${rowH-7}" rx="2" fill="${sel?'#fff':on?eraOf(year)[2]:'#3a3a37'}" stroke="${fam?FAM[fam]:'none'}"/><text x="${x(a,w)+5}" y="${yy+15}" class="tb${sel?' dark':''}">${L(ar,en)}</text></g>`});
    y+=row.lanes*rowH});
   const cx=x(year,w);g+=`<line x1="${cx}" x2="${cx}" y1="4" y2="${top+total+4}" class="cur"/><rect x="${cx-22}" y="2" width="44" height="16" rx="3" class="curb"/><text x="${cx}" y="14" class="cury">${year}</text>`;
@@ -68,5 +78,5 @@ window.Timeline13=(()=>{
  let hoverAt=null;
  function paintHover(ctx,s){if(!hoverAt)return;ctx.beginPath();ctx.arc(hoverAt[0],-hoverAt[1],Math.max(60,14/s),0,7);ctx.strokeStyle='#fff';ctx.lineWidth=3/s;ctx.stroke()}
  function close(){panel?.remove();panel=null;family=null;hoverAt=null}
- return{attach,open,close,render,paintExtents,paintBuildings,paintHover,extents,get year(){return year},get family(){return family},FAM,ERAS};
+ return{attach,open,close,render,setYear,paintPlan,paintExtents,paintBuildings,paintHover,extents,get year(){return year},get family(){return family},FAM,ERAS};
 })();

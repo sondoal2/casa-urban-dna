@@ -38,7 +38,8 @@ window.Ex13=(()=>{
   centres:{t:['تركّز التجارة والخدمات / كم²','Commerce + services per km²'],type:'circles',src:'OpenStreetMap POIs',frame:true},
   civic:{t:['المؤسسات العامة','Public institutions'],type:'civic',src:'OpenStreetMap POIs',frame:true},
   stops:{t:['محطات الباص والترام','Bus + tram stops'],type:'stops',src:'OpenStreetMap',frame:true},
-  histext:{t:['امتداد المدينة حسب الحقبة','City extent by period'],type:'histext',src:'Studio GIS packages casa_1900 / casa_1925 / casa_1952 (layers T1900, T1935, T1986)',frame:false},
+  histplan:{t:['الخريطة التاريخية الأصلية (مثبّتة)','Original historical plan (georeferenced)'],type:'histplan',src:'1918: Service topographique du Maroc 1:25,000 (BnF) · 1942: War Office 1:10,000 · Wikimedia Commons, public domain',frame:false},
+  histext:{t:['امتداد المدينة حسب الحقبة','City extent by period'],type:'histext',src:'Traced from the 1918 and 1942 plans · studio GIS packages (T1900, T1935, T1986)',frame:false},
   histbuild:{t:['مبانٍ مؤرَّخة وطرازها','Dated buildings and their style'],type:'histbuild',src:'Wikidata (CC0) · photos Wikimedia Commons',frame:false},
   height:{t:['ارتفاع المباني · متوسط لكل 100 م','Building height · 100 m average'],type:'value',unit:['متر','m'],min:0,max:25,ramp:'height',src:'GHSL GHS-BUILT-H ANBH 2018, 100 m',frame:true},
   shadow:{t:['الظل التقريبي','Approximate shadow'],type:'shadow',src:'GHS-BUILT-H heights + sun position at 33.6° N',frame:true},
@@ -63,14 +64,16 @@ window.Ex13=(()=>{
   {id:'centre',n:'03',t:['مركز المدينة','City centre'],q:['أين القلب — وهل هو واحد؟','Where is the heart — and is there only one?'],layers:['zones','centres','inst','civic','busstops','busflow','boundary'],form:['دوائر متناسبة','Proportional circles']},
   {id:'climate',n:'04',t:['المناخ','Climate'],q:['أين الحرّ وأين أقل — وبكم درجة؟','Where is it hot, where less — and by how much?'],layers:['heat','ndvi','flood','water','contours','wind','boundary'],form:['حقل متصل + خطوط تساوٍ','Continuous field + isolines'],play:['heat','ndvi','flood','contours']},
   {id:'human',n:'05',t:['البعد الإنساني','Human dimension'],q:['أين الناس فعلًا — أين يشترون ويلتقون؟','Where are people actually — buying, meeting?'],layers:['dots','nightlights','busflow','busstops','boundary'],form:['كثافة نقاط','Dot density']},
-  {id:'history',n:'06',t:['التطور التاريخي','Historical development'],q:['كيف نمت المدينة، ومن خطّطها، وبأي لغة معمارية؟','How did the city grow, who planned it, and in which architectural language?'],layers:['histext','histbuild','boundary'],form:['مخطط زمني بمسارات متوازية + امتدادات','Chart of time in parallel streams + extents']}
+  {id:'history',n:'06',t:['التطور التاريخي','Historical development'],q:['كيف نمت المدينة، ومن خطّطها، وبأي لغة معمارية؟','How did the city grow, who planned it, and in which architectural language?'],layers:['histext','histbuild','histplan','boundary'],form:['مخطط زمني بمسارات متوازية + امتدادات','Chart of time in parallel streams + extents']}
  ];
  const state={};Object.keys(LAYERS).forEach(k=>state[k]={on:false,op:1});
  let order=[];
 
  /* ---------- data ---------- */
  function load(){if(data)return Promise.resolve();if(loading)return loading;
-  loading=Promise.all([fetch('data/ex13.json').then(r=>r.json()),fetch('data/wind.json?v=2').then(r=>r.json()),fetch('data/layers13b.json?v=2').then(r=>r.ok?r.json():{layers:{}}).catch(()=>({layers:{}})),fetch('data/heights.json?v=1').then(r=>r.ok?r.json():null).catch(()=>null),fetch('data/history_buildings.json?v=1').then(r=>r.ok?r.json():null).catch(()=>null)]).then(([d,w,b,h,hb])=>{data=d;wind=w;Object.assign(data.layers,b.layers);data.history=hb;
+  loading=Promise.all([fetch('data/ex13.json').then(r=>r.json()),fetch('data/wind.json?v=2').then(r=>r.json()),fetch('data/layers13b.json?v=2').then(r=>r.ok?r.json():{layers:{}}).catch(()=>({layers:{}})),fetch('data/heights.json?v=1').then(r=>r.ok?r.json():null).catch(()=>null),fetch('data/history_buildings.json?v=1').then(r=>r.ok?r.json():null).catch(()=>null),
+   fetch('data/hist_extents.json?v=1').then(r=>r.ok?r.json():null).catch(()=>null),
+   ...[1918,1942].map(y=>fetch(`data/hist_${y}.json?v=1`).then(r=>r.ok?r.json():null).then(meta=>meta&&{year:y,meta}).catch(()=>null))]).then(([d,w,b,h,hb,he,...plans])=>{data=d;wind=w;Object.assign(data.layers,b.layers);data.history=hb;data.histExtents=he;data.histPlans=plans.filter(Boolean);
    if(h)data.hIndex=new Map(h.cells.map(([x,y,v])=>[Math.floor(x/h.res)+','+Math.floor(y/h.res),v]));
    if(h)data.layers.height={kind:'poly',features:h.cells.map(([x,y,v])=>({v,r:[[[x,y],[x+h.res,y],[x+h.res,y+h.res],[x,y+h.res],[x,y]]]}))};prepare()});return loading}
  const pathOf=rings=>{const p=new Path2D();for(const r of rings)r.forEach((v,i)=>i?p.lineTo(v[0],-v[1]):p.moveTo(v[0],-v[1]));return p};
@@ -191,6 +194,7 @@ window.Ex13=(()=>{
     for(let i=0;i<q.length-1;i++){const A=q[i],B=q[i+1];p.moveTo(A[0],-A[1]);p.lineTo(B[0],-B[1]);p.lineTo(B[0]+dx,-(B[1]+dy));p.lineTo(A[0]+dx,-(A[1]+dy));p.closePath()}
     q.forEach((v,i)=>i?fp.lineTo(v[0],-v[1]):fp.moveTo(v[0],-v[1]));fp.closePath()}
    ctx.fillStyle=light?'#2a2f55':'#6f7cff';ctx.fill(p,'nonzero');ctx.fillStyle=light?'#9a9a94':'#d8d6cf';ctx.fill(fp,'nonzero')},
+  histplan(ctx,k,def,b,s){window.Timeline13?.paintPlan(ctx,state[k].op)},
   histext(ctx,k,def,b,s){window.Timeline13?.paintExtents(ctx,s)},
   histbuild(ctx,k,def,b,s){if(!window.Timeline13)return;Timeline13.paintBuildings(ctx,s);Timeline13.paintHover(ctx,s)},
   morph(ctx,k,def,b,s){if(!window.Morph13?.cells)return;const P=Morph13.streetPaths();ctx.lineCap='round';
@@ -255,7 +259,8 @@ window.Ex13=(()=>{
   if(k==='centres')return `<div class="lg"><span><em class="circ"></em>${L('مساحة الدائرة = عدد المحلات والخدمات في كم²','circle area = shops + services per km²')}</span><small>${L('أعلى خلية','max cell')}: ${data?data.maxD:''} / km² · ${L('خلايا 500 م','500 m cells')}</small></div>`;
   if(k==='civic')return `<div class="lg"><span>${swatch('#fff')}${data?data.civic.length:''} ${L('مؤسسة: بلدية، محكمة، جامعة، مستشفى، مدرسة، بنك…','institutions: town hall, court, university, hospital, school, bank…')}</span></div>`;
   if(k==='stops')return `<div class="lg"><span>${swatch('#ff3b30')}${data?data.stops.length:''} ${L('محطة (OSM)','stops (OSM)')}</span></div>`;
-  if(k==='histext'&&window.Timeline13)return `<div class="lg">${Timeline13.extents().map(e=>`<span>${swatch(e.c)}${e.name} · ${e.y} · ${fmt(e.km2,1)} km²</span>`).join('')}<small>${L('السنة من اسم الطبقة داخل الحزمة؛ أسماء الملفات (1925، 1952) لا تطابقها، فتحتاج تأكيدًا من المصدر.','Year taken from the layer name inside each package; the file names (1925, 1952) disagree, so the source needs confirming.')}</small></div>`;
+  if(k==='histext'&&window.Timeline13)return `<div class="lg">${Timeline13.extents().map(e=>`<span>${swatch(e.c)}${e.name}${e.traced?'':' · '+e.y} · ${fmt(e.km2,1)} km²${e.traced?L(' · مرسوم من الخريطة',' · traced from the plan'):L(' · طبقة GIS',' · GIS layer')}</span>`).join('')}<small>${L('خط متصل: مرسوم هنا من خريطتي 1918 و1942 (كثافة الحبر، ثم دمج البلوكات). خط متقطع: طبقات GIS، والسنة من اسم الطبقة داخل الحزمة وتحتاج تأكيدًا. 1918 تُظهر النواة الكثيفة فقط: بلوكات المدينة الجديدة المرسومة بخط رفيع لا تُلتقط.','Solid: traced here from the 1918 and 1942 plans (ink density, then blocks merged). Dashed: GIS layers, year from the layer name inside each package, to be confirmed. 1918 shows the dense core only: new-city blocks drawn in thin outline are not picked up.')}</small></div>`;
+  if(k==='histplan'&&data?.histPlans)return `<div class="lg">${data.histPlans.map(p=>`<span><b>${p.year}</b> · ${fmt(p.meta.scale_m_px,2)} ${L('م/بكسل في المسح الأصلي','m per scan pixel')} · ${L('دوران','rotation')} ${fmt(p.meta.rotation_deg,1)}°</span>`).join('')}<small>${L('تُعرض أحدث خريطة لا تتجاوز سنة المؤشر. ثُبّتت بنقاط معروفة (منارة العنق، ملعب فيليب، ساحة فرنسا، الصخور السوداء)، وتحقّقنا من 4 مبانٍ إضافية: الخطأ أقل من ≈20 م في 1942.','Shows the latest plan not after the cursor year. Fixed with known points (El Hank lighthouse, Stade Philip, Place de France, Roches Noires), checked against 4 further buildings: error under ≈20 m for 1942.')}</small></div>`;
   if(k==='histbuild'&&window.Timeline13)return `<div class="lg">${[['artdeco','آرت ديكو','Art Deco'],['neomoorish','نيو-موريسكي / موريسكي','Neo-Moorish / Moorish'],['modern','حداثة / بروتالية','Modernism / Brutalism']].map(([f,a,e])=>`<span>${swatch(Timeline13.FAM[f])}${L(a,e)}</span>`).join('')}<span>${swatch('#f4f1ea')}${L('مؤرَّخ، طراز غير مسجّل','dated, style not recorded')}</span><span>${swatch('#8d8a82')}${L('غير مؤرَّخ','undated')}</span><small>${data?.history?.items.length||0} ${L('مكانًا من Wikidata؛ المسجّل هناك فقط، وليس جردًا كاملًا للتراث.','places from Wikidata; only what is recorded there, not a full heritage inventory.')}</small></div>`;
   if(k==='shadow'){const S=SUN[sun];return `<div class="lg"><div class="seg">${Object.entries(SUN).map(([id,x])=>`<button data-sun="${id}" class="${sun===id?'on':''}">${L(...x.t)}</button>`).join('')}</div><span>${swatch(light?'#2a2f55':'#6f7cff')}${L('ظل','shadow')} · ${L('ارتفاع الشمس','sun altitude')} ${S.alt}° · ${L('مبنى 10 م يرمي ظلًا','a 10 m building casts')} ${fmt(10/Math.tan(S.alt*Math.PI/180),0)} ${L('م','m')}</span><small>${L('كل مبنى (OSM) يأخذ متوسط ارتفاع خليته (100 م) من GHS-BUILT-H، فالظل تقريبي: المبنى الأعلى من متوسط حيّه يرمي ظلًا أطول في الواقع. قرّب على الحي لرؤيته. التوقيت شمسي.','Each OSM building takes its 100 m cell\'s average height from GHS-BUILT-H, so shadows are approximate: a building taller than its block average casts longer in reality. Zoom in to a neighbourhood to see it. Solar time.')}</small></div>`}
   if(k==='patterns'&&window.Morph13?.cells){const n={};for(const c of Morph13.cells)n[c.type]=(n[c.type]||0)+1;return `<div class="lg morphLg">${Morph13.RULES.map(([id,,name,c,rule])=>`<span>${swatch(c)}<b>${L(...name)}</b> · ${n[id]||0} ${L('خلية','cells')}<small>${L(...rule)}</small></span>`).join('')}<small>${L('عند التكبير: ○ طريق مسدود · ● برتقالي تقاطع T · ● أزرق تقاطع +','Zoomed in: ○ dead end · orange ● T-junction · blue ● four-way')}</small></div>`}
@@ -311,7 +316,7 @@ window.Ex13=(()=>{
    topic=TOPICS.find(t=>t.id===id);for(const k in state){state[k].on=false;state[k].op=1}
    order=[...topic.layers].reverse();if(order.includes('wind')){order=order.filter(k=>k!=='wind');order.push('wind')}
    topic.layers.forEach((k,i)=>state[k].on=k==='boundary'||i===0||(id==='climate'&&k==='wind'));
-   if(id==='climate')state.heat.op=.85;if(id==='morphology'){state.landuse.on=false;state.rail.on=false}
+   if(id==='climate')state.heat.op=.85;if(id==='history'){state.histplan.on=true;state.histplan.op=.75;state.histbuild.on=true}if(id==='morphology'){state.landuse.on=false;state.rail.on=false}
    try{if(window.Atlas)Atlas.mode='footprints'}catch{}
    setBase(id);await load();
    const T=topic,specs=specsFor(T);
