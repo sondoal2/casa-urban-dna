@@ -34,11 +34,11 @@ window.Ex13=(()=>{
   centres:{t:['تركّز التجارة والخدمات / كم²','Commerce + services per km²'],type:'circles',src:'OpenStreetMap POIs',frame:true},
   civic:{t:['المؤسسات العامة','Public institutions'],type:'civic',src:'OpenStreetMap POIs',frame:true},
   stops:{t:['محطات الباص والترام','Bus + tram stops'],type:'stops',src:'OpenStreetMap',frame:true},
-  zones:{t:['المراكز الأربعة: تاريخي، حديث، معاصر، ميناء','Four centres: historic, modern, contemporary, port'],type:'zones',src:'Colleague layers: historic_center, modern_center, contemporary_center, Port_Economic_Center',frame:true},
-  inst:{t:['المؤسسات (طبقة الزميلة)','Institutions (colleague layer)'],type:'inst',src:'Colleague layer: Institutions_Only (OSM)',frame:true},
-  nightlights:{t:['الإضاءة الليلية · VIIRS 2025','Night lights · VIIRS 2025'],type:'glow',unit:['nW/cm²/sr','nW/cm²/sr'],src:'NOAA/EOG VIIRS VNL v2 2025 (colleague clip), ≈460 m cells',frame:true},
-  busflow:{t:['خطوط الباص · التداخل والنبض','Bus lines · overlap + pulse'],type:'busflow',src:'Colleague layers: Bus_Routes_Colored, Bus_Street_Overlap (Casabus, OSM)',frame:true},
-  busstops:{t:['المحطات حسب عدد الخطوط','Stops by number of lines'],type:'busstops',src:'Colleague layers: Bus_Stops_With_Lines, Major_Transport_Hubs',frame:true},
+  zones:{t:['المراكز الأربعة: تاريخي، حديث، معاصر، ميناء','Four centres: historic, modern, contemporary, port'],type:'zones',src:'Studio GIS layers: historic, modern, contemporary, port centres',frame:true},
+  inst:{t:['المؤسسات','Institutions'],type:'inst',src:'Studio GIS layer: Institutions_Only (OSM)',frame:true},
+  nightlights:{t:['الإضاءة الليلية · VIIRS 2025','Night lights · VIIRS 2025'],type:'glow',unit:['nW/cm²/sr','nW/cm²/sr'],src:'NOAA/EOG VIIRS VNL v2 2025, ≈460 m cells',frame:true},
+  busflow:{t:['خطوط الباص · التداخل والنبض','Bus lines · overlap + pulse'],type:'busflow',src:'Studio GIS layers: Bus_Routes_Colored, Bus_Street_Overlap (Casabus, OSM)',frame:true},
+  busstops:{t:['المحطات حسب عدد الخطوط','Stops by number of lines'],type:'busstops',src:'Studio GIS layers: Bus_Stops_With_Lines, Major_Transport_Hubs',frame:true},
   heat:{t:['حرارة سطح الأرض LST','Land surface temperature'],type:'value',unit:['°C','°C'],min:21,max:57,ramp:'heat',src:'Landsat 9 C2 L2 · 17.07.2025 (single day)',frame:true},
   ndvi:{t:['الغطاء النباتي NDVI','Vegetation NDVI'],type:'value',unit:['NDVI','NDVI'],min:-0.2,max:0.5,ramp:'ndvi',src:'Sentinel/Landsat NDVI (user export)',frame:true},
   flood:{t:['أرض قابلة للغمر','Flood-prone ground'],type:'fill',color:'#3d8bff',alpha:.55,src:'GIS: HAND < 5 m above drainage lines · SRTM 1″ (2000)',frame:true},
@@ -160,12 +160,12 @@ window.Ex13=(()=>{
   const M=mean();tick+=.004;for(const p of particles){const a=M.ang+.12*Math.sin(p.x/2600+tick)*Math.cos(p.y/3100-tick*.7);p.x+=Math.sin(a)*M.spd*k;p.y+=Math.cos(a)*M.spd*k;p.age++;if(p.age>p.life||!inF([p.x,p.y])){Object.assign(p,spawn());continue}const [sx,sy]=screen(p.x,p.y);octx.fillRect(sx-1,sy-1,2,2)}}
  function setWind(on){windOn=on;if(on){ensureOverlay();if(!windRaf)windLoop()}else if(octx)octx.clearRect(0,0,overlay.width,overlay.height)}
 
- /* ---------- buses: illustrative pulse along the colleague's routes (no timetable) ----------
+ /* ---------- buses: illustrative pulse along the studio's bus routes (no timetable) ----------
     Each bus leaves a 10%-opacity red tail drawn with additive blending, so streets shared by
     several lines build up towards bright red. */
  let busOn=false,busRaf=0,bcan=null,bctx=null,buses=null;
  const BUS_TAIL=650,BUS_SPACING=2600;
- function prepBuses(){buses=[];for(const f of data.layers.bus_routes?.features||[])for(const pts of f.r){if(pts.length<2)continue;const cum=[0];for(let i=1;i<pts.length;i++)cum.push(cum[i-1]+Math.hypot(pts[i][0]-pts[i-1][0],pts[i][1]-pts[i-1][1]));const len=cum.at(-1);if(len<500)continue;const route={pts,cum,len};for(let n=Math.max(1,Math.round(len/BUS_SPACING)),i=0;i<n;i++)buses.push({route,d:(i+Math.random()*.6)*len/n,v:5+Math.random()*2.5})}}
+ function prepBuses(){buses=[];for(const f of data.layers.bus_routes?.features||[])for(const pts of f.r){if(pts.length<2)continue;const cum=[0];for(let i=1;i<pts.length;i++)cum.push(cum[i-1]+Math.hypot(pts[i][0]-pts[i-1][0],pts[i][1]-pts[i-1][1]));const len=cum.at(-1);if(len<500)continue;const route={pts,cum,len};for(let n=Math.max(1,Math.round(len/BUS_SPACING)),i=0;i<n;i++)buses.push({route,d:(i+Math.random()*.6)*len/n,v:10+Math.random()*5})}}
  function seek(r,d){let lo=0,hi=r.cum.length-1;while(hi-lo>1){const m=(lo+hi)>>1;if(r.cum[m]<d)lo=m;else hi=m}return lo}
  function pointAt(r,i,d){const a=r.pts[i],b=r.pts[i+1],t=(d-r.cum[i])/Math.max(1e-6,r.cum[i+1]-r.cum[i]);return[a[0]+(b[0]-a[0])*t,a[1]+(b[1]-a[1])*t]}
  function busLoop(){busRaf=requestAnimationFrame(busLoop);if(!bctx)return;bctx.clearRect(0,0,bcan.width,bcan.height);if(!busOn||!topic||!state.busflow.on||!buses)return;
@@ -187,7 +187,7 @@ window.Ex13=(()=>{
   if(k==='contours')return `<div class="lg"><span>${swatch('#d8c9a6')}${L('كل 50 م','every 50 m')}</span><span>${swatch('#8f8670')}10 م</span><small>0–${data?Math.round(data.contourMax):''} ${u}</small></div>`;
   if(k==='centres')return `<div class="lg"><span><em class="circ"></em>${L('مساحة الدائرة = عدد المحلات والخدمات في كم²','circle area = shops + services per km²')}</span><small>${L('أعلى خلية','max cell')}: ${data?data.maxD:''} / km² · ${L('خلايا 500 م','500 m cells')}</small></div>`;
   if(k==='civic')return `<div class="lg"><span>${swatch('#fff')}${data?data.civic.length:''} ${L('مؤسسة: بلدية، محكمة، جامعة، مستشفى، مدرسة، بنك…','institutions: town hall, court, university, hospital, school, bank…')}</span></div>`;
-  if(k==='stops')return `<div class="lg"><span>${swatch('#ff3b30')}${data?data.stops.length:''} ${L('محطة (OSM) — طبقات الزميلة بالطريق','stops (OSM) — colleague layers pending')}</span></div>`;
+  if(k==='stops')return `<div class="lg"><span>${swatch('#ff3b30')}${data?data.stops.length:''} ${L('محطة (OSM)','stops (OSM)')}</span></div>`;
   if(k==='zones')return `<div class="lg">${ZONES.map(([,c,a,e])=>`<span>${swatch(c)}${L(a,e)}</span>`).join('')}</div>`;
   if(k==='inst'&&data?.layers.institutions){const n={};for(const p of data.layers.institutions.features)n[p.fclass]=(n[p.fclass]||0)+1;return `<div class="lg"><span><em class="circ" style="background:#7ad7ff;border-radius:0;transform:rotate(45deg)"></em>${data.layers.institutions.features.length} ${L('مؤسسة','institutions')}</span><small>${Object.entries(n).sort((a,b)=>b[1]-a[1]).map(([k,v])=>k+' '+v).join(' · ')}</small></div>`}
   if(k==='nightlights'&&data?.layers.night_lights){const m=Math.round(data.nightMax);return `<div class="lg grad"><b style="background:linear-gradient(90deg,${[0,.2,.4,.6,.8,1].map(t=>R.night(t)).join(',')})"></b><div><span>0</span><span>${Math.round(m/2)}</span><span>${m}</span></div><small>${L('إشعاع ليلي','night radiance')} · nW/cm²/sr</small></div>`}
@@ -274,7 +274,7 @@ window.Ex13=(()=>{
   centres:['كل دائرة = خلية 500 م. نعدّ فيها المحلات والمقاهي والبنوك والمؤسسات العامة من OSM، ونحوّلها لعدد في الكم². مساحة الدائرة تتناسب مع العدد.','Each circle = a 500 m cell. We count shops, cafés, banks and public institutions from OSM and convert to count per km². Circle area is proportional to the count.'],
   flood:['قابلية غمر تقديرية: أرض ارتفاعها أقل من 5 م فوق أقرب مجرى (HAND)، محسوبة في GIS على الـstreams. ليست فيضانًا مرصودًا. مقصوصة على إطار 15×15 كم.','Indicative flood-prone ground: land less than 5 m above the nearest drainage line (HAND), computed in GIS from the streams. Not an observed flood. Clipped to the 15 × 15 km frame.'],
   nightlights:['أسطع مكان هو الميناء (إضاءة كاشفة)، والمدينة القديمة أقل منه رغم أنها أكثر ازدحامًا بالناس: الضوء لا يساوي الناس. دقة البيانات ≈460 م؛ التنعيم للعرض فقط.','The brightest place is the port (floodlights); the old medina is dimmer though far more crowded: light is not people. Data resolution ≈460 m; smoothing is for display only.'],
-  zones:['حدود المراكز من طبقات الزميلة، رُسمت يدويًا في GIS.','Centre boundaries from the colleague\'s layers, drawn by hand in GIS.'],
+  zones:['حدود المراكز رُسمت يدويًا في GIS.','Centre boundaries drawn by hand in GIS.'],
   heat:['صورة يوم واحد صيفي (17.07.2025). تُظهر حرارة سطح الأرض، وليس حرارة الهواء.','A single summer day (17.07.2025). Shows land surface temperature, not air temperature.'],
   busflow:['النقاط المتحركة تمثيل توضيحي لتداخل الخطوط، وليست باصات حقيقية (لا يوجد جدول رحلات). كل نقطة تترك ذيلًا أحمر شفافيته 10%، فكلما مرّ خط أكثر على نفس الشارع اشتدّ الأحمر.','Moving dots illustrate line overlap; they are not real buses (no timetable). Each leaves a 10%-opacity red tail, so streets shared by more lines turn brighter red.'],
   pop:['القيمة ÷ 100 من حقل gridcode (Int100) — للتأكيد.','Value = gridcode ÷ 100 (Int100) — to confirm.']};
