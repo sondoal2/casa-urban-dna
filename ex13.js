@@ -374,14 +374,17 @@ window.Ex13=(()=>{
  const xmlEsc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 
  /* ---------- SVG export ---------- */
- function exportSVG(paper,mode='svg'){if(!data)return;
-  const mm=paper==='A3'?{w:297,h:420,map:265}:{w:250,h:250,map:190};
-  const mx=(mm.w-mm.map)/2,my=paper==='A3'?30:14,S=mm.map/(FRAME[2]-FRAME[0]);// mm per metre
+ function exportSVG(paper,mode='svg',opt={}){if(!data)return;
+  const site=opt.theme==='site';// the atlas's own look: black sheet, red frame, bilingual side column
+  const mm=site?{w:250,h:250,map:168}:paper==='A3'?{w:297,h:420,map:265}:{w:250,h:250,map:190};
+  const mx=site?10:(mm.w-mm.map)/2,my=site?40:paper==='A3'?30:14,S=mm.map/(FRAME[2]-FRAME[0]);// mm per metre
   const X=x=>(mx+(x-FRAME[0])*S).toFixed(2),Y=y=>(my+(FRAME[3]-y)*S).toFixed(2);
   const pd=rings=>rings.map(r=>r.map((v,i)=>(i?'L':'M')+X(v[0])+' '+Y(v[1])).join('')+'').join('');
   const inB=f=>!f.b||overlap(f.b,FRAME);let body='';
-  if(showBuildings&&window.DNA){let p='';for(const b of DNA.buildings){if(b.b&&!overlap(b.b,FRAME))continue;p+=pd(b.r)+'Z'}body+=`<g id="buildings"><path fill="${window.Ex13FG?'#111':'#9a9a94'}" fill-rule="evenodd" d="${p}"/></g>`}
-  for(const k of order.filter(k=>state[k].on)){const d=LAYERS[k],op=state[k].op;let g='';
+  if(showBuildings&&window.DNA){let p='';for(const b of DNA.buildings){if(b.b&&!overlap(b.b,FRAME))continue;p+=pd(b.r)+'Z'}body+=`<g id="buildings"><path fill="${site?'#262624':window.Ex13FG?'#111':'#9a9a94'}" fill-rule="evenodd" d="${p}"/></g>`}
+  // On the sheet, continuous fields go underneath so outlines and overlays stay readable.
+  const under=k=>site&&['grid','value'].includes(LAYERS[k].type)?0:1;
+  for(const k of order.filter(k=>state[k].on).sort((a,b)=>under(a)-under(b))){const d=LAYERS[k],op=state[k].op;let g='';
    const feats=data.layers[k]?.features||[];
    if(d.type==='grid')feats.filter(inB).forEach(f=>{const c=R[d.ramp](classOf(f.v,d.breaks));g+=`<path fill="${c}" stroke="${c}" stroke-width=".06" d="${pd(f.r)}Z"/>`});
    if(d.type==='value')feats.filter(inB).forEach(f=>{const c=R[d.ramp]((f.v-d.min)/(d.max-d.min));g+=`<path fill="${c}" stroke="${c}" stroke-width=".06" d="${pd(f.r)}Z"/>`});
@@ -390,21 +393,22 @@ window.Ex13=(()=>{
    if(k==='water')g=`<path fill="none" stroke="#5fb4ff" stroke-width=".2" d="${data.layers.streams.features.filter(inB).map(f=>pd(f.r)).join('')}"/><path fill="none" stroke="#8fd0ff" stroke-width=".5" d="${data.layers.bouskoura.features.map(f=>pd(f.r)).join('')}"/>`;
    if(k==='contours')data.layers.contours.features.filter(f=>f.v%10===0&&inB(f)).forEach(f=>g+=`<path fill="none" stroke="${f.v%50?'#8f8670':'#5b4f36'}" stroke-width="${f.v%50?.12:.3}" d="${pd(f.r)}"/>`);
    if(k==='landuse')feats.filter(inB).forEach(f=>g+=`<path fill="${LU[f.fclass]||LU._}" d="${pd(f.r)}Z"/>`);
-   if(k==='boundary')g=`<path fill="none" stroke="#c07a20" stroke-width=".6" d="${feats.map(f=>pd(f.r)+'Z').join('')}"/>`;
+   if(k==='boundary')g=`<path fill="none" stroke="${site?'#e8a24a':'#c07a20'}" stroke-width="${site?.45:.6}" d="${feats.map(f=>pd(f.r)+'Z').join('')}"/>`;
    if(k==='centres')data.centreCells.filter(c=>c.n>=3&&inF(c.c)).forEach(c=>g+=`<circle cx="${X(c.c[0])}" cy="${Y(c.c[1])}" r="${(Math.sqrt(c.d/data.maxD)*480*S).toFixed(2)}" fill="#ffb347" fill-opacity=".3" stroke="#d27d12" stroke-width=".2"/>`);
    if(k==='civic')data.civic.forEach(p=>g+=`<rect x="${(X(p.c[0])-.6).toFixed(2)}" y="${(Y(p.c[1])-.6).toFixed(2)}" width="1.2" height="1.2" fill="#fff" stroke="#111" stroke-width=".15"/>`);
    if(k==='stops')data.stops.forEach(p=>g+=`<circle cx="${X(p.c[0])}" cy="${Y(p.c[1])}" r=".45" fill="#ff3b30"/>`);
    if(k==='patterns'&&window.Morph13?.cells){const S2=Morph13.segmentsByType;for(const [id,,name,c] of Morph13.RULES){const d=S2[id].filter(([a,b])=>inF(a)||inF(b)).map(([a,b])=>`M${X(a[0])} ${Y(a[1])}L${X(b[0])} ${Y(b[1])}`).join('');if(d)g+=`<path id="pattern-${id}" fill="none" stroke="${c}" stroke-width="${id==='mixed'?.12:.3}" stroke-linecap="round"${id==='mixed'?' stroke-opacity=".5"':''} d="${d}"/>`}}
-   if(k==='zones')for(const [key,c,,e] of ZONES){const f=data.layers[key]?.features[0];if(f)g+=`<path fill="${c}" fill-opacity=".18" stroke="${c}" stroke-width=".35" fill-rule="evenodd" d="${pd(f.r)}Z"/><text x="${X((f.b[0]+f.b[2])/2)}" y="${(+Y(f.b[3])-1).toFixed(2)}" font-size="2.4" text-anchor="middle" fill="#333">${e}</text>`}
+   if(k==='zones')for(const [key,c,,e] of ZONES){const f=data.layers[key]?.features[0];if(f)g+=`<path fill="${c}" fill-opacity=".18" stroke="${c}" stroke-width=".35" fill-rule="evenodd" d="${pd(f.r)}Z"/><text x="${X((f.b[0]+f.b[2])/2)}" y="${(+Y(f.b[3])-1).toFixed(2)}" font-size="2.4" text-anchor="middle" fill="${site?'#eeeeea':'#333'}">${e}</text>`}
    if(k==='inst')(data.layers.institutions?.features||[]).filter(p=>inF(p.c)).forEach(p=>{const x=+X(p.c[0]),y=+Y(p.c[1]);g+=`<path d="M${x},${(y-.7).toFixed(2)}L${(x+.7).toFixed(2)},${y}L${x},${(y+.7).toFixed(2)}L${(x-.7).toFixed(2)},${y}Z" fill="#2a9fd0" stroke="#0b2530" stroke-width=".08"/>`});
    if(k==='nightlights'){const gl=nightGlow();if(gl)g=`<image href="${gl.canvas.toDataURL('image/png')}" x="${X(gl.box[0])}" y="${Y(gl.box[3])}" width="${((gl.box[2]-gl.box[0])*S).toFixed(2)}" height="${((gl.box[3]-gl.box[1])*S).toFixed(2)}" preserveAspectRatio="none"/>`}
    if(k==='busflow'&&data.layers.bus_routes){g=`<path fill="none" stroke="${R.bus(0)}" stroke-width=".15" stroke-linecap="round" d="${data.layers.bus_routes.features.filter(inB).map(f=>pd(f.r)).join('')}"/>`;
     [...data.layers.bus_overlap.features].filter(inB).sort((a,c)=>(a.n||1)-(c.n||1)).forEach(f=>{const t=((f.n||1)-1)/Math.max(1,data.busMax-1);g+=`<path fill="none" stroke="${R.bus(t)}" stroke-width="${(.2+t*.9).toFixed(2)}" stroke-linecap="round" d="${pd(f.r)}"/>`})}
    if(k==='busstops'&&data.layers.bus_stops){[...data.layers.bus_stops.features].filter(p=>inF(p.c)).sort((a,c)=>(a.n||1)-(c.n||1)).forEach(p=>g+=`<circle cx="${X(p.c[0])}" cy="${Y(p.c[1])}" r="${(.22*Math.sqrt(p.n||1)).toFixed(2)}" fill="${R.bus(((p.n||1)-1)/Math.max(1,data.stopMax-1))}" stroke="#120403" stroke-width=".04"/>`);
-    data.layers.transport_hubs.features.filter(p=>inF(p.c)).forEach(p=>g+=`<circle cx="${X(p.c[0])}" cy="${Y(p.c[1])}" r="${(.22*Math.sqrt(p.n||1)+.35).toFixed(2)}" fill="none" stroke="#111" stroke-width=".18"/>`)}
-   if(k==='dots')data.commerce.forEach(p=>g+=`<circle cx="${X(p.c[0])}" cy="${Y(p.c[1])}" r=".35" fill="${FOOD.has(p.fclass)?'#e0a400':'#333'}"/>`);
+    data.layers.transport_hubs.features.filter(p=>inF(p.c)).forEach(p=>g+=`<circle cx="${X(p.c[0])}" cy="${Y(p.c[1])}" r="${(.22*Math.sqrt(p.n||1)+.35).toFixed(2)}" fill="none" stroke="${site?'#eeeeea':'#111'}" stroke-width=".18"/>`)}
+   if(k==='dots')data.commerce.forEach(p=>g+=`<circle cx="${X(p.c[0])}" cy="${Y(p.c[1])}" r="${site?.3:.35}" fill="${FOOD.has(p.fclass)?'#e0a400':site?'#d8d8d0':'#333'}"/>`);
    if(k==='wind'&&wind){const w=wind[windSeason];w.freq.forEach((f,i)=>{if(f<.04)return;const to=(i*22.5+180)*Math.PI/180;for(let n=0;n<Math.round(f*220);n++){const x=lerp(FRAME[0],FRAME[2],Math.random()),y=lerp(FRAME[1],FRAME[3],Math.random()),l=w.speed[i]*120;g+=`<line x1="${X(x)}" y1="${Y(y)}" x2="${X(x+Math.sin(to)*l)}" y2="${Y(y+Math.cos(to)*l)}" stroke="#1f6fd1" stroke-width=".45" stroke-opacity=".9" stroke-linecap="round"/>`}})}
    if(g)body+=`<g id="${k}" opacity="${op}">${g}</g>`}
+  if(site)return posterSVG(body,mm,mx,my,S);
   // scale bar
   const scaleN=Math.round(1/(S/1000)),bar=[1000,2000,5000].find(m=>m*S>=25)||5000,bw=bar*S,by=my+mm.map+9;
   const T=topic,title=`${T.n} · ${T.t[1].toUpperCase()} · ${T.t[0]}`;
@@ -432,10 +436,71 @@ window.Ex13=(()=>{
    setTimeout(()=>{try{f.contentWindow.focus();f.contentWindow.print()}catch{toast(L('تعذّر فتح نافذة الطباعة هنا؛ استخدم SVG.','The print dialog is not available here; use SVG.'))}setTimeout(()=>f.remove(),120000)},700);return}
   const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([svg],{type:'image/svg+xml'}));a.download=name+'.svg';document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(a.href),4000)}
 
+ /* ---------- 25 × 25 sheet in the atlas's own look (for the Miro board): EN left, AR right ---------- */
+ function posterSVG(body,mm,mx,my,S){const T=topic,INK='#eeeeea',MU='#8d8d86',RED='#ff4d24',AMB='#ffb347',R0=mm.w-10;
+  const LA='font-family="Readex Pro, Arial, sans-serif"',AF='font-family="Noto Kufi Arabic, Tahoma, sans-serif"';
+  const en=(x,y,s,t,a='')=>`<text x="${x.toFixed(2)}" y="${y.toFixed(2)}" font-size="${s}" ${LA}${a}>${xmlEsc(t)}</text>`;
+  // Arabic set right-to-left; 'start' anchors the right end at x, 'end' the left end.
+  const ar=(x,y,s,t,a='',anchor='start')=>`<text x="${x.toFixed(2)}" y="${y.toFixed(2)}" font-size="${s}" ${AF} direction="rtl" text-anchor="${anchor}"${a}>${xmlEsc(t)}</text>`;
+  const strip=s=>String(s).replace(/^(مسودة|Draft)\s*:\s*/,'').replace(/^[a-z]/,c=>c.toUpperCase());
+  let out='';
+  // header: lockup left, chapter right
+  out+=ar(10,16,7.2,'الدار البيضاء',` fill="${INK}" font-weight="600"`,'end');
+  out+=`<text x="10" y="25" font-size="6.6" font-weight="600" ${LA} fill="${INK}" letter-spacing="-.2">CASA<tspan fill="${RED}">/</tspan>BLANCA</text>`;
+  out+=`<text x="10" y="30" font-size="1.9" ${LA} fill="${MU}" letter-spacing=".7">URBAN DNA — <tspan ${AF}>أطلس الأنسجة</tspan></text>`;
+  out+=en(R0,12.5,2.1,`1.3 · CITY ID · ${T.n}`,` fill="${RED}" text-anchor="end" letter-spacing=".6"`);
+  out+=en(R0,21.5,7,T.t[1].toUpperCase(),` fill="${INK}" text-anchor="end" font-weight="600"`);
+  out+=ar(R0,30,5,T.t[0],` fill="${INK}"`);
+  out+=`<line x1="10" y1="${my-4}" x2="${R0}" y2="${my-4}" stroke="${RED}" stroke-width=".25"/>`;
+  // map, red frame, north, scale bar on the sheet
+  out+=`<clipPath id="fr"><rect x="${mx}" y="${my}" width="${mm.map}" height="${mm.map}"/></clipPath><g id="map" clip-path="url(#fr)">${body}</g><rect x="${mx}" y="${my}" width="${mm.map}" height="${mm.map}" fill="none" stroke="${RED}" stroke-opacity=".8" stroke-width=".3"/>`;
+  out+=`<g transform="translate(${mx+mm.map-7},${my+7})" fill="${INK}"><path d="M0,-4 L2.4,3 L0,1.6 L-2.4,3Z"/><text y="7.5" font-size="2.6" text-anchor="middle" ${LA}>N</text></g>`;
+  const bar=2000,bw=bar*S,sx=mx+5,sy=my+mm.map-6;
+  out+=`<g transform="translate(${sx},${sy})" fill="${INK}"><rect width="${bw/2}" height="1" /><rect x="${bw/2}" width="${bw/2}" height="1" fill="none" stroke="${INK}" stroke-width=".2"/><text y="-1.4" font-size="2" ${LA}>0</text><text x="${bw}" y="-1.4" font-size="2" text-anchor="middle" ${LA}>2 km</text><text y="4" font-size="1.8" fill="${MU}" ${LA}>1:${Math.round(1/(S/1000)).toLocaleString('en-US')} · 15 × 15 km</text></g>`;
+  // side column: question, then the legend of visible layers
+  const cx=mx+mm.map+7,cw=R0-cx;let y=my+2.5,col='';
+  wrap(T.q[1],Math.floor(cw/1.3)).forEach(l=>{col+=en(cx,y,2.6,l,` fill="${AMB}" font-weight="600"`);y+=3.4});y+=.6;
+  wrap(T.q[0],Math.floor(cw/1.45)).forEach(l=>{col+=ar(R0,y,2.5,l,` fill="${AMB}"`);y+=3.6});
+  y+=2;col+=`<line x1="${cx}" y1="${y}" x2="${R0}" y2="${y}" stroke="${MU}" stroke-width=".15"/>`;y+=5;
+  const sw=(c,t)=>`<rect x="${cx}" y="${(y-2.3).toFixed(2)}" width="4" height="2.6" fill="${c}"/>`+en(cx+5.5,y,2.1,t,` fill="${INK}"`);
+  const ln=(c,w,t)=>`<line x1="${cx}" y1="${(y-.9).toFixed(2)}" x2="${cx+5}" y2="${(y-.9).toFixed(2)}" stroke="${c}" stroke-width="${w}" stroke-linecap="round"/>`+en(cx+6.5,y,2.1,t,` fill="${INK}"`);
+  for(const k of [...order].reverse().filter(k=>state[k].on)){const d=LAYERS[k];
+   wrap(d.t[1],Math.floor(cw/1.3)).forEach(l=>{col+=en(cx,y,2.4,l,` fill="${INK}" font-weight="600"`);y+=3.2});wrap(d.t[0],Math.floor(cw/1.25)).forEach(l=>{col+=ar(R0,y,2.2,l,` fill="${MU}"`);y+=3.2});y+=.8;
+   if(d.type==='grid'){d.breaks.forEach((v,i)=>{const x=cx+(i%2)*(cw/2);col+=`<rect x="${x}" y="${(y-2.3).toFixed(2)}" width="4" height="2.6" fill="${R[d.ramp](i/(d.breaks.length-1))}" stroke="#444" stroke-width=".1"/>`+en(x+5.5,y,2.1,i===d.breaks.length-1?'≥ '+v:v+'–'+d.breaks[i+1],` fill="${INK}"`);if(i%2)y+=3.6});if(d.breaks.length%2)y+=3.6;col+=en(cx,y,1.9,d.unit[1],` fill="${MU}"`);y+=4}
+   else if(d.type==='value'){const n=8,w=cw/n;for(let i=0;i<n;i++)col+=`<rect x="${(cx+i*w).toFixed(2)}" y="${(y-2.3).toFixed(2)}" width="${w.toFixed(2)}" height="2.6" fill="${R[d.ramp]((i+.5)/n)}"/>`;y+=3.4;[0,4,8].forEach(i=>{const v=d.min+(d.max-d.min)*i/n;col+=en(cx+i*w,y,1.9,(k==='ndvi'?v.toFixed(2):Math.round(v))+(i===8?' '+d.unit[1]:''),` fill="${INK}" text-anchor="${i?i===8?'end':'middle':'start'}"`)});y+=4}
+   else if(k==='patterns'&&window.Morph13?.cells){Morph13.RULES.forEach(([id,,name,c])=>{col+=ln(c,1,name[1].split(':')[0]);y+=2.7;col+=ar(R0,y,1.9,name[0].split(':')[0],` fill="${MU}"`);y+=3.6})}
+   else if(k==='zones')ZONES.forEach(([,c,a,e])=>{col+=sw(c,e);col+=ar(R0,y,1.9,a,` fill="${MU}"`);y+=3.4});
+   else if(k==='centres'){col+=`<circle cx="${cx+2}" cy="${y-1}" r="2" fill="#ffb347" fill-opacity=".3" stroke="#d27d12" stroke-width=".2"/>`+en(cx+5.5,y,2.1,`area ∝ shops + services / km² · max ${data.maxD}`,` fill="${INK}"`);y+=4}
+   else if(k==='busflow'){for(let i=0;i<4;i++)col+=`<rect x="${cx+i*8}" y="${(y-2.3).toFixed(2)}" width="8" height="2.6" fill="${R.bus(i/3)}"/>`;col+=en(cx+34,y,2.1,`1 → ${data.busMax} lines / street`,` fill="${INK}"`);y+=3.6}
+   else if(k==='busstops'){[1,Math.round(data.stopMax/2),data.stopMax].forEach((v,i)=>{const x=cx+2+i*12;col+=`<circle cx="${x}" cy="${y-1}" r="${(.22*Math.sqrt(v)*2).toFixed(2)}" fill="${R.bus((v-1)/Math.max(1,data.stopMax-1))}"/>`+en(x+3.5,y,2,String(v),` fill="${INK}"`)});col+=en(cx+38,y,1.9,'lines / stop',` fill="${MU}"`);y+=4}
+   else if(k==='flood'){col+=sw('rgba(61,139,255,.6)','HAND < 5 m above drainage');y+=3.6}
+   else if(k==='rail'){col+=ln('#ff5a36',.6,'railway line');y+=3.6}
+   else if(k==='boundary'){col+=ln('#e8a24a',.5,'administrative limit');y+=3.6}
+   else if(k==='water'){col+=ln('#8fd0ff',.5,'streams · Oued Bouskoura');y+=3.6}
+   else if(k==='dots'){col+=`<circle cx="${cx+1.5}" cy="${y-1}" r=".7" fill="#e0a400"/>`+en(cx+4,y,2.1,'café · restaurant',` fill="${INK}"`)+`<circle cx="${cx+cw/2+1.5}" cy="${y-1}" r=".7" fill="#d8d8d0"/>`+en(cx+cw/2+4,y,2.1,'shop · service',` fill="${INK}"`);y+=3.6}
+   else if(k==='nightlights'){const n=8,w=cw/n;for(let i=0;i<n;i++){const t=(i+.5)/n;col+=`<rect x="${(cx+i*w).toFixed(2)}" y="${(y-2.3).toFixed(2)}" width="${w.toFixed(2)}" height="2.6" fill="${R.night(t)}"/>`}y+=3.4;col+=en(cx,y,1.9,'dark',` fill="${INK}"`)+en(R0,y,1.9,'brightest · nW/cm²/sr',` fill="${INK}" text-anchor="end"`);y+=4}
+   else if(k==='civic'){col+=`<rect x="${cx+.9}" y="${y-1.9}" width="1.2" height="1.2" fill="#fff" stroke="#111" stroke-width=".15"/>`+en(cx+4,y,2.1,'public institution',` fill="${INK}"`);y+=3.6}
+   else if(k==='inst'){col+=`<path d="M${cx+1.5},${y-2} l.8,.8 l-.8,.8 l-.8,-.8Z" fill="#2a9fd0"/>`+en(cx+4,y,2.1,'institution',` fill="${INK}"`);y+=3.6}
+   else if(k==='contours'){col+=en(cx,y,2.1,'thin 10 m · bold 50 m · m a.s.l.',` fill="${INK}"`);y+=3.6}
+   else if(k==='wind'&&wind){const w=wind[windSeason],i=w.freq.indexOf(Math.max(...w.freq));col+=ln('#1f6fd1',.45,`${windSeason} · from ${i*22.5}° · ${Math.round(w.freq[i]*100)}% · ${w.speed[i]} m/s`);y+=3.6}
+   wrap(d.src,Math.floor(cw/0.95)).forEach(l=>{col+=en(cx,y,1.7,l,` fill="${MU}"`);y+=2.4});y+=3.2}
+  out+=`<g id="column">${col}</g>`;
+  // conclusion: English left, Arabic right
+  let saved=null;try{saved=localStorage.getItem('casa13-concl-'+T.id)}catch{}
+  const D=DRAFTS[T.id]||['',''],isAr=s=>/[؀-ۿ]/.test(s||'');
+  const tAr=strip(saved&&isAr(saved)?saved:D[0]),tEn=strip(saved&&!isAr(saved)?saved:D[1]);
+  const by=my+mm.map+8,half=(R0-10-8)/2;let cb='';
+  cb+=en(10,by,2,'CONCLUSION',` fill="${RED}" letter-spacing=".6"`)+ar(R0,by,2.2,'الاستنتاج',` fill="${RED}"`);
+  wrap(tEn,Math.floor(half/1.32)).slice(0,6).forEach((l,i)=>cb+=en(10,by+4.6+i*3.7,2.5,l,` fill="${INK}"`));
+  wrap(tAr,Math.floor(half/1.42)).slice(0,6).forEach((l,i)=>cb+=ar(R0,by+4.6+i*3.9,2.5,l,` fill="${INK}"`));
+  out+=`<g id="conclusion">${cb}</g>`;
+  out+=en(10,mm.h-4.5,1.7,`Frame 15 × 15 km · WGS84 / UTM 29N (EPSG:32629) · © OpenStreetMap contributors, GHSL, NOAA, Landsat · Studio 5 Urban Transformation · ${new Date().toISOString().slice(0,10)}`,` fill="${MU}"`);
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="${mm.w}mm" height="${mm.h}mm" viewBox="0 0 ${mm.w} ${mm.h}" ${LA}><rect id="sheet" width="100%" height="100%" fill="#0e0e0e"/>${out}</svg>`}
+
  /* ---------- menu wiring ---------- */
  document.addEventListener('click',e=>{const b=e.target.closest('[data-ex13]');if(!b)return;e.preventDefault();e.stopPropagation();open(b.dataset.ex13)},true);
  // Language switch: retitle open windows and move them to the new side at once, keeping layer state.
  new MutationObserver(()=>{if(topic){const sp=specsFor(topic);wins.forEach((el,i)=>{const s=sp.find(x=>x[0]===el.dataset.ex);if(s)el.querySelector('.wintitle').innerHTML=`<small>1.3</small>${s[1]}`;placeWin(el,i)})}fill();document.querySelectorAll('[data-ex13]').forEach(b=>{const t=TOPICS.find(x=>x.id===b.dataset.ex13);b.querySelector('span').textContent=L(t.t[0],t.t[1])})}).observe(document.documentElement,{attributes:true,attributeFilter:['lang','dir']});
  document.querySelectorAll('[data-ex13]').forEach(b=>{const t=TOPICS.find(x=>x.id===b.dataset.ex13);b.querySelector('span').textContent=L(t.t[0],t.t[1])});
- return{paint,open,close:closeAll,get active(){return !!topic},get state(){return state},get data(){return data}};
+ return{paint,open,close:closeAll,exportSVG,get active(){return !!topic},get state(){return state},get data(){return data}};
 })();
