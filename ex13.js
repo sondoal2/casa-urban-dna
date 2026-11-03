@@ -38,6 +38,8 @@ window.Ex13=(()=>{
   centres:{t:['تركّز التجارة والخدمات / كم²','Commerce + services per km²'],type:'circles',src:'OpenStreetMap POIs',frame:true},
   civic:{t:['المؤسسات العامة','Public institutions'],type:'civic',src:'OpenStreetMap POIs',frame:true},
   stops:{t:['محطات الباص والترام','Bus + tram stops'],type:'stops',src:'OpenStreetMap',frame:true},
+  histext:{t:['امتداد المدينة حسب الحقبة','City extent by period'],type:'histext',src:'Studio GIS packages casa_1900 / casa_1925 / casa_1952 (layers T1900, T1935, T1986)',frame:false},
+  histbuild:{t:['مبانٍ مؤرَّخة وطرازها','Dated buildings and their style'],type:'histbuild',src:'Wikidata (CC0) · photos Wikimedia Commons',frame:false},
   height:{t:['ارتفاع المباني · متوسط لكل 100 م','Building height · 100 m average'],type:'value',unit:['متر','m'],min:0,max:25,ramp:'height',src:'GHSL GHS-BUILT-H ANBH 2018, 100 m',frame:true},
   shadow:{t:['الظل التقريبي','Approximate shadow'],type:'shadow',src:'GHS-BUILT-H heights + sun position at 33.6° N',frame:true},
   patterns:{t:['أنماط شبكة الشوارع','Street-network patterns'],type:'morph',src:'OSM streets + GHS-BUILT · explicit rules per 400 m cell',frame:true},
@@ -60,14 +62,15 @@ window.Ex13=(()=>{
   {id:'morphology',n:'02',t:['المورفولوجيا','Morphology'],q:['مِمّ صُنعت المدينة، وأين يتبدّل منطقها؟','What is the city made of, and where does its logic change?'],layers:['patterns','landuse','rail','boundary'],form:['مليء وفارغ + حدود','Figure-ground + edges'],base:true},
   {id:'centre',n:'03',t:['مركز المدينة','City centre'],q:['أين القلب — وهل هو واحد؟','Where is the heart — and is there only one?'],layers:['zones','centres','inst','civic','busstops','busflow','boundary'],form:['دوائر متناسبة','Proportional circles']},
   {id:'climate',n:'04',t:['المناخ','Climate'],q:['أين الحرّ وأين أقل — وبكم درجة؟','Where is it hot, where less — and by how much?'],layers:['heat','ndvi','flood','water','contours','wind','boundary'],form:['حقل متصل + خطوط تساوٍ','Continuous field + isolines'],play:['heat','ndvi','flood','contours']},
-  {id:'human',n:'05',t:['البعد الإنساني','Human dimension'],q:['أين الناس فعلًا — أين يشترون ويلتقون؟','Where are people actually — buying, meeting?'],layers:['dots','nightlights','busflow','busstops','boundary'],form:['كثافة نقاط','Dot density']}
+  {id:'human',n:'05',t:['البعد الإنساني','Human dimension'],q:['أين الناس فعلًا — أين يشترون ويلتقون؟','Where are people actually — buying, meeting?'],layers:['dots','nightlights','busflow','busstops','boundary'],form:['كثافة نقاط','Dot density']},
+  {id:'history',n:'06',t:['التطور التاريخي','Historical development'],q:['كيف نمت المدينة، ومن خطّطها، وبأي لغة معمارية؟','How did the city grow, who planned it, and in which architectural language?'],layers:['histext','histbuild','boundary'],form:['مخطط زمني بمسارات متوازية + امتدادات','Chart of time in parallel streams + extents']}
  ];
  const state={};Object.keys(LAYERS).forEach(k=>state[k]={on:false,op:1});
  let order=[];
 
  /* ---------- data ---------- */
  function load(){if(data)return Promise.resolve();if(loading)return loading;
-  loading=Promise.all([fetch('data/ex13.json').then(r=>r.json()),fetch('data/wind.json?v=2').then(r=>r.json()),fetch('data/layers13b.json?v=2').then(r=>r.ok?r.json():{layers:{}}).catch(()=>({layers:{}})),fetch('data/heights.json?v=1').then(r=>r.ok?r.json():null).catch(()=>null)]).then(([d,w,b,h])=>{data=d;wind=w;Object.assign(data.layers,b.layers);
+  loading=Promise.all([fetch('data/ex13.json').then(r=>r.json()),fetch('data/wind.json?v=2').then(r=>r.json()),fetch('data/layers13b.json?v=2').then(r=>r.ok?r.json():{layers:{}}).catch(()=>({layers:{}})),fetch('data/heights.json?v=1').then(r=>r.ok?r.json():null).catch(()=>null),fetch('data/history_buildings.json?v=1').then(r=>r.ok?r.json():null).catch(()=>null)]).then(([d,w,b,h,hb])=>{data=d;wind=w;Object.assign(data.layers,b.layers);data.history=hb;
    if(h)data.hIndex=new Map(h.cells.map(([x,y,v])=>[Math.floor(x/h.res)+','+Math.floor(y/h.res),v]));
    if(h)data.layers.height={kind:'poly',features:h.cells.map(([x,y,v])=>({v,r:[[[x,y],[x+h.res,y],[x+h.res,y+h.res],[x,y+h.res],[x,y]]]}))};prepare()});return loading}
  const pathOf=rings=>{const p=new Path2D();for(const r of rings)r.forEach((v,i)=>i?p.lineTo(v[0],-v[1]):p.moveTo(v[0],-v[1]));return p};
@@ -188,6 +191,8 @@ window.Ex13=(()=>{
     for(let i=0;i<q.length-1;i++){const A=q[i],B=q[i+1];p.moveTo(A[0],-A[1]);p.lineTo(B[0],-B[1]);p.lineTo(B[0]+dx,-(B[1]+dy));p.lineTo(A[0]+dx,-(A[1]+dy));p.closePath()}
     q.forEach((v,i)=>i?fp.lineTo(v[0],-v[1]):fp.moveTo(v[0],-v[1]));fp.closePath()}
    ctx.fillStyle=light?'#2a2f55':'#6f7cff';ctx.fill(p,'nonzero');ctx.fillStyle=light?'#9a9a94':'#d8d6cf';ctx.fill(fp,'nonzero')},
+  histext(ctx,k,def,b,s){window.Timeline13?.paintExtents(ctx,s)},
+  histbuild(ctx,k,def,b,s){if(!window.Timeline13)return;Timeline13.paintBuildings(ctx,s);Timeline13.paintHover(ctx,s)},
   morph(ctx,k,def,b,s){if(!window.Morph13?.cells)return;const P=Morph13.streetPaths();ctx.lineCap='round';
    for(const [id,,,c] of Morph13.RULES){ctx.strokeStyle=c;ctx.lineWidth=(id==='mixed'?.7:1.8)/s;ctx.globalAlpha=state[k].op*(id==='mixed'?.5:1);ctx.stroke(P[id])}
    if(s>.35){ctx.globalAlpha=state[k].op;const r=Math.max(2.5,2.2/s);for(const j of Morph13.junctions){if(j.c[0]<b[0]||j.c[0]>b[2]||j.c[1]<b[1]||j.c[1]>b[3])continue;ctx.beginPath();ctx.arc(j.c[0],-j.c[1],r,0,7);if(j.t===1){ctx.strokeStyle='#fff';ctx.lineWidth=1/s;ctx.stroke()}else{ctx.fillStyle=j.t===3?'#ffb347':'#5fb4ff';ctx.fill()}}}},
@@ -250,6 +255,8 @@ window.Ex13=(()=>{
   if(k==='centres')return `<div class="lg"><span><em class="circ"></em>${L('مساحة الدائرة = عدد المحلات والخدمات في كم²','circle area = shops + services per km²')}</span><small>${L('أعلى خلية','max cell')}: ${data?data.maxD:''} / km² · ${L('خلايا 500 م','500 m cells')}</small></div>`;
   if(k==='civic')return `<div class="lg"><span>${swatch('#fff')}${data?data.civic.length:''} ${L('مؤسسة: بلدية، محكمة، جامعة، مستشفى، مدرسة، بنك…','institutions: town hall, court, university, hospital, school, bank…')}</span></div>`;
   if(k==='stops')return `<div class="lg"><span>${swatch('#ff3b30')}${data?data.stops.length:''} ${L('محطة (OSM)','stops (OSM)')}</span></div>`;
+  if(k==='histext'&&window.Timeline13)return `<div class="lg">${Timeline13.extents().map(e=>`<span>${swatch(e.c)}${e.name} · ${e.y} · ${fmt(e.km2,1)} km²</span>`).join('')}<small>${L('السنة من اسم الطبقة داخل الحزمة؛ أسماء الملفات (1925، 1952) لا تطابقها، فتحتاج تأكيدًا من المصدر.','Year taken from the layer name inside each package; the file names (1925, 1952) disagree, so the source needs confirming.')}</small></div>`;
+  if(k==='histbuild'&&window.Timeline13)return `<div class="lg">${[['artdeco','آرت ديكو','Art Deco'],['neomoorish','نيو-موريسكي / موريسكي','Neo-Moorish / Moorish'],['modern','حداثة / بروتالية','Modernism / Brutalism']].map(([f,a,e])=>`<span>${swatch(Timeline13.FAM[f])}${L(a,e)}</span>`).join('')}<span>${swatch('#f4f1ea')}${L('مؤرَّخ، طراز غير مسجّل','dated, style not recorded')}</span><span>${swatch('#8d8a82')}${L('غير مؤرَّخ','undated')}</span><small>${data?.history?.items.length||0} ${L('مكانًا من Wikidata؛ المسجّل هناك فقط، وليس جردًا كاملًا للتراث.','places from Wikidata; only what is recorded there, not a full heritage inventory.')}</small></div>`;
   if(k==='shadow'){const S=SUN[sun];return `<div class="lg"><div class="seg">${Object.entries(SUN).map(([id,x])=>`<button data-sun="${id}" class="${sun===id?'on':''}">${L(...x.t)}</button>`).join('')}</div><span>${swatch(light?'#2a2f55':'#6f7cff')}${L('ظل','shadow')} · ${L('ارتفاع الشمس','sun altitude')} ${S.alt}° · ${L('مبنى 10 م يرمي ظلًا','a 10 m building casts')} ${fmt(10/Math.tan(S.alt*Math.PI/180),0)} ${L('م','m')}</span><small>${L('كل مبنى (OSM) يأخذ متوسط ارتفاع خليته (100 م) من GHS-BUILT-H، فالظل تقريبي: المبنى الأعلى من متوسط حيّه يرمي ظلًا أطول في الواقع. قرّب على الحي لرؤيته. التوقيت شمسي.','Each OSM building takes its 100 m cell\'s average height from GHS-BUILT-H, so shadows are approximate: a building taller than its block average casts longer in reality. Zoom in to a neighbourhood to see it. Solar time.')}</small></div>`}
   if(k==='patterns'&&window.Morph13?.cells){const n={};for(const c of Morph13.cells)n[c.type]=(n[c.type]||0)+1;return `<div class="lg morphLg">${Morph13.RULES.map(([id,,name,c,rule])=>`<span>${swatch(c)}<b>${L(...name)}</b> · ${n[id]||0} ${L('خلية','cells')}<small>${L(...rule)}</small></span>`).join('')}<small>${L('عند التكبير: ○ طريق مسدود · ● برتقالي تقاطع T · ● أزرق تقاطع +','Zoomed in: ○ dead end · orange ● T-junction · blue ● four-way')}</small></div>`}
   if(k==='zones')return `<div class="lg">${ZONES.map(([,c,a,e])=>`<span>${swatch(c)}${L(a,e)}</span>`).join('')}</div>`;
@@ -294,11 +301,11 @@ window.Ex13=(()=>{
   bind(el);wins.push(el);return el}
  async function closeWins(list,step=90){for(const el of [...list].reverse()){el.classList.add('leaving');await wait(step);el.remove()}}
  async function closeSiteWindows(){try{const list=[...windows.values()].map(w=>w.el);windows.clear();await closeWins(list,80)}catch{}}
- async function closeAll(){stopPlay();setWind(false);setBus(false);iso=false;section.pts=[];section.drawing=false;const list=wins;wins=[];await closeWins(list);for(const k in state)state[k].on=false;topic=null;fg(false);showBuildings=true;showRoads=true;roadGroups={major:true,local:true,walking:true};render()}
+ async function closeAll(){stopPlay();setWind(false);setBus(false);iso=false;section.pts=[];section.drawing=false;window.Timeline13?.close();const list=wins;wins=[];await closeWins(list);for(const k in state)state[k].on=false;topic=null;fg(false);showBuildings=true;showRoads=true;roadGroups={major:true,local:true,walking:true};render()}
 
  function open(id){if(typeof setMenu==='function')setMenu(false);
   switching=switching.then(async()=>{
-   const prev=wins;wins=[];stopPlay();setWind(false);setBus(false);iso=false;section.pts=[];section.drawing=false;
+   const prev=wins;wins=[];stopPlay();setWind(false);setBus(false);iso=false;section.pts=[];section.drawing=false;window.Timeline13?.close();
    await Promise.all([closeWins(prev),closeSiteWindows()]);
    try{if(window.Imagery){Imagery.state.swipe=false;Imagery.state.enabled=false;Imagery.sync?.()}}catch{}
    topic=TOPICS.find(t=>t.id===id);for(const k in state){state[k].on=false;state[k].op=1}
@@ -309,7 +316,8 @@ window.Ex13=(()=>{
    setBase(id);await load();
    const T=topic,specs=specsFor(T);
       for(let i=0;i<specs.length;i++){if(topic!==T)return;makeWin(specs[i][0],specs[i][1],0,0,i);await wait(140)}
-   fill();setWind(state.wind.on);setBus(state.busflow.on);render()})}
+   fill();setWind(state.wind.on);setBus(state.busflow.on);
+   if(id==='history'&&window.Timeline13){Timeline13.attach(data,render);Timeline13.open()}render()})}
  function setBase(id){fg(id==='morphology');showBuildings=id==='morphology'||id==='human';showRoads=id!=='morphology';roadGroups={major:true,local:id==='human',walking:false};render()}
  function fg(on){window.Ex13FG=on;document.body.classList.toggle('fgMode',on)}
 
@@ -353,6 +361,7 @@ window.Ex13=(()=>{
   morphology:['مسودة: السكك والأراضي الصناعية تقطع النسيج إلى قطع منفصلة؛ كل قطعة لها منطقها الخاص في البلوك والشارع.','Draft: rail lines and industrial land cut the fabric into separate pieces, each with its own block and street logic.'],
   centre:['مسودة: للمدينة أربعة مراكز لا مركز واحد. خطوط الباص تتداخل أكثر شيء (حتى 11 خطًا على شارع واحد) في البولفارات المركزية، بينما تبقى الأطراف معتمدة على خط أو خطين.','Draft: the city has four centres, not one. Bus lines overlap most (up to 11 on one street) on the central boulevards, while the edges rely on one or two lines.'],
   climate:['الحزام الأوسط، على بعد 1.5–4 كم من البحر، هو حيث تتجمع المياه (34% قابلة للغمر) وحيث ما زال الأخضر يبرّد (−1.3°C). تدخّل أخضر واحد هنا يمكن أن يجيب عن الفصلين.','The middle belt, 1.5–4 km from the sea, is where water gathers (34% flood-prone) and green still cools (−1.3°C). One green intervention here could answer both seasons.'],
+  history:['مسودة: نمت المدينة من نواة مسوّرة إلى حلقات متتالية رسمتها مخططات من خارجها: بروست للأوروبيين، وإيكوشار لأول مرة للمغاربة. كل حقبة تركت لغة معمارية تُقرأ حتى اليوم في نسيج الشارع.','Draft: the city grew from a walled core into successive rings drawn by plans from outside: Prost for Europeans, then Écochard, for the first time, for Moroccans. Each era left an architectural language still legible in the street fabric.'],
   human:['مسودة: الضوء لا يساوي الناس. الميناء أسطع مكان في الليل، والمدينة القديمة، رغم ازدحامها، أقل إضاءة. المحلات والمقاهي تقل نحو الأطراف، جزئيًا لأن OSM ناقص هناك.','Draft: light is not people. The port is the brightest place at night, while the old medina, far more crowded, is dimmer. Shops and cafés thin out towards the edges, partly because OSM is incomplete there.']};
  function conclusion(T){let v=null;try{v=localStorage.getItem('casa13-concl-'+T.id)}catch{}return v??L(...(DRAFTS[T.id]||['','']))}
  // Wrap for SVG text: split on spaces into lines of at most n characters, keeping the student's line breaks.

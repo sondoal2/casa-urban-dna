@@ -22,6 +22,29 @@ body.dark .brand.lockup{background:#0e0e0ec9;color:#fff;padding:5px 7px}body.dar
 .ex13win{animation:appear .22s both}
 .ex13win.leaving{opacity:0;transform:translate(10px,-8px);transition:opacity .09s,transform .09s}
 .ex13win .winbody{overflow:auto}
+/* 1.3 · 06 chart of time, docked along the bottom of the map */
+#timeline13{position:fixed;left:16px;right:16px;bottom:44px;z-index:8;background:#0f0f0ef2;border:1px solid rgba(255,77,64,.55);color:#eee;padding:8px 12px 10px;max-height:40vh;overflow:auto;font-size:12px}
+#timeline13 .tlHead{display:flex;gap:12px;align-items:baseline;flex-wrap:wrap;margin-bottom:4px}
+#timeline13 .tlChart{cursor:ew-resize;touch-action:none}
+#timeline13 .tlChart svg{display:block}
+#timeline13 .tlItem img,#timeline13 .tlItem .noimg{height:80px}
+#timeline13 .chrono .ty{font:9px sans-serif;fill:#9a9a94;text-anchor:middle}
+#timeline13 .chrono .tk{stroke:#ffffff14}
+#timeline13 .chrono .tl{font:600 10px sans-serif;fill:#ddd;text-anchor:end}
+#timeline13 .chrono .tb{font:9.5px sans-serif;fill:#f4f1ea;pointer-events:none}
+#timeline13 .chrono .tb.dark{fill:#111}
+#timeline13 .chrono .tv{font:9px sans-serif;fill:#ccc}
+#timeline13 .chrono .cur{stroke:#ff4d40;stroke-width:2}
+#timeline13 .chrono .curb{fill:#ff4d40}
+#timeline13 .chrono .cury{font:600 10px sans-serif;fill:#fff;text-anchor:middle}
+#timeline13 .chrono .fam{cursor:pointer}
+#timeline13 .tlBody{display:grid;grid-template-columns:minmax(200px,300px) 1fr;gap:12px;margin-top:6px}
+#timeline13 .tlCard p{margin:4px 0;line-height:1.5}
+#timeline13 .tlStrip{display:flex;gap:8px;overflow-x:auto;min-width:0}
+#timeline13 .tlItem{flex:0 0 150px;display:flex;flex-direction:column;gap:4px;color:#eee;text-decoration:none}
+#timeline13 .tlItem img,#timeline13 .tlItem .noimg{width:150px;height:96px;object-fit:cover;background:#222;display:block}
+#timeline13 .tlItem small{display:block;color:#9a9a94}
+@media (max-width:700px){#timeline13 .tlBody{grid-template-columns:1fr}}
 /* Thin light-red frame separates every window from the map */
 .win{border:1px solid rgba(255,77,64,.55)}
 .ex13{font-size:12px;padding:8px 12px 12px;color:#f3f3ed}
