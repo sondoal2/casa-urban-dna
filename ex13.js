@@ -250,7 +250,8 @@ window.Ex13=(()=>{
  function fg(on){window.Ex13FG=on;document.body.classList.toggle('fgMode',on)}
 
  function bind(el){
-  el.addEventListener('input',e=>{const k=e.target.dataset.op;if(k){state[k].op=+e.target.value;render()}});
+  el.addEventListener('input',e=>{const k=e.target.dataset.op;if(k){state[k].op=+e.target.value;render()}
+   if(e.target.id==='concl13'&&topic){try{localStorage.setItem('casa13-concl-'+topic.id,e.target.value)}catch{}}});
   el.addEventListener('change',e=>{const k=e.target.dataset.on;if(k){state[k].on=e.target.checked;if(k==='wind')setWind(e.target.checked);if(k==='busflow')setBus(e.target.checked);fill();render()}
    if(e.target.id==='clipF'){clipFrame=e.target.checked;render()}if(e.target.id==='maskF'){maskOut=e.target.checked;render()}
    if(e.target.id==='streetsF'){showRoads=e.target.checked;render()}});
@@ -259,12 +260,13 @@ window.Ex13=(()=>{
    if(b.dataset.season){windSeason=b.dataset.season;particles=[];fill()}
    if(b.dataset.speed){speed=+b.dataset.speed;if(playTimer){stopPlay();play()}fill()}
    if(b.id==='play13')playTimer?stopPlay():play();
-   if(b.dataset.export)exportSVG(b.dataset.export)})}
+   if(b.dataset.export)exportSVG(b.dataset.export);if(b.dataset.pdf)exportSVG(b.dataset.pdf,'pdf');
+   if(b.dataset.conclReset&&topic){try{localStorage.removeItem('casa13-concl-'+topic.id)}catch{}fill()}})}
  const body=id=>wins.find(w=>w.dataset.ex===id)?.querySelector('.winbody');
  function fill(){if(!topic)return;const T=topic;
   const lay=body('layers');if(lay)lay.innerHTML=`<div class="ex13">${T.play?`<div class="playRow"><button id="play13" class="act">${playTimer?'■ '+L('إيقاف','Stop'):'▶ '+L('تشغيل متتابع','Play sequence')}</button><span class="seg"><button data-speed="1000" class="${speed===1000?'on':''}">1 ${L('ث','s')}</button><button data-speed="2000" class="${speed===2000?'on':''}">2 ${L('ث','s')}</button></span></div>`:''}${[...order].reverse().map(k=>{const d=LAYERS[k],s=state[k];return `<div class="row ${s.on?'on':''}"><label><input type="checkbox" data-on="${k}" ${s.on?'checked':''}> ${L(d.t[0],d.t[1])}</label><span class="ord"><button data-up="${k}" title="up">▲</button><button data-down="${k}" title="down">▼</button></span>${s.on&&k!=='wind'?`<input type="range" min="0" max="1" step=".05" value="${s.op}" data-op="${k}">`:''}</div>`}).join('')}</div>`;
   const lg=body('legend');if(lg)lg.innerHTML=`<div class="ex13"><p class="q">${L(T.q[0],T.q[1])}</p><p class="form">${L('شكل التمثيل','Representation')}: ${L(T.form[0],T.form[1])}</p>${[...order].reverse().filter(k=>state[k].on&&k!=='wind').map(k=>`<div class="row on"><b>${L(LAYERS[k].t[0],LAYERS[k].t[1])}</b>${legend(k)}<small class="src">${LAYERS[k].src}</small>${NOTES[k]?`<small class="note">${L(...NOTES[k])}</small>`:''}</div>`).join('')}</div>`;
-  const ex=body('export');if(ex)ex.innerHTML=`<div class="ex13"><label class="clip"><input type="checkbox" id="maskF" ${maskOut?'checked':''}> ${L('تعتيم ما خارج حدود كازا','Dim outside Casablanca')}</label><label class="clip"><input type="checkbox" id="clipF" ${clipFrame?'checked':''}> ${L('قصّ على إطار 15×15 كم','Clip to 15×15 km frame')}</label>${T.id==='morphology'?`<label class="clip"><input type="checkbox" id="streetsF" ${showRoads?'checked':''}> ${L('إظهار الشوارع','Show streets')}</label>`:''}<div class="exp"><span>${L('تصدير SVG','Export SVG')}</span><button data-export="25">25 × 25 cm</button><button data-export="A3">A3</button></div></div>`;
+  const ex=body('export');if(ex)ex.innerHTML=`<div class="ex13"><label class="clip"><input type="checkbox" id="maskF" ${maskOut?'checked':''}> ${L('تعتيم ما خارج حدود كازا','Dim outside Casablanca')}</label><label class="clip"><input type="checkbox" id="clipF" ${clipFrame?'checked':''}> ${L('قصّ على إطار 15×15 كم','Clip to 15×15 km frame')}</label>${T.id==='morphology'?`<label class="clip"><input type="checkbox" id="streetsF" ${showRoads?'checked':''}> ${L('إظهار الشوارع','Show streets')}</label>`:''}<div class="exp"><span>SVG</span><button data-export="25">25 × 25 cm</button><button data-export="A3">A3</button></div><div class="exp"><span>PDF</span><button data-pdf="25">25 × 25 cm</button><button data-pdf="A3">A3</button></div><label class="fieldLabel">${L('الاستنتاج · يُطبع تحت الخريطة، عدّله كما تريد','Conclusion · printed under the map, edit freely')}<textarea id="concl13" rows="7">${esc(conclusion(T))}</textarea></label><button class="textAction" data-concl-reset>${L('استرجاع المسودة','Restore draft')} ↺</button><p class="tiny">${L('PDF: اختر «حفظ كـ PDF» في نافذة الطباعة. كل عنصر في SVG مجموعة مستقلة تُفتح كطبقة في Illustrator.','PDF: choose “Save as PDF” in the print dialog. Each SVG element is its own group and opens as a layer in Illustrator.')}</p></div>`;
   const wd=body('wind');if(wd)wd.innerHTML=`<div class="ex13">${legend('wind')}</div>`}
  function play(){const seq=topic.play;let i=0;const step=()=>{seq.forEach(k=>state[k].on=false);state[seq[i%seq.length]].on=true;state.boundary.on=true;i++;fill();render()};step();playTimer=setInterval(step,speed);fill()}
  function stopPlay(){clearInterval(playTimer);playTimer=null;fill()}
@@ -277,8 +279,20 @@ window.Ex13=(()=>{
   busflow:['النقاط المتحركة تمثيل توضيحي لتداخل الخطوط، وليست باصات حقيقية (لا يوجد جدول رحلات). كل نقطة تترك ذيلًا أحمر شفافيته 10%، فكلما مرّ خط أكثر على نفس الشارع اشتدّ الأحمر.','Moving dots illustrate line overlap; they are not real buses (no timetable). Each leaves a 10%-opacity red tail, so streets shared by more lines turn brighter red.'],
   pop:['القيمة ÷ 100 من حقل gridcode (Int100) — للتأكيد.','Value = gridcode ÷ 100 (Int100) — to confirm.']};
 
+ /* ---------- conclusions: a draft per chapter from the data, edited by the student, kept in this browser ---------- */
+ const DRAFTS={
+  density:['مسودة: أكثف الخلايا تتجاوز 2,000 نسمة في الهكتار، أي أكثر من عشرين ضعف الوسيط (≈94). حيث لا تتطابق كثافة الناس مع كثافة البناء، يأتي الازدحام من تكدّس الناس لا من كتلة المباني.','Draft: the densest 100 m cells exceed 2,000 people per hectare, over twenty times the median (≈94). Where population and built-up share do not peak together, crowding comes from people per room, not from building mass.'],
+  morphology:['مسودة: السكك والأراضي الصناعية تقطع النسيج إلى قطع منفصلة؛ كل قطعة لها منطقها الخاص في البلوك والشارع.','Draft: rail lines and industrial land cut the fabric into separate pieces, each with its own block and street logic.'],
+  centre:['مسودة: للمدينة أربعة مراكز لا مركز واحد. خطوط الباص تتداخل أكثر شيء (حتى 11 خطًا على شارع واحد) في البولفارات المركزية، بينما تبقى الأطراف معتمدة على خط أو خطين.','Draft: the city has four centres, not one. Bus lines overlap most (up to 11 on one street) on the central boulevards, while the edges rely on one or two lines.'],
+  climate:['الحزام الأوسط، على بعد 1.5–4 كم من البحر، هو حيث تتجمع المياه (34% قابلة للغمر) وحيث ما زال الأخضر يبرّد (−1.3°C). تدخّل أخضر واحد هنا يمكن أن يجيب عن الفصلين.','The middle belt, 1.5–4 km from the sea, is where water gathers (34% flood-prone) and green still cools (−1.3°C). One green intervention here could answer both seasons.'],
+  human:['مسودة: الضوء لا يساوي الناس. الميناء أسطع مكان في الليل، والمدينة القديمة، رغم ازدحامها، أقل إضاءة. المحلات والمقاهي تقل نحو الأطراف، جزئيًا لأن OSM ناقص هناك.','Draft: light is not people. The port is the brightest place at night, while the old medina, far more crowded, is dimmer. Shops and cafés thin out towards the edges, partly because OSM is incomplete there.']};
+ function conclusion(T){let v=null;try{v=localStorage.getItem('casa13-concl-'+T.id)}catch{}return v??L(...(DRAFTS[T.id]||['','']))}
+ // Wrap for SVG text: split on spaces into lines of at most n characters, keeping the student's line breaks.
+ function wrap(text,n){const out=[];for(const para of String(text).split(/\n/)){let line='';for(const w of para.split(/\s+/)){if(!w)continue;if((line+' '+w).trim().length>n){if(line)out.push(line);line=w}else line=(line+' '+w).trim()}out.push(line)}return out}
+ const xmlEsc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+
  /* ---------- SVG export ---------- */
- function exportSVG(paper){if(!data)return;
+ function exportSVG(paper,mode='svg'){if(!data)return;
   const mm=paper==='A3'?{w:297,h:420,map:265}:{w:250,h:250,map:190};
   const mx=(mm.w-mm.map)/2,my=paper==='A3'?30:14,S=mm.map/(FRAME[2]-FRAME[0]);// mm per metre
   const X=x=>(mx+(x-FRAME[0])*S).toFixed(2),Y=y=>(my+(FRAME[3]-y)*S).toFixed(2);
@@ -321,9 +335,18 @@ window.Ex13=(()=>{
    else if(k==='busstops'){[1,Math.round(data.stopMax/2),data.stopMax].forEach((v,i)=>{const x=mx+3+i*16;legendTxt+=`<circle cx="${x}" cy="${ly+2}" r="${(.22*Math.sqrt(v)*2).toFixed(2)}" fill="${R.bus((v-1)/Math.max(1,data.stopMax-1))}"/><text x="${x+4}" y="${ly+2.8}" font-size="2.3">${v} lines</text>`});legendTxt+=`<text x="${mx+52}" y="${ly+2.8}" font-size="2.3" fill="#666">ring = major hub · circle area ∝ lines</text>`;ly+=7}
    else if(k==='contours'){legendTxt+=`<text x="${mx}" y="${ly+2.5}" font-size="2.3">thin = 10 m · bold = 50 m · m a.s.l.</text>`;ly+=5}
    else ly+=2.5}
-  legendTxt+=`<text x="${mx}" y="${ly+3}" font-size="2.6" fill="#98682c">✎ Sentence — what the map shows, and what surprised us:</text>`;
+  // Question + conclusion block, each line its own <text> so Illustrator keeps it editable.
+  const rtlText=/[؀-ۿ]/.test(conclusion(T)),fs=paper==='A3'?3.2:2.6,lh=fs*1.45,maxLines=paper==='A3'?14:3;
+  let tb=`<text x="${rtlText?mx+mm.map:mx}" y="${(ly+5).toFixed(2)}" font-size="${fs*.9}" fill="#98682c" font-weight="bold"${rtlText?' text-anchor="end" direction="rtl"':''}>${xmlEsc(L(T.q[0],T.q[1]))}</text>`;
+  wrap(conclusion(T),Math.floor(mm.map/(fs*.5))).slice(0,maxLines).forEach((line,i)=>tb+=`<text x="${rtlText?mx+mm.map:mx}" y="${(ly+5+lh*(i+1.2)).toFixed(2)}" font-size="${fs}"${rtlText?' text-anchor="end" direction="rtl"':''} font-family="Noto Kufi Arabic, Readex Pro, Arial, sans-serif">${xmlEsc(line)}</text>`);
+  legendTxt=`<g id="legend">${legendTxt}</g><g id="conclusion">${tb}</g>`;
   const svg=`<svg xmlns="http://www.w3.org/2000/svg" width="${mm.w}mm" height="${mm.h}mm" viewBox="0 0 ${mm.w} ${mm.h}" font-family="Arial, sans-serif"><rect width="100%" height="100%" fill="#fff"/><text x="${mx}" y="${my-4}" font-size="4" font-weight="bold">${title}</text><text x="${mx+mm.map}" y="${my-4}" font-size="2.6" text-anchor="end">CASABLANCA · 15 × 15 km · 1:${scaleN.toLocaleString('en-US')}</text><clipPath id="fr"><rect x="${mx}" y="${my}" width="${mm.map}" height="${mm.map}"/></clipPath><g clip-path="url(#fr)">${body}</g><rect x="${mx}" y="${my}" width="${mm.map}" height="${mm.map}" fill="none" stroke="#111" stroke-width=".3"/><g transform="translate(${mx+mm.map-8},${my+6})"><path d="M0,-4 L2.4,3 L0,1.6 L-2.4,3Z" fill="#111"/><text y="7.5" font-size="3" text-anchor="middle">N</text></g><g transform="translate(${mx},${by})"><rect width="${bw/2}" height="1.2" fill="#111"/><rect x="${bw/2}" width="${bw/2}" height="1.2" fill="none" stroke="#111" stroke-width=".2"/><text y="4.5" font-size="2.4">0</text><text x="${bw}" y="4.5" font-size="2.4" text-anchor="middle">${bar/1000} km</text></g>${legendTxt}<text x="${mx}" y="${mm.h-6}" font-size="2.2" fill="#555">Frame 15 × 15 km · WGS84 / UTM 29N (EPSG:32629) · Base: © OpenStreetMap contributors · Exported ${new Date().toISOString().slice(0,10)}</text></svg>`;
-  const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([svg],{type:'image/svg+xml'}));a.download=`casa_1.3_${T.n}_${T.id}_${paper}.svg`;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(a.href),4000)}
+  const name=`casa_1.3_${T.n}_${T.id}_${paper}`;
+  if(mode==='pdf'){// Vector PDF through the browser's print dialog, page sized to the paper.
+   const f=document.createElement('iframe');f.style.cssText='position:fixed;right:0;bottom:0;width:0;height:0;border:0';document.body.appendChild(f);const d=f.contentDocument;
+   d.open();d.write(`<!doctype html><html><head><meta charset="utf-8"><title>${name}</title><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Kufi+Arabic:wght@400;600&family=Readex+Pro:wght@400;600&display=swap"><style>@page{size:${mm.w}mm ${mm.h}mm;margin:0}html,body{margin:0}svg{display:block;width:${mm.w}mm;height:${mm.h}mm}</style></head><body>${svg}</body></html>`);d.close();
+   setTimeout(()=>{try{f.contentWindow.focus();f.contentWindow.print()}catch{toast(L('تعذّر فتح نافذة الطباعة هنا؛ استخدم SVG.','The print dialog is not available here; use SVG.'))}setTimeout(()=>f.remove(),120000)},700);return}
+  const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([svg],{type:'image/svg+xml'}));a.download=name+'.svg';document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(a.href),4000)}
 
  /* ---------- menu wiring ---------- */
  document.addEventListener('click',e=>{const b=e.target.closest('[data-ex13]');if(!b)return;e.preventDefault();e.stopPropagation();open(b.dataset.ex13)},true);
