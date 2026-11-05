@@ -40,7 +40,7 @@ window.Ex13=(()=>{
   centres:{t:['تركّز التجارة والخدمات / كم²','Commerce + services per km²'],type:'circles',src:'OpenStreetMap POIs',frame:true},
   civic:{t:['المؤسسات العامة','Public institutions'],type:'civic',src:'OpenStreetMap POIs',frame:true},
   stops:{t:['محطات الباص والترام','Bus + tram stops'],type:'stops',src:'OpenStreetMap',frame:true},
-  histplan:{t:['الخريطة التاريخية الأصلية (مثبّتة)','Original historical plan (georeferenced)'],type:'histplan',src:'1918: Service topographique du Maroc 1:25,000 (BnF) · 1942: War Office 1:10,000 · Wikimedia Commons, public domain',frame:false},
+  histplan:{t:['الخريطة التاريخية الأصلية (مثبّتة)','Original historical plan (georeferenced)'],type:'histplan',src:'1918: Service topographique du Maroc 1:25,000 (BnF) · 1942: War Office 1:10,000 (Wikimedia Commons, public domain) · 1938, 1955: Schéma directeur 1975 schematics in Kasmi (1994), ±300 m',frame:false},
   histext:{t:['امتداد المدينة حسب الحقبة','City extent by period'],type:'histext',src:'Traced from the 1918 and 1942 plans · studio GIS packages (T1900, T1935, T1986)',frame:false},
   histbuild:{t:['مبانٍ مؤرَّخة وطرازها','Dated buildings and their style'],type:'histbuild',src:'Wikidata (CC0) · photos Wikimedia Commons',frame:false},
   height:{t:['ارتفاع المباني · متوسط لكل 100 م','Building height · 100 m average'],type:'value',unit:['متر','m'],min:0,max:25,ramp:'height',src:'GHSL GHS-BUILT-H ANBH 2018, 100 m',frame:true},
@@ -107,7 +107,9 @@ window.Ex13=(()=>{
    fetch('data/places_overture.json?v=1').then(r=>r.ok?r.json():null).then(g=>{ovP=g}).catch(()=>null),
    fetch('data/districts.json?v=1').then(r=>r.ok?r.json():null).then(g=>{distD=g}).catch(()=>null),
    fetch('data/emigration_un.json?v=1').then(r=>r.ok?r.json():null).then(g=>{emig=g}).catch(()=>null),
-   ...[1918,1942].map(y=>fetch(`data/hist_${y}.json?v=1`).then(r=>r.ok?r.json():null).then(meta=>meta&&{year:y,meta}).catch(()=>null))]).then(([d,w,b,h,hb,he,...plans])=>{data=d;wind=w;Object.assign(data.layers,b.layers);data.history=hb;data.histExtents=he;data.histPlans=plans.filter(Boolean);
+   // Plans shown under the timeline: the latest one not after the cursor year. 1938 and 1955 are the
+   // Schéma directeur 1975 schematics reproduced by Kasmi (1994), georeferenced in prep/georef_kasmi*.json.
+   ...[[1918,'hist_1918'],[1938,'hist_kasmi1938'],[1942,'hist_1942'],[1955,'hist_kasmi1955']].map(([y,f])=>fetch(`data/${f}.json?v=1`).then(r=>r.ok?r.json():null).then(meta=>meta&&{year:y,meta}).catch(()=>null))]).then(([d,w,b,h,hb,he,...plans])=>{data=d;wind=w;Object.assign(data.layers,b.layers);data.history=hb;data.histExtents=he;data.histPlans=plans.filter(Boolean);
    if(h)data.hIndex=new Map(h.cells.map(([x,y,v])=>[Math.floor(x/h.res)+','+Math.floor(y/h.res),v]));
    if(h)data.layers.height={kind:'poly',features:h.cells.map(([x,y,v])=>({v,r:[[[x,y],[x+h.res,y],[x+h.res,y+h.res],[x,y+h.res],[x,y]]]}))};prepare()});return loading}
  const pathOf=rings=>{const p=new Path2D();for(const r of rings)r.forEach((v,i)=>i?p.lineTo(v[0],-v[1]):p.moveTo(v[0],-v[1]));return p};
