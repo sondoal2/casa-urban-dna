@@ -15,6 +15,7 @@ window.Ex13=(()=>{
   pop:ramp(['#2a2117','#5a3a1c','#98682c','#d39a4a','#f3cf87','#fff3d2']),
   built:ramp(['#202020','#4a4a46','#7c7c76','#adada6','#dcdcd4','#ffffff']),
   bus:ramp(['#c97b6e','#d9452f','#f0281a','#ff1f10']),
+  rwi:ramp(['#3b2a5c','#6a4f8f','#a58bbf','#e5dccf','#f2c26b','#e08a1e']),
   bustime:ramp(['#f4f1ea','#f6c3b3','#f07a5c','#e2321c','#a3110a']),
   height:ramp(['#1e2433','#34466e','#5f78a8','#9fb2d6','#e6e2d6','#ffffff']),
   night:ramp(['#000000','#2b1600','#8a4a00','#e09a2a','#ffe3a0','#fffdf2'])};
@@ -49,6 +50,11 @@ window.Ex13=(()=>{
   inst:{t:['المؤسسات','Institutions'],type:'inst',src:'Studio GIS layer: Institutions_Only (OSM)',frame:true},
   nightlights:{t:['الإضاءة الليلية · VIIRS 2025','Night lights · VIIRS 2025'],type:'glow',unit:['nW/cm²/sr','nW/cm²/sr'],src:'NOAA/EOG VIIRS VNL v2 2025, ≈460 m cells',frame:true},
   busflow:{t:['خطوط الباص · التداخل والنبض','Bus lines · overlap + pulse'],type:'busflow',src:'Studio GIS layers: Bus_Routes_Colored, Bus_Street_Overlap (Casabus, OSM)',frame:true},
+  emigration:{t:['الهجرة للخارج · اتجاهها وحجمها','Emigration · direction and size'],type:'emigration',unit:['مولودون في المغرب ويعيشون خارجه، 2024','born in Morocco, living abroad, 2024'],src:'UN DESA, International Migrant Stock 2024, Table 1 (national: no city of origin in the data)',frame:false},
+  districts:{t:['المقاطعات الـ16','The 16 arrondissements'],type:'districts',src:'OpenStreetMap admin_level 10 (relation 4072985), Overpass 2026-11-05',frame:false},
+  rwi:{t:['مؤشر الثروة النسبي · Meta','Relative Wealth Index · Meta'],type:'rwi',unit:['نسبي داخل المغرب، ليس دخلًا','relative within Morocco, not income'],src:'Meta Data for Good, Relative Wealth Index (Chi et al. 2022), HDX, CC BY 4.0 · ≈2.4 km tiles',frame:true},
+  overture:{t:['الأماكن · Overture (Meta، Microsoft…)','Places · Overture (Meta, Microsoft…)'],type:'overture',src:'Overture Maps Foundation, places release 2026-10-21.0 (CDLA-Permissive-2.0), confidence ≥ 0.4',frame:true},
+  placegap:{t:['التجارة غير المرسومة في OSM','Commerce OSM does not show'],type:'placegap',unit:['خلية 500 م: محلات ومقاهٍ في Overture مقابل OSM','500 m cell: Overture shops + cafés vs OSM'],src:'Overture places vs OpenStreetMap POIs (prep/overture_layer.py)',frame:true},
   bustime:{t:['الباصات في الساعة · من المواعيد','Buses per hour · from the timetable'],type:'bustime',unit:['باص / ساعة، الاتجاهان','buses / hour, both directions'],src:'Casabus GTFS, weekday timetable (export 2026-06-04, github.com/Mouados-byte/CasaTransport-GTFS)',frame:true},
   busstops:{t:['المحطات حسب عدد الخطوط','Stops by number of lines'],type:'busstops',src:'Studio GIS layers: Bus_Stops_With_Lines, Major_Transport_Hubs',frame:true},
   heat:{t:['حرارة سطح الأرض LST','Land surface temperature'],type:'value',unit:['°C','°C'],min:30,max:57,ramp:'heat',src:'Landsat 9 C2 L2 · 17.07.2025 (single day)',frame:true},
@@ -61,11 +67,11 @@ window.Ex13=(()=>{
   boundary:{t:['حدود الدار البيضاء','Casablanca boundary'],type:'outline',src:'OSM admin boundary',frame:false}
  };
  const TOPICS=[
-  {id:'density',n:'01',t:['الكثافة','Density'],q:['أين المدينة كثيفة — بالناس أم بالبناء؟','Where is the city dense — in people or in buildings?'],layers:['pop','built','height','shadow','boundary'],form:['شبكة خلايا 100 م','100 m grid']},
+  {id:'density',n:'01',t:['الكثافة','Density'],q:['أين المدينة كثيفة — بالناس أم بالبناء؟','Where is the city dense — in people or in buildings?'],layers:['pop','built','height','shadow','rwi','districts','boundary'],form:['شبكة خلايا 100 م','100 m grid']},
   {id:'morphology',n:'02',t:['المورفولوجيا','Morphology'],q:['مِمّ صُنعت المدينة، وأين يتبدّل منطقها؟','What is the city made of, and where does its logic change?'],layers:['patterns','landuse','rail','boundary'],form:['مليء وفارغ + حدود','Figure-ground + edges'],base:true},
-  {id:'centre',n:'03',t:['مركز المدينة','City centre'],q:['أين القلب — وهل هو واحد؟','Where is the heart — and is there only one?'],layers:['zones','centres','inst','civic','busstops','bustime','busflow','boundary'],form:['دوائر متناسبة','Proportional circles']},
+  {id:'centre',n:'03',t:['مركز المدينة','City centre'],q:['أين القلب — وهل هو واحد؟','Where is the heart — and is there only one?'],layers:['zones','centres','inst','civic','busstops','bustime','busflow','districts','boundary'],form:['دوائر متناسبة','Proportional circles']},
   {id:'climate',n:'04',t:['المناخ','Climate'],q:['أين الحرّ وأين أقل — وبكم درجة؟','Where is it hot, where less — and by how much?'],layers:['heat','ndvi','flood','water','contours','wind','boundary'],form:['حقل متصل + خطوط تساوٍ','Continuous field + isolines'],play:['heat','ndvi','flood','contours']},
-  {id:'human',n:'05',t:['البعد الإنساني','Human dimension'],q:['أين الناس فعلًا — أين يشترون ويلتقون؟','Where are people actually — buying, meeting?'],layers:['dots','nightlights','bustime','busflow','busstops','boundary'],form:['كثافة نقاط','Dot density']},
+  {id:'human',n:'05',t:['البعد الإنساني','Human dimension'],q:['أين الناس فعلًا — أين يشترون ويلتقون؟','Where are people actually — buying, meeting?'],layers:['dots','overture','placegap','nightlights','bustime','busflow','busstops','rwi','districts','emigration','boundary'],form:['كثافة نقاط','Dot density']},
   {id:'history',n:'06',t:['التطور التاريخي','Historical development'],q:['كيف نمت المدينة، ومن خطّطها، وبأي لغة معمارية؟','How did the city grow, who planned it, and in which architectural language?'],layers:['histext','histbuild','histplan','boundary'],form:['مخطط زمني بمسارات متوازية + امتدادات','Chart of time in parallel streams + extents']}
  ];
  const state={};Object.keys(LAYERS).forEach(k=>state[k]={on:false,op:1});
@@ -74,6 +80,13 @@ window.Ex13=(()=>{
  let busT=null,busHour=8,busPlay=null;const busCache={};
  // Per-building heights from GlobalBuildingAtlas (prep/gba_heights.py); the 100 m GHSL cell is the fallback.
  let gbaH=null;
+ // Overture places (prep/overture_layer.py): flat [x,y,class,…] and 500 m cells [x,y,overture,osm].
+ // Arrondissements (outlines + names) and Meta's wealth tiles [x0,y0,x1,y1,rwi,error] (prep/districts_rwi.py).
+ let distD=null;
+ // Emigration compass (prep/emigration_un.py): one arrow per destination from the frame centre, true bearing
+ // from Casablanca, length and width ∝ √(people). Direction and size only: the map is not to world scale.
+ let emig=null;const EMIG_C=[-2226,15519],CASA_LL=[-7.6,33.57];
+ let ovP=null;const OV_COL=['#e0a400','#ff7a59','#7ad7ff','#8ce0a0','#9a9a94'];
  const heightOf=bd=>gbaH?.osm[bd.id]??data.hIndex?.get(Math.floor((bd.b[0]+bd.b[2])/200)+','+Math.floor((bd.b[1]+bd.b[3])/200));
  const BUS_CLASSES=[1,6,12,24,48,96],B62='0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ';
  function busPaths(h){if(!busT)return null;if(busCache[h])return busCache[h];const row=busT.hours[h-busT.h0];if(!row)return null;
@@ -91,6 +104,9 @@ window.Ex13=(()=>{
    fetch('data/hist_extents.json?v=2').then(r=>r.ok?r.json():null).catch(()=>null),
    fetch('data/bus_gtfs.json?v=1').then(r=>r.ok?r.json():null).then(g=>{busT=g}).catch(()=>null),
    fetch('data/heights_gba.json?v=1').then(r=>r.ok?r.json():null).then(g=>{gbaH=g}).catch(()=>null),
+   fetch('data/places_overture.json?v=1').then(r=>r.ok?r.json():null).then(g=>{ovP=g}).catch(()=>null),
+   fetch('data/districts.json?v=1').then(r=>r.ok?r.json():null).then(g=>{distD=g}).catch(()=>null),
+   fetch('data/emigration_un.json?v=1').then(r=>r.ok?r.json():null).then(g=>{emig=g}).catch(()=>null),
    ...[1918,1942].map(y=>fetch(`data/hist_${y}.json?v=1`).then(r=>r.ok?r.json():null).then(meta=>meta&&{year:y,meta}).catch(()=>null))]).then(([d,w,b,h,hb,he,...plans])=>{data=d;wind=w;Object.assign(data.layers,b.layers);data.history=hb;data.histExtents=he;data.histPlans=plans.filter(Boolean);
    if(h)data.hIndex=new Map(h.cells.map(([x,y,v])=>[Math.floor(x/h.res)+','+Math.floor(y/h.res),v]));
    if(h)data.layers.height={kind:'poly',features:h.cells.map(([x,y,v])=>({v,r:[[[x,y],[x+h.res,y],[x+h.res,y+h.res],[x,y+h.res],[x,y]]]}))};prepare()});return loading}
@@ -227,6 +243,21 @@ window.Ex13=(()=>{
    ctx.strokeStyle=R.bus(0);ctx.lineWidth=.9/s;for(const f of L_.bus_routes.features)if(vis(f,b))ctx.stroke(f.p||(f.p=pathOf(f.r)));
    const ov=[...L_.bus_overlap.features].sort((a,c)=>(a.n||1)-(c.n||1));
    for(const f of ov){if(!vis(f,b))continue;const t=((f.n||1)-1)/Math.max(1,data.busMax-1);ctx.strokeStyle=R.bus(t);ctx.lineWidth=(1+t*3.5)/s;ctx.stroke(f.p||(f.p=pathOf(f.r)))}},
+  emigration(ctx,k,def,b,s){if(!emig)return;const top=emig.top.filter(c=>c.pos),max=Math.max(...top.map(c=>c.v.at(-1))),[cx,cy]=EMIG_C,lbl=[];
+   ctx.lineCap='round';for(const c of top){const n=c.v.at(-1),f=Math.sqrt(n/max),dx=(c.pos[0]-CASA_LL[0])*Math.cos(CASA_LL[1]*Math.PI/180),dy=c.pos[1]-CASA_LL[1],d=Math.hypot(dx,dy),ux=dx/d,uy=dy/d,Lm=1800+6200*f,x=cx+ux*Lm,y=cy+uy*Lm;
+    ctx.strokeStyle='rgba(255,77,36,.85)';ctx.lineWidth=(1.5+f*9)/s;ctx.beginPath();ctx.moveTo(cx+ux*400,-(cy+uy*400));ctx.lineTo(x,-y);ctx.stroke();lbl.push([x+ux*500,y+uy*500,c,n])}
+   ctx.fillStyle='#ff4d24';ctx.beginPath();ctx.arc(cx,-cy,6/s,0,7);ctx.fill();
+   ctx.save();ctx.setTransform(1,0,0,1,0,0);const dpr=Math.min(devicePixelRatio||1,1.5);ctx.font='600 11px "Readex Pro","Noto Kufi Arabic",sans-serif';ctx.textAlign='center';ctx.direction='ltr';
+   for(const [x,y,c,n] of lbl){const [X,Y]=screen(x,y);ctx.setTransform(dpr,0,0,dpr,0,0);const t=`${c.country.replace('United States of America','USA').replace('United Arab Emirates','UAE')} ${n>=1e6?(n/1e6).toFixed(2)+'M':Math.round(n/1e3)+'k'}`;ctx.fillStyle='#0e0e0ecc';const w=ctx.measureText(t).width+10;ctx.fillRect(X-w/2,Y-9,w,16);ctx.fillStyle='#ffb347';ctx.fillText(t,X,Y+3)}ctx.restore()},
+  districts(ctx,k,def,b,s){if(!distD)return;ctx.strokeStyle='#eeeeea';ctx.lineWidth=1.2/s;ctx.setLineDash([6/s,4/s]);for(const d of distD.districts)ctx.stroke(d.p||(d.p=pathOf(d.r)));ctx.setLineDash([]);
+   ctx.save();ctx.setTransform(1,0,0,1,0,0);const dpr=Math.min(devicePixelRatio||1,1.5);ctx.font='600 11px "Readex Pro","Noto Kufi Arabic",sans-serif';ctx.textAlign='center';
+   for(const d of distD.districts){const bb=d.b||(d.b=bbox(d.r)),[x,y]=screen((bb[0]+bb[2])/2,(bb[1]+bb[3])/2),t=L(d.ar||d.fr,d.fr);ctx.setTransform(dpr,0,0,dpr,0,0);ctx.fillStyle='#0e0e0ebb';const w=ctx.measureText(t).width+10;ctx.fillRect(x-w/2,y-9,w,16);ctx.fillStyle='#eeeeea';ctx.fillText(t,x,y+3)}ctx.restore()},
+  rwi(ctx,k,def,b,s){if(!distD)return;for(const [x0,y0,x1,y1,v] of distD.rwi){if(x1<b[0]||x0>b[2]||y1<b[1]||y0>b[3])continue;ctx.fillStyle=R.rwi((v+.1)/1.7);ctx.fillRect(x0,-y1,x1-x0,y1-y0)}},
+  overture(ctx,k,def,b,s){if(!ovP)return;const p=ovP.pts,r=Math.max(6,1.1/s);for(let c=4;c>=0;c--){ctx.fillStyle=OV_COL[c];ctx.beginPath();
+    for(let i=0;i<p.length;i+=3){if(p[i+2]!==c)continue;const x=p[i],y=p[i+1];if(x<b[0]||x>b[2]||y<b[1]||y>b[3])continue;ctx.moveTo(x+r,-y);ctx.arc(x,-y,r,0,7)}ctx.fill()}},
+  // Cells where OSM shows no shop or café but Overture shows several: commerce the volunteer map misses.
+  placegap(ctx,k,def,b,s){if(!ovP)return;const h=ovP.cell/2;for(const [x,y,a,o] of ovP.grid){if(x+h<b[0]||x-h>b[2]||y+h<b[1]||y-h>b[3])continue;const t=Math.min(1,Math.log2((a+1)/(o+1))/4);if(t<=0)continue;
+    ctx.fillStyle=o===0&&a>=5?'rgba(255,77,36,.55)':`rgba(255,179,71,${(.12+t*.4).toFixed(2)})`;ctx.fillRect(x-h,-(y+h),2*h,2*h)}},
   // Real departures per hour on each 25 m of street (prep/gtfs_buses.py), white → red; one Path2D per class and hour.
   bustime(ctx,k,def,b,s){const P=busPaths(busHour);if(!P)return;ctx.lineCap='round';
    P.forEach((p,i)=>{if(!p)return;const t=i/(BUS_CLASSES.length-1);ctx.strokeStyle=R.bustime(.08+t*.92);ctx.lineWidth=(1+t*3.2)/s;ctx.stroke(p)})},
@@ -274,6 +305,11 @@ window.Ex13=(()=>{
  function legend(k){const d=LAYERS[k],u=d.unit?L(d.unit[0],d.unit[1]):'';
   if(d.type==='grid'){const br=d.breaks;return `<div class="lg">${br.map((v,i)=>`<span>${swatch(R[d.ramp](i/(br.length-1)))}${i===br.length-1?'≥ '+v:v+'–'+br[i+1]}</span>`).join('')}<small>${u}</small></div>`}
   if(d.type==='value'){const n=8,ticks=[...Array(n+1)].map((_,i)=>d.min+(d.max-d.min)*i/n);return `<div class="lg grad"><b style="background:linear-gradient(90deg,${ticks.map((v,i)=>R[d.ramp](i/n)).join(',')})"></b><div>${ticks.filter((_,i)=>i%2===0).map(v=>`<span>${k==='ndvi'?v.toFixed(2):Math.round(v)}</span>`).join('')}</div><small>${u}${k==='heat'?L(' · القيم الأصلية 21–57؛ التدرّج يبدأ من 30 لإظهار الفروق',' · source values 21–57; the ramp starts at 30 to show the differences'):''}</small></div>`}
+  if(d.type==='rwi'){const n=6;return `<div class="lg grad"><b style="background:linear-gradient(90deg,${[...Array(n+1)].map((_,i)=>R.rwi(i/n)).join(',')})"></b><div><span>${L('أفقر نسبيًا','relatively poorer')}</span><span>${L('أغنى نسبيًا','relatively richer')}</span></div><small>${u} · ${L('دقته ≈2.4 كم: صورة عامة بين الأحياء، لا بلوكًا ببلوك','≈2.4 km: a broad picture between districts, not block by block')}</small></div>`}
+  if(d.type==='emigration'&&emig){const t=emig.total,y=emig.years;return `<div class="lg"><span>${L(`المجموع: ${(t[0]/1e6).toFixed(2)} مليون (${y[0]}) ← ${(t.at(-1)/1e6).toFixed(2)} مليون (${y.at(-1)})`,`Total: ${(t[0]/1e6).toFixed(2)}M (${y[0]}) → ${(t.at(-1)/1e6).toFixed(2)}M (${y.at(-1)})`)}</span>${emig.top.slice(0,8).map(c=>`<span dir="ltr">${c.country}: ${Math.round(c.v[0]/1e3)}k → ${Math.round(c.v.at(-1)/1e3)}k</span>`).join('')}<small>${u} · ${L('الاتجاه صحيح، والمسافة ليست بمقياس','true direction, distance not to scale')}</small></div>`}
+  if(d.type==='districts')return `<div class="lg"><span>${swatch('#eeeeea')}${L('حدود المقاطعة واسمها','arrondissement limit and name')}</span></div>`;
+  if(d.type==='overture')return `<div class="lg">${(ovP?.classes||[]).map((c,i)=>`<span>${swatch(OV_COL[i])}${L(c[0],c[1])} (${ovP.counts[i].toLocaleString('en-US')})</span>`).join('')}<small>${L(`محلات ومقاهٍ: ${(ovP?(ovP.counts[0]+ovP.counts[1]):0).toLocaleString('en-US')} في Overture مقابل ${(ovP?.osmCommerce||0).toLocaleString('en-US')} في OSM`,`Shops + cafés: ${(ovP?(ovP.counts[0]+ovP.counts[1]):0).toLocaleString('en-US')} in Overture vs ${(ovP?.osmCommerce||0).toLocaleString('en-US')} in OSM`)}</small></div>`;
+  if(d.type==='placegap')return `<div class="lg"><span>${swatch('rgba(255,77,36,.7)')}${L('OSM: صفر · Overture: 5 أو أكثر','OSM: none · Overture: 5 or more')}</span><span>${swatch('rgba(255,179,71,.5)')}${L('Overture أكثر بكثير','Overture far more')}</span><small>${u}</small></div>`;
   if(d.type==='bustime')return `<div class="lg">${BUS_CLASSES.map((v,i)=>`<span>${swatch(R.bustime(.08+i/(BUS_CLASSES.length-1)*.92))}${i===BUS_CLASSES.length-1?'≥ '+v:v+'–'+(BUS_CLASSES[i+1]-1)}</span>`).join('')}<small>${u} · <span data-bushour-span>${busHour}:00–${busHour+1}:00</span> ·${L('مجموع الرحلات على كل قطعة 25 م','departures summed per 25 m piece')}</small></div>`;
   if(k==='flood')return `<div class="lg">${swatch('#3d8bff')}<span>${L('أرض قابلة للغمر · أقل من 5 م فوق أقرب مجرى','Flood-prone ground · under 5 m above nearest stream')}</span></div>`;
   if(k==='water')return `<div class="lg"><span>${swatch('#5fb4ff')}${L('مجاري مائية','streams')}</span><span>${swatch('#8fd0ff')}Oued Bouskoura</span></div>`;
