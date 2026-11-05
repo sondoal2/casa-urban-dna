@@ -50,6 +50,9 @@ window.Ex13=(()=>{
   inst:{t:['المؤسسات','Institutions'],type:'inst',src:'Studio GIS layer: Institutions_Only (OSM)',frame:true},
   nightlights:{t:['الإضاءة الليلية · VIIRS 2025','Night lights · VIIRS 2025'],type:'glow',unit:['nW/cm²/sr','nW/cm²/sr'],src:'NOAA/EOG VIIRS VNL v2 2025, ≈460 m cells',frame:true},
   busflow:{t:['خطوط الباص · التداخل والنبض','Bus lines · overlap + pulse'],type:'busflow',src:'Studio GIS layers: Bus_Routes_Colored, Bus_Street_Overlap (Casabus, OSM)',frame:true},
+  markets:{t:['الأسواق المعروفة (رسمية وغير رسمية)','Known markets (formal and informal)'],type:'markets',src:'Overture places (market names) · OSM · Derb Ghallef: CESEM/Economia 2008, CGEM, Wikipedia — locations approximate, hence the halo',frame:true},
+  photos:{t:['صور الشارع · Mapillary (اضغط نقطة)','Street photos · Mapillary (click a dot)'],type:'photos',src:'Mapillary contributors, CC BY-SA 4.0 · shown in the Mapillary viewer, not copied',frame:true},
+  buried:{t:['وادي بوسكورة: المكشوف والمدفون','Oued Bouskoura: open and buried'],type:'buried',src:'Open course: OSM (Overpass 2026-11-05) · buried bed: press accounts of the Super Collecteur Ouest (FNH; Médias24 2021) traced on Bd Abdelmoumen + Bd Hassan II',frame:false},
   emigration:{t:['الهجرة للخارج · اتجاهها وحجمها','Emigration · direction and size'],type:'emigration',unit:['مولودون في المغرب ويعيشون خارجه، 2024','born in Morocco, living abroad, 2024'],src:'UN DESA, International Migrant Stock 2024, Table 1 (national: no city of origin in the data)',frame:false},
   districts:{t:['المقاطعات الـ16','The 16 arrondissements'],type:'districts',src:'OpenStreetMap admin_level 10 (relation 4072985), Overpass 2026-11-05',frame:false},
   rwi:{t:['مؤشر الثروة النسبي · Meta','Relative Wealth Index · Meta'],type:'rwi',unit:['نسبي داخل المغرب، ليس دخلًا','relative within Morocco, not income'],src:'Meta Data for Good, Relative Wealth Index (Chi et al. 2022), HDX, CC BY 4.0 · ≈2.4 km tiles',frame:true},
@@ -70,8 +73,8 @@ window.Ex13=(()=>{
   {id:'density',n:'01',t:['الكثافة','Density'],q:['أين المدينة كثيفة — بالناس أم بالبناء؟','Where is the city dense — in people or in buildings?'],layers:['pop','built','height','shadow','rwi','districts','boundary'],form:['شبكة خلايا 100 م','100 m grid']},
   {id:'morphology',n:'02',t:['المورفولوجيا','Morphology'],q:['مِمّ صُنعت المدينة، وأين يتبدّل منطقها؟','What is the city made of, and where does its logic change?'],layers:['patterns','landuse','rail','boundary'],form:['مليء وفارغ + حدود','Figure-ground + edges'],base:true},
   {id:'centre',n:'03',t:['مركز المدينة','City centre'],q:['أين القلب — وهل هو واحد؟','Where is the heart — and is there only one?'],layers:['zones','centres','inst','civic','busstops','bustime','busflow','districts','boundary'],form:['دوائر متناسبة','Proportional circles']},
-  {id:'climate',n:'04',t:['المناخ','Climate'],q:['أين الحرّ وأين أقل — وبكم درجة؟','Where is it hot, where less — and by how much?'],layers:['heat','ndvi','flood','water','contours','wind','boundary'],form:['حقل متصل + خطوط تساوٍ','Continuous field + isolines'],play:['heat','ndvi','flood','contours']},
-  {id:'human',n:'05',t:['البعد الإنساني','Human dimension'],q:['أين الناس فعلًا — أين يشترون ويلتقون؟','Where are people actually — buying, meeting?'],layers:['dots','overture','placegap','nightlights','bustime','busflow','busstops','rwi','districts','emigration','boundary'],form:['كثافة نقاط','Dot density']},
+  {id:'climate',n:'04',t:['المناخ','Climate'],q:['أين الحرّ وأين أقل — وبكم درجة؟','Where is it hot, where less — and by how much?'],layers:['heat','ndvi','flood','water','buried','contours','wind','boundary'],form:['حقل متصل + خطوط تساوٍ','Continuous field + isolines'],play:['heat','ndvi','flood','contours']},
+  {id:'human',n:'05',t:['البعد الإنساني','Human dimension'],q:['أين الناس فعلًا — أين يشترون ويلتقون؟','Where are people actually — buying, meeting?'],layers:['dots','overture','placegap','markets','photos','nightlights','bustime','busflow','busstops','rwi','districts','emigration','boundary'],form:['كثافة نقاط','Dot density']},
   {id:'history',n:'06',t:['التطور التاريخي','Historical development'],q:['كيف نمت المدينة، ومن خطّطها، وبأي لغة معمارية؟','How did the city grow, who planned it, and in which architectural language?'],layers:['histext','histbuild','histplan','boundary'],form:['مخطط زمني بمسارات متوازية + امتدادات','Chart of time in parallel streams + extents']}
  ];
  const state={};Object.keys(LAYERS).forEach(k=>state[k]={on:false,op:1});
@@ -85,7 +88,12 @@ window.Ex13=(()=>{
  let distD=null;
  // Emigration compass (prep/emigration_un.py): one arrow per destination from the frame centre, true bearing
  // from Casablanca, length and width ∝ √(people). Direction and size only: the map is not to world scale.
- let emig=null;const EMIG_C=[-2226,15519],CASA_LL=[-7.6,33.57];
+ let emig=null;
+ // Oued Bouskoura (prep/bouskoura_buried.py + bouskoura_historic.py): open course, short OSM culverts,
+ // the documented buried bed through the centre, and the undocumented stretch between them.
+ let bousk=null;
+ // Known markets (prep/markets_layer.py) and Mapillary photo points [x,y,id,year,pano] (prep/mapillary_points.py).
+ let mkts=null,mly=null;const EMIG_C=[-2226,15519],CASA_LL=[-7.6,33.57];
  let ovP=null;const OV_COL=['#e0a400','#ff7a59','#7ad7ff','#8ce0a0','#9a9a94'];
  const heightOf=bd=>gbaH?.osm[bd.id]??data.hIndex?.get(Math.floor((bd.b[0]+bd.b[2])/200)+','+Math.floor((bd.b[1]+bd.b[3])/200));
  const BUS_CLASSES=[1,6,12,24,48,96],B62='0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ';
@@ -107,6 +115,9 @@ window.Ex13=(()=>{
    fetch('data/places_overture.json?v=1').then(r=>r.ok?r.json():null).then(g=>{ovP=g}).catch(()=>null),
    fetch('data/districts.json?v=1').then(r=>r.ok?r.json():null).then(g=>{distD=g}).catch(()=>null),
    fetch('data/emigration_un.json?v=1').then(r=>r.ok?r.json():null).then(g=>{emig=g}).catch(()=>null),
+   fetch('data/bouskoura_buried.json?v=2').then(r=>r.ok?r.json():null).then(g=>{bousk=g}).catch(()=>null),
+   fetch('data/markets.json?v=1').then(r=>r.ok?r.json():null).then(g=>{mkts=g}).catch(()=>null),
+   fetch('data/mapillary_points.json?v=1').then(r=>r.ok?r.json():null).then(g=>{mly=g}).catch(()=>null),
    // Plans shown under the timeline: the latest one not after the cursor year. 1938 and 1955 are the
    // Schéma directeur 1975 schematics reproduced by Kasmi (1994), georeferenced in prep/georef_kasmi*.json.
    ...[[1918,'hist_1918'],[1938,'hist_kasmi1938'],[1942,'hist_1942'],[1955,'hist_kasmi1955']].map(([y,f])=>fetch(`data/${f}.json?v=1`).then(r=>r.ok?r.json():null).then(meta=>meta&&{year:y,meta}).catch(()=>null))]).then(([d,w,b,h,hb,he,...plans])=>{data=d;wind=w;Object.assign(data.layers,b.layers);data.history=hb;data.histExtents=he;data.histPlans=plans.filter(Boolean);
@@ -168,6 +179,13 @@ window.Ex13=(()=>{
    g+=`<path d="${d}" fill="none" stroke="${['#f3cf87','#dcdcd4','#9fb2d6','#f7a13b','#4f9e48','#8fd0ff'][r]}" stroke-width="1.4"/><text x="${pad-3}" y="${y0+8}" class="sv" text-anchor="end">${fmt(mx,k==='ndvi'?2:0)}</text><text x="${pad-3}" y="${y0+rh-12}" class="sv" text-anchor="end">${fmt(mn,k==='ndvi'?2:0)}</text><text x="${w-2}" y="${y0-4}" class="sv" text-anchor="end">${u}</text>`});
   const H2=SEC_VARS.length*rh+20;g+=`<text x="${pad}" y="${H2-4}" class="sv">A</text><text x="${w-4}" y="${H2-4}" class="sv" text-anchor="end">B · ${fmt(section.len/1000,1)} km</text>`;
   return `<svg class="sectionChart" viewBox="0 0 ${w} ${H2}" width="100%" direction="ltr" style="direction:ltr"><style>.sl{font:600 9px sans-serif;fill:#eee}.sv{font:8px sans-serif;fill:#aaa}</style>${g}</svg><p class="tiny">${L('عيّنة كل ≈50 م. الارتفاع تقريبي من خطوط كنتور كل 10 م.','Sampled every ≈50 m. Elevation is approximate, from 10 m contours.')}</p>`}
+ // A click (not a drag) near a photo dot opens that image in Mapillary's embedded viewer, in a window.
+ let downAt=null;canvas.addEventListener('pointerdown',e=>{downAt=[e.clientX,e.clientY]});
+ canvas.addEventListener('pointerup',e=>{if(!topic||!state.photos?.on||!mly||!downAt||Math.hypot(e.clientX-downAt[0],e.clientY-downAt[1])>4)return;
+  const p=world(e.clientX,e.clientY),q=world(e.clientX+12,e.clientY),tol=Math.abs(q[0]-p[0]);let best=null,bd=tol*tol;
+  for(const pt of mly.pts){const d=(pt[0]-p[0])**2+(pt[1]-p[1])**2;if(d<bd){bd=d;best=pt}}if(!best)return;
+  let el=wins.find(w=>w.dataset.ex==='photo');if(!el)el=makeWin('photo',L('صورة الشارع','STREET PHOTO'),0,0,wins.length);
+  el.querySelector('.winbody').innerHTML=`<iframe src="https://www.mapillary.com/embed?image_key=${best[2]}&style=photo" style="width:100%;height:300px;border:0" allowfullscreen loading="lazy" title="Mapillary"></iframe><p class="tiny" dir="ltr">${best[3]}${best[4]?' · 360°':''} · Mapillary contributors, CC BY-SA 4.0 · <a href="https://www.mapillary.com/app/?pKey=${best[2]}" target="_blank" rel="noopener">${L('افتح في Mapillary','Open in Mapillary')} ↗</a></p>`});
  canvas.addEventListener('pointerdown',e=>{if(!section.drawing)return;e.stopImmediatePropagation();e.preventDefault();section.pts.push(world(e.clientX,e.clientY));
   if(section.pts.length===2){section.drawing=false;canvas.style.cursor='grab';computeSection();let el=wins.find(w=>w.dataset.ex==='section');if(!el)el=makeWin('section',L('مقطع A–B','SECTION A–B'),0,0,wins.length);el.querySelector('.winbody').innerHTML=sectionSVG()}
   fill();render()},{capture:true});
@@ -245,6 +263,12 @@ window.Ex13=(()=>{
    ctx.strokeStyle=R.bus(0);ctx.lineWidth=.9/s;for(const f of L_.bus_routes.features)if(vis(f,b))ctx.stroke(f.p||(f.p=pathOf(f.r)));
    const ov=[...L_.bus_overlap.features].sort((a,c)=>(a.n||1)-(c.n||1));
    for(const f of ov){if(!vis(f,b))continue;const t=((f.n||1)-1)/Math.max(1,data.busMax-1);ctx.strokeStyle=R.bus(t);ctx.lineWidth=(1+t*3.5)/s;ctx.stroke(f.p||(f.p=pathOf(f.r)))}},
+  // A soft halo, not a pin: the position of a market is known to tens of metres, not to the metre.
+  markets(ctx,k,def,b,s){if(!mkts)return;for(const m of mkts.markets){if(m.x<b[0]-400||m.x>b[2]+400||m.y<b[1]-400||m.y>b[3]+400)continue;const big=m.kind==='joutia',r=big?380:180,g=ctx.createRadialGradient(m.x,-m.y,0,m.x,-m.y,r);
+    g.addColorStop(0,big?'rgba(255,77,36,.75)':'rgba(255,179,71,.6)');g.addColorStop(1,'rgba(255,179,71,0)');ctx.fillStyle=g;ctx.beginPath();ctx.arc(m.x,-m.y,r,0,7);ctx.fill()}},
+  photos(ctx,k,def,b,s){if(!mly)return;const r=Math.max(5,1.6/s);ctx.fillStyle='#eeeeea';ctx.beginPath();for(const [x,y,,,pano] of mly.pts){if(x<b[0]||x>b[2]||y<b[1]||y>b[3])continue;ctx.moveTo(x+r,-y);ctx.arc(x,-y,pano?r*1.5:r,0,7)}ctx.fill()},
+  buried(ctx,k,def,b,s){if(!bousk)return;const line=(fs,col,w,dash)=>{ctx.strokeStyle=col;ctx.lineWidth=w/s;ctx.setLineDash(dash.map(v=>v/s));for(const f of fs||[]){ctx.beginPath();f.r.forEach((p,i)=>i?ctx.lineTo(p[0],-p[1]):ctx.moveTo(p[0],-p[1]));ctx.stroke()}ctx.setLineDash([])};ctx.lineCap='round';
+   line(bousk.open,'#5fb4ff',2.6,[]);line(bousk.gap,'rgba(238,238,234,.6)',1.6,[2,6]);line(bousk.historic,'#ff4d24',3,[9,6]);line(bousk.buried,'#ff4d24',3,[])},
   emigration(ctx,k,def,b,s){if(!emig)return;const top=emig.top.filter(c=>c.pos),max=Math.max(...top.map(c=>c.v.at(-1))),[cx,cy]=EMIG_C,lbl=[];
    ctx.lineCap='round';for(const c of top){const n=c.v.at(-1),f=Math.sqrt(n/max),dx=(c.pos[0]-CASA_LL[0])*Math.cos(CASA_LL[1]*Math.PI/180),dy=c.pos[1]-CASA_LL[1],d=Math.hypot(dx,dy),ux=dx/d,uy=dy/d,Lm=1800+6200*f,x=cx+ux*Lm,y=cy+uy*Lm;
     ctx.strokeStyle='rgba(255,77,36,.85)';ctx.lineWidth=(1.5+f*9)/s;ctx.beginPath();ctx.moveTo(cx+ux*400,-(cy+uy*400));ctx.lineTo(x,-y);ctx.stroke();lbl.push([x+ux*500,y+uy*500,c,n])}
@@ -308,6 +332,9 @@ window.Ex13=(()=>{
   if(d.type==='grid'){const br=d.breaks;return `<div class="lg">${br.map((v,i)=>`<span>${swatch(R[d.ramp](i/(br.length-1)))}${i===br.length-1?'≥ '+v:v+'–'+br[i+1]}</span>`).join('')}<small>${u}</small></div>`}
   if(d.type==='value'){const n=8,ticks=[...Array(n+1)].map((_,i)=>d.min+(d.max-d.min)*i/n);return `<div class="lg grad"><b style="background:linear-gradient(90deg,${ticks.map((v,i)=>R[d.ramp](i/n)).join(',')})"></b><div>${ticks.filter((_,i)=>i%2===0).map(v=>`<span>${k==='ndvi'?v.toFixed(2):Math.round(v)}</span>`).join('')}</div><small>${u}${k==='heat'?L(' · القيم الأصلية 21–57؛ التدرّج يبدأ من 30 لإظهار الفروق',' · source values 21–57; the ramp starts at 30 to show the differences'):''}</small></div>`}
   if(d.type==='rwi'){const n=6;return `<div class="lg grad"><b style="background:linear-gradient(90deg,${[...Array(n+1)].map((_,i)=>R.rwi(i/n)).join(',')})"></b><div><span>${L('أفقر نسبيًا','relatively poorer')}</span><span>${L('أغنى نسبيًا','relatively richer')}</span></div><small>${u} · ${L('دقته ≈2.4 كم: صورة عامة بين الأحياء، لا بلوكًا ببلوك','≈2.4 km: a broad picture between districts, not block by block')}</small></div>`}
+  if(d.type==='markets'&&mkts)return `<div class="lg"><span>${swatch('rgba(255,77,36,.8)')}${L('جوطية درب غلف · أكثر من 4000 تاجر دون ترخيص رسمي','Derb Ghallef joutia · 4,000+ traders without official authorisation')}</span><span>${swatch('rgba(255,179,71,.7)')}${L(`أسواق أخرى بالاسم (${mkts.markets.length-1})`,`other named markets (${mkts.markets.length-1})`)}</span><small>${L('الهالة تعني موقعًا تقريبيًا. البسطات الليلية والباعة المتجولون غير موجودين في أي قاعدة بيانات.','The halo means an approximate position. Night stalls and itinerant vendors are in no dataset.')}</small></div>`;
+  if(d.type==='photos'&&mly)return `<div class="lg"><span>${swatch('#eeeeea')}${L(`${mly.pts.length.toLocaleString('en-US')} موقع صورة (الكبيرة بانوراما)`,`${mly.pts.length.toLocaleString('en-US')} photo spots (larger = panorama)`)}</span><small>${L('اضغط على نقطة لفتح الصورة في عارض Mapillary.','Click a dot to open the photo in the Mapillary viewer.')}</small></div>`;
+  if(d.type==='buried'&&bousk)return `<div class="lg"><span>${swatch('#5fb4ff')}${L(`مكشوف · ${bousk.km.open} كم`,`open · ${bousk.km.open} km`)}</span><span>${swatch('#ff4d24')}${L(`مدفون تحت وسط المدينة (موثّق) · ${bousk.km.historic} كم`,`buried under the centre (documented) · ${bousk.km.historic} km`)}</span><span>${swatch('rgba(238,238,234,.6)')}${L(`مسار غير موثّق · ${bousk.km.gap} كم`,`undocumented stretch · ${bousk.km.gap} km`)}</span><small>${L('كان الوادي يصل البحر قرب الدار البيضاء-الميناء أوائل القرن العشرين؛ يُصرَّف اليوم عبر «السوبر كولكتور الغربي» نحو البحر قرب موروكو مول.','In the early 20th century the wadi still reached the sea near Casa-Port; today its floods are diverted by the Super Collecteur Ouest to the sea near Morocco Mall.')}</small></div>`;
   if(d.type==='emigration'&&emig){const t=emig.total,y=emig.years;return `<div class="lg"><span>${L(`المجموع: ${(t[0]/1e6).toFixed(2)} مليون (${y[0]}) ← ${(t.at(-1)/1e6).toFixed(2)} مليون (${y.at(-1)})`,`Total: ${(t[0]/1e6).toFixed(2)}M (${y[0]}) → ${(t.at(-1)/1e6).toFixed(2)}M (${y.at(-1)})`)}</span>${emig.top.slice(0,8).map(c=>`<span dir="ltr">${c.country}: ${Math.round(c.v[0]/1e3)}k → ${Math.round(c.v.at(-1)/1e3)}k</span>`).join('')}<small>${u} · ${L('الاتجاه صحيح، والمسافة ليست بمقياس','true direction, distance not to scale')}</small></div>`}
   if(d.type==='districts')return `<div class="lg"><span>${swatch('#eeeeea')}${L('حدود المقاطعة واسمها','arrondissement limit and name')}</span></div>`;
   if(d.type==='overture')return `<div class="lg">${(ovP?.classes||[]).map((c,i)=>`<span>${swatch(OV_COL[i])}${L(c[0],c[1])} (${ovP.counts[i].toLocaleString('en-US')})</span>`).join('')}<small>${L(`محلات ومقاهٍ: ${(ovP?(ovP.counts[0]+ovP.counts[1]):0).toLocaleString('en-US')} في Overture مقابل ${(ovP?.osmCommerce||0).toLocaleString('en-US')} في OSM`,`Shops + cafés: ${(ovP?(ovP.counts[0]+ovP.counts[1]):0).toLocaleString('en-US')} in Overture vs ${(ovP?.osmCommerce||0).toLocaleString('en-US')} in OSM`)}</small></div>`;
