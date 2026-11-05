@@ -129,6 +129,7 @@ window.Ex13=(()=>{
    fetch('data/places_overture.json?v=1').then(r=>r.ok?r.json():null).then(g=>{ovP=g}).catch(()=>null),
    fetch('data/districts.json?v=2').then(r=>r.ok?r.json():null).then(g=>{distD=g}).catch(()=>null),
    fetch('data/emigration_un.json?v=1').then(r=>r.ok?r.json():null).then(g=>{emig=g}).catch(()=>null),
+   fetch('data/study.json?v=1').then(r=>r.ok?r.json():null).then(g=>{sqStudy=g}).catch(()=>null),
    fetch('data/world_emig.json?v=1').then(r=>r.ok?r.json():null).then(g=>{world=g}).catch(()=>null),
    fetch('data/bouskoura_buried.json?v=2').then(r=>r.ok?r.json():null).then(g=>{bousk=g}).catch(()=>null),
    fetch('data/markets.json?v=1').then(r=>r.ok?r.json():null).then(g=>{mkts=g}).catch(()=>null),
@@ -229,6 +230,7 @@ window.Ex13=(()=>{
   if(state.boundary.on){ctx.save();draw.outline(ctx,'boundary',LAYERS.boundary,bounds,s);ctx.restore()}
   if(section.pts.length){ctx.save();ctx.strokeStyle='#ff4d40';ctx.fillStyle='#ff4d40';ctx.lineWidth=2/s;ctx.setLineDash([8/s,5/s]);const [A,B]=section.pts;ctx.beginPath();ctx.moveTo(A[0],-A[1]);if(B)ctx.lineTo(B[0],-B[1]);ctx.stroke();ctx.setLineDash([]);
    for(const [p,t] of [[A,'A'],[B,'B']]){if(!p)continue;ctx.beginPath();ctx.arc(p[0],-p[1],5/s,0,7);ctx.fill();ctx.save();ctx.setTransform(1,0,0,1,0,0);const d=Math.min(devicePixelRatio||1,1.5),q=screen(p[0],p[1]);ctx.setTransform(d,0,0,d,0,0);ctx.font='600 13px sans-serif';ctx.fillText(t,q[0]+8,q[1]-8);ctx.restore()}ctx.restore()}
+  paintSquares(ctx);
   // frame outline on top
   ctx.save();ctx.strokeStyle=light?'#111':'#fff';ctx.lineWidth=1/s;ctx.setLineDash([6/s,5/s]);ctx.strokeRect(FRAME[0],-FRAME[3],FRAME[2]-FRAME[0],FRAME[3]-FRAME[1]);ctx.restore();
  }
@@ -732,6 +734,46 @@ window.Ex13=(()=>{
  // Language switch: retitle open windows and move them to the new side at once, keeping layer state.
  new MutationObserver(()=>{if(topic){const sp=specsFor(topic);wins.forEach((el,i)=>{const s=sp.find(x=>x[0]===el.dataset.ex);if(s)el.querySelector('.wintitle').innerHTML=`<small>1.3</small>${s[1]}`;placeWin(el,i)})}fill();document.querySelectorAll('[data-ex13]').forEach(b=>{const t=TOPICS.find(x=>x.id===b.dataset.ex13);b.querySelector('span').textContent=L(t.t[0],t.t[1])})}).observe(document.documentElement,{attributes:true,attributeFilter:['lang','dir']});
  document.querySelectorAll('[data-ex13]').forEach(b=>{const t=TOPICS.find(x=>x.id===b.dataset.ex13);b.querySelector('span').textContent=L(t.t[0],t.t[1])});
+ /* ---------- the four study squares: their own plan, in every chapter ----------
+    Drawn in the language of the 4-fabrics presentation: light paper, buildings grey by storeys (GBA height
+    ÷ 3 m), streets in brown. Zoomed out, each square blooms as a plate beside it with a leader line;
+    zoomed in, the plan sits in the square itself. Click a square or its plate for its card. */
+ const SQ=[['S3','01','أنفا العليا','Anfa Supérieur',[-170,-30],2,3],['S4','02','المدينة القديمة','Old Medina',[-40,-165],4,6],['S1','03','الأحباس','Habous',[165,-60],8,9],['S2','04','عين الشق','Aïn Chock',[120,120],11,12]];
+ const STOREY=[[7,'#c4c3be',['1–2 طابق','1–2 storeys']],[13,'#8f8e89',['3–4 طوابق','3–4 storeys']],[1e9,'#55544f',['5+ طوابق','5+ storeys']]];
+ let sqBoxes=null,sqStudy=null;const sqPlan={},sqHit=[];
+ function squares(){if(sqBoxes)return sqBoxes;const f=sqStudy?.features;if(!f)return null;return sqBoxes=SQ.map(q=>({q,f:f.find(x=>x.id===q[0])})).filter(x=>x.f)}
+ function sqBuildings(b){const out=[];for(const bd of window.DNA?.buildings||[])if(overlap(bd.b,b))out.push(bd);
+  if(typeof msGrid!=='undefined'){const seen=new Set();for(const arr of msGrid.values())for(const bd of arr)if(!seen.has(bd)&&overlap(bd.b,b)){seen.add(bd);out.push(bd)}}return out}
+ function planCanvas(sq,px=420){const id=sq.q[0];if(sqPlan[id]?.px===px)return sqPlan[id].c;const b=sq.f.b,c=document.createElement('canvas');c.width=c.height=px;const g=c.getContext('2d'),k=px/(b[2]-b[0]);
+  g.fillStyle='#efeee8';g.fillRect(0,0,px,px);g.setTransform(k,0,0,-k,-b[0]*k,b[3]*k);
+  g.lineCap=g.lineJoin='round';for(const r of window.DNA?.roads||[]){const major=/primary|secondary|trunk|tertiary/.test(r.t||'');g.strokeStyle=major?'#8a5a2b':'#b48a5e';g.lineWidth=(major?2.2:1)/k;g.beginPath();for(const part of r.r)part.forEach((p,i)=>i?g.lineTo(p[0],p[1]):g.moveTo(p[0],p[1]));g.stroke()}
+  for(const bd of sqBuildings(b)){const h=heightOf(bd)||6;g.fillStyle=(STOREY.find(s=>h<s[0])||STOREY[2])[1];g.beginPath();for(const r of bd.r)r.forEach((p,i)=>i?g.lineTo(p[0],p[1]):g.moveTo(p[0],p[1]));g.fill('evenodd')}
+  sqPlan[id]={px,c};return c}
+ function paintSquares(ctx){const S_=squares();if(!S_||window.Ex13World)return;sqHit.length=0;
+  ctx.save();ctx.setTransform(1,0,0,1,0,0);const dpr=Math.min(devicePixelRatio||1,1.5);ctx.setTransform(dpr,0,0,dpr,0,0);
+  for(const sq of S_){const b=sq.f.b,[x0,y0]=screen(b[0],b[3]),[x1,y1]=screen(b[2],b[1]),P=x1-x0;let X,Y,Z;
+   if(P>=120){X=x0;Y=y0;Z=P}else{Z=128;X=Math.min(Math.max(8,(x0+x1)/2+sq.q[4][0]-Z/2),innerWidth-Z-8);Y=Math.min(Math.max(X<300?190:40,(y0+y1)/2+sq.q[4][1]-Z/2),innerHeight-Z-50);
+    ctx.strokeStyle='#ff4d24';ctx.lineWidth=1;ctx.beginPath();ctx.moveTo((x0+x1)/2,(y0+y1)/2);ctx.lineTo(X+Z/2,Y+Z/2);ctx.stroke();ctx.strokeRect(x0,y0,P,P)}
+   ctx.drawImage(planCanvas(sq,Z>300?840:420),X,Y,Z,Z);ctx.strokeStyle='#ff4d24';ctx.lineWidth=1.5;ctx.strokeRect(X,Y,Z,Z);
+   ctx.font='600 11px "Readex Pro","Noto Kufi Arabic",sans-serif';ctx.textAlign='left';ctx.direction='ltr';const t=`${sq.q[1]} — ${L(sq.q[2],sq.q[3])}`,w=ctx.measureText(t).width+10;ctx.fillStyle='#0e0e0e';ctx.fillRect(X,Y-17,w,17);ctx.fillStyle='#fff';ctx.fillText(t,X+5,Y-5);
+   sqHit.push([X,Y-17,Z,Z+17,sq])}
+  ctx.restore()}
+ function sqStats(sq){const b=sq.f.b,A=(b[2]-b[0])*(b[3]-b[1]),B=sqBuildings(b);let fp=0,hs=0,hn=0;const st=[0,0,0];
+  for(const bd of B){let a=0;for(const r of bd.r){let s=0;for(let i=0;i<r.length-1;i++)s+=r[i][0]*r[i+1][1]-r[i+1][0]*r[i][1];a+=s/2}a=Math.abs(a);fp+=a;const h=heightOf(bd);if(h){hs+=h*a;hn+=a;st[STOREY.findIndex(s=>h<s[0])]++}}
+  const cx=(b[0]+b[2])/2,cy=(b[1]+b[3])/2,cell=window.Morph13?.cells?.find(c=>cx>=c.box[0]&&cx<c.box[2]&&cy>=c.box[1]&&cy<c.box[3]),R_=cell&&Morph13.RULES.find(r=>r[0]===cell.type);
+  let w=null;for(const [a,b_,p,q,v] of distD?.rwi||[])if(cx>=a&&cx<=p&&cy>=b_&&cy<=q){w=v;break}
+  let pop=0;for(const f of data?.layers.pop?.features||[]){const c=f.b;if(!c)continue;const mx=(c[0]+c[2])/2,my=(c[1]+c[3])/2;if(mx>=b[0]&&mx<b[2]&&my>=b[1]&&my<b[3])pop+=f.v}
+  return{n:B.length,ms:B.filter(x=>x.ms).length,cover:fp/A*100,h:hn?hs/hn:null,st,type:R_?L(...R_[2]):null,w,pop,A}}
+ function openSquare(sq){const s=sqStats(sq),q=sq.q;let el=wins.find(w=>w.dataset.ex==='square');if(!el)el=makeWin('square',L('المربع','SQUARE')+' '+q[1],0,0,wins.length);el.querySelector('.wintitle').innerHTML=`<small>1.3</small>${L('المربع','SQUARE')} ${q[1]} · ${L(q[2],q[3])}`;
+  el.querySelector('.winbody').innerHTML=`<div class="ex13 sqCard"><img class="sqPlan" src="${planCanvas(sq,840).toDataURL()}" alt="">
+   <div class="lg">${STOREY.map((x,i)=>`<span>${swatch(x[1])}${L(...x[2])} · ${s.st[i]}</span>`).join('')}<span>${swatch('#8a5a2b')}${L('شارع رئيسي / محلي','primary / local street')}</span></div>
+   <table class="sqStats"><tr><td>${L('مبانٍ','buildings')}</td><td>${fmt(s.n)}${s.ms?` <small>(${s.ms} ${L('مستكملة من Microsoft','completed from Microsoft')})</small>`:''}</td></tr>
+   <tr><td>${L('نسبة البناء','built cover')}</td><td>${fmt(s.cover,0)}%</td></tr><tr><td>${L('متوسط الارتفاع','mean height')}</td><td>${s.h?fmt(s.h,1)+' m ≈ '+Math.max(1,Math.round(s.h/3))+' '+L('طوابق','storeys'):'—'}</td></tr>
+   <tr><td>${L('السكان (GHS-POP)','people (GHS-POP)')}</td><td>${s.pop?'≈'+fmt(Math.round(s.pop/100)*100):'—'}</td></tr><tr><td>${L('نمط الشوارع','street pattern')}</td><td>${s.type||'—'}</td></tr><tr><td>${L('الثروة النسبية','relative wealth')}</td><td>${s.w!=null?s.w.toFixed(2)+' <small>('+L('مربع ≈2.4 كم حوله','≈2.4 km tile around it')+')</small>':'—'}</td></tr></table>
+   <p class="tiny">${L('المربع ≈415 م · المباني OSM + Microsoft · الطوابق = ارتفاع GBA ÷ 3 م (تقديري؛ رصدكم الميداني في اللوحة أدناه أدق).','Square ≈415 m · buildings OSM + Microsoft · storeys = GBA height ÷ 3 m (estimate; your street survey on the sheet below is more precise).')}</p>
+   <p class="form">${L('لوحتكم: المخطط والمقطع','Your sheet: plan and section')}</p><img class="studySheet" src="assets/reference-${q[5]}.png" alt=""><img class="studySheet" src="assets/reference-${q[6]}.png" alt=""></div>`}
+ // a click on a square or its plate opens the card (capture: before the map's own click handling)
+ document.addEventListener('click',e=>{if(!topic||!sqHit.length||e.target.id!=='map')return;const h=sqHit.find(([x,y,w,hh])=>e.clientX>=x&&e.clientX<=x+w&&e.clientY>=y&&e.clientY<=y+hh);if(h){e.stopPropagation();e.preventDefault();openSquare(h[4])}},true);
  let world=null;
  function drawWorld(ctx,s){const C=world.countries,dest=C.filter(c=>c.v),max=Math.max(...dest.map(c=>c.v)),[ox,oy]=world.centre;
   for(const c of C){c.p||(c.p=pathOf(c.r));ctx.fillStyle=c.v?`rgba(255,${Math.round(190-150*Math.sqrt(c.v/max))},60,${(.35+.55*Math.sqrt(c.v/max)).toFixed(2)})`:'#1b1b1a';ctx.fill(c.p,'evenodd');ctx.strokeStyle='#4a4a46';ctx.lineWidth=1/s;ctx.stroke(c.p)}

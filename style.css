@@ -103,3 +103,4 @@ html[dir=rtl] #exp13{right:auto;left:16px;align-items:flex-start}
 /* 1.3 tilted 3D view: the three map canvases share one perspective so layers stay aligned */
 body.tilt13 #map,body.tilt13 #windLayer,body.tilt13 #busLayer{transform:perspective(1300px) rotateX(50deg) scale(1.45);transform-origin:50% 66%;transition:transform .5s}
 #map,#windLayer,#busLayer{transition:transform .5s}
+.sqCard .sqPlan{width:100%;display:block;border:1px solid #ff4d24;margin-bottom:8px}.sqCard .sqStats{width:100%;border-collapse:collapse;margin:8px 0}.sqCard .sqStats td{border-top:1px solid #222;padding:4px 2px;color:#ddd}.sqCard .sqStats td:first-child{color:#999}.sqCard .studySheet{width:100%;display:block;margin:6px 0;background:#fff}
