@@ -81,3 +81,25 @@ body.dark .brand.lockup{background:#0e0e0ec9;color:#fff;padding:5px 7px}body.dar
 .ex13 .exp span{flex:1;color:#aaa}
 #windLayer,#busLayer{position:fixed;inset:0;pointer-events:none;z-index:5}
 #timeline13 svg{user-select:none;-webkit-user-select:none;touch-action:none}
+
+/* 1.3 base settings (same in every chapter) and the export arrow */
+.ex13 .base13{border:1px solid #2a2a28;padding:6px 8px;margin-bottom:10px}
+.ex13 .base13 summary{cursor:pointer;color:#ff4d40;font-size:11px;letter-spacing:.04em}
+.ex13 .base13 label{display:block;margin:5px 0;color:#bbb;cursor:pointer}
+.ex13 .tools13{border-top:1px solid #222;margin-top:10px;padding-top:8px}
+#exp13{position:fixed;right:16px;bottom:16px;z-index:30;display:flex;flex-direction:column;align-items:flex-end;gap:6px}
+#exp13[hidden]{display:none}
+#exp13 .expArrow{width:36px;height:36px;border-radius:50%;background:#0f0f0e;color:#f3f3ed;border:1px solid #ff4d40;font-size:17px;line-height:1}
+#exp13 .expArrow:hover{background:#ff4d40}
+#exp13 .expMenu{display:none;order:-1;background:#0f0f0ef2;border:1px solid #333;padding:8px;gap:6px;grid-template-columns:auto auto auto;align-items:center;max-width:260px}
+#exp13.open .expMenu{display:grid}
+#exp13 .expMenu span{color:#aaa;font-size:11px}
+#exp13 .expMenu button{background:#111;color:#f3f3ed;border:1px solid #333;padding:5px 8px}
+#exp13 .expMenu button:hover{border-color:#ff4d40}
+#exp13 .expMenu small{grid-column:1/-1;color:#888;font-size:10px}
+html[dir=rtl] #exp13{right:auto;left:16px;align-items:flex-start}
+#exp13 .expMenu button{font-size:11px;padding:4px 7px;white-space:nowrap}
+#chapterMenu [hidden],#mapTools [hidden]{display:none!important}
+/* 1.3 tilted 3D view: the three map canvases share one perspective so layers stay aligned */
+body.tilt13 #map,body.tilt13 #windLayer,body.tilt13 #busLayer{transform:perspective(1300px) rotateX(50deg) scale(1.45);transform-origin:50% 66%;transition:transform .5s}
+#map,#windLayer,#busLayer{transition:transform .5s}
