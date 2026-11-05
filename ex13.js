@@ -93,7 +93,9 @@ window.Ex13=(()=>{
  // the documented buried bed through the centre, and the undocumented stretch between them.
  let bousk=null;
  // Known markets (prep/markets_layer.py) and Mapillary photo points [x,y,id,year,pano] (prep/mapillary_points.py).
- let mkts=null,mly=null;const EMIG_C=[-2226,15519],CASA_LL=[-7.6,33.57];
+ let mkts=null,mly=null;
+ // Street-pattern cells measured once (Morph13.dump on the dev server) instead of on every first chapter open.
+ let morphPre=null;const EMIG_C=[-2226,15519],CASA_LL=[-7.6,33.57];
  let ovP=null;const OV_COL=['#e0a400','#ff7a59','#7ad7ff','#8ce0a0','#9a9a94'];
  const heightOf=bd=>gbaH?.osm[bd.id]??data.hIndex?.get(Math.floor((bd.b[0]+bd.b[2])/200)+','+Math.floor((bd.b[1]+bd.b[3])/200));
  const BUS_CLASSES=[1,6,12,24,48,96],B62='0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ';
@@ -117,6 +119,7 @@ window.Ex13=(()=>{
    fetch('data/emigration_un.json?v=1').then(r=>r.ok?r.json():null).then(g=>{emig=g}).catch(()=>null),
    fetch('data/bouskoura_buried.json?v=2').then(r=>r.ok?r.json():null).then(g=>{bousk=g}).catch(()=>null),
    fetch('data/markets.json?v=1').then(r=>r.ok?r.json():null).then(g=>{mkts=g}).catch(()=>null),
+   fetch('data/morph_pre.json?v=1').then(r=>r.ok?r.json():null).then(g=>{morphPre=g}).catch(()=>null),
    fetch('data/mapillary_points.json?v=1').then(r=>r.ok?r.json():null).then(g=>{mly=g}).catch(()=>null),
    // Plans shown under the timeline: the latest one not after the cursor year. 1938 and 1955 are the
    // Schéma directeur 1975 schematics reproduced by Kasmi (1994), georeferenced in prep/georef_kasmi*.json.
@@ -130,7 +133,7 @@ window.Ex13=(()=>{
   for(const k in data.layers)for(const f of data.layers[k].features||[])if(f.r)f.b=bbox(f.r);
   data.busMax=Math.max(1,...(data.layers.bus_overlap?.features||[]).map(f=>f.n||1));
   data.stopMax=Math.max(1,...(data.layers.bus_stops?.features||[]).map(f=>f.n||1));
-  if(window.Morph13)Morph13.compute(data.layers.built.features);
+  if(window.Morph13){if(morphPre)Morph13.load(morphPre);else Morph13.compute(data.layers.built.features)}
   data.nightMax=Math.max(1,...(data.layers.night_lights?.cells||[]).map(c=>c[2]));
   data.hubIds=new Set((data.layers.transport_hubs?.features||[]).map(f=>f.c.join(',')));
   const P=data.layers.pois.features;

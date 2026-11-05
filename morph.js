@@ -49,10 +49,16 @@ window.Morph13=(()=>{
   ['honeycomb',c=>c.tShare>=.8&&c.right<.5,['خلية نحل: تقاطعات ثلاثية بلا اتجاه','Honeycomb: three-way junctions, no direction'],'#c58cff',['تقاطعات T ≥ 80% والشوارع لا تتبع اتجاهين متعامدين (< 50%)','T-junctions ≥ 80% and streets follow no perpendicular pair (< 50%)']],
   ['mixed',()=>true,['انتقالي / مختلط','Transitional / mixed'],'#6d6d66',['لا يطابق أي قاعدة أعلاه','matches none of the rules above']]];
  function classify(c){for(const [id,test] of RULES)if(test(c))return id}
+ // The street graph takes seconds to measure, so the site ships the result (data/morph_pre.json, written by
+ // dump() on the dev server) and only rebuilds the cheap segment list here.
+ function dump(){return{cells:cells.map(({bins,...c})=>c),junctions}}
+ function load(pre){if(cells)return cells;cells=pre.cells;junctions=pre.junctions;cellOf=new Map(cells.map(c=>[c.i+','+c.j,c]));segsAll=[];
+  for(const r of roads){if(!DRIVE.has(r.t))continue;for(const part of r.r)for(let i=1;i<part.length;i++)segsAll.push([part[i-1],part[i]])}
+  return cells}
  // One Path2D per pattern: each street segment takes the pattern of the cell its midpoint falls in (y flipped for the map).
  let segBy=null;
  function streetPaths(){if(paths)return paths;paths={};segBy={};for(const [id] of RULES){paths[id]=new Path2D();segBy[id]=[]}
   for(const [a,b] of segsAll){const mx=(a[0]+b[0])/2,my=(a[1]+b[1])/2,c=cellOf.get(Math.floor((mx-FRAME[0])/CELL)+','+Math.floor((my-FRAME[1])/CELL));if(!c||!c.type)continue;const p=paths[c.type];p.moveTo(a[0],-a[1]);p.lineTo(b[0],-b[1]);segBy[c.type].push([a,b])}
   return paths}
- return{compute,RULES,streetPaths,get segmentsByType(){streetPaths();return segBy},get cells(){return cells},get junctions(){return junctions},CELL};
+ return{compute,load,dump,RULES,streetPaths,get segmentsByType(){streetPaths();return segBy},get cells(){return cells},get junctions(){return junctions},CELL};
 })();
