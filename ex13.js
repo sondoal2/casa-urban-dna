@@ -137,7 +137,7 @@ window.Ex13=(()=>{
     // The centre table repeats its totals on every piece of a centre: sum the pieces' areas once per name.
     const c={};for(const x of g.centres){const o=c[x.name]||(c[x.name]={name:x.name,n:x.n,km2:x.km2,area:0});o.area+=x.area_km2}park.sum=Object.values(c)}).catch(()=>null),
    fetch('data/morph_pre.json?v=1').then(r=>r.ok?r.json():null).then(g=>{morphPre=g}).catch(()=>null),
-   fetch('data/relocations.json?v=1').then(r=>r.ok?r.json():null).then(g=>{reloc=g}).catch(()=>null),
+   fetch('data/relocations.json?v=2').then(r=>r.ok?r.json():null).then(g=>{reloc=g}).catch(()=>null),
    fetch('data/kasmi_arrows.json?v=1').then(r=>r.ok?r.json():null).then(g=>{kArrows=g}).catch(()=>null),
    fetch('data/wind_gwa.json?v=1').then(r=>r.ok?r.json():null).then(g=>{gwa=g;if(g){const v=g.v.filter(x=>x>0).sort((a,b)=>a-b);gwaMed=v[v.length>>1]/10||2.6}}).catch(()=>null),
    fetch('data/mapillary_points.json?v=1').then(r=>r.ok?r.json():null).then(g=>{mly=g}).catch(()=>null),
@@ -212,6 +212,18 @@ window.Ex13=(()=>{
  canvas.addEventListener('pointerdown',e=>{if(!section.drawing)return;e.stopImmediatePropagation();e.preventDefault();section.pts.push(world(e.clientX,e.clientY));
   if(section.pts.length===2){section.drawing=false;canvas.style.cursor='grab';computeSection();let el=wins.find(w=>w.dataset.ex==='section');if(!el)el=makeWin('section',L('مقطع A–B','SECTION A–B'),0,0,wins.length);el.querySelector('.winbody').innerHTML=sectionSVG()}
   fill();render()},{capture:true});
+ // 3D buildings: in the tilted view every building (OSM + Microsoft) is extruded to its own height
+ // (GlobalBuildingAtlas per building, else the 100 m GHSL mean). The roof is the footprint moved "up" by
+ // the height (×1.6 so the tilt does not flatten it); far buildings are drawn first. Zoomed in only.
+ function paintExtrusion(ctx,b,s){if(s<.12){return}const E=1.6,list=[];
+  for(const bd of window.DNA?.buildings||[])if(overlap(bd.b,b))list.push(bd);
+  if(typeof msGrid!=='undefined'){const seen=new Set();for(const arr of msGrid.values())for(const bd of arr)if(!seen.has(bd)&&overlap(bd.b,b)){seen.add(bd);list.push(bd)}}
+  if(list.length>26000)return;list.sort((p,q)=>q.b[3]-p.b[3]);
+  for(const bd of list){const h=heightOf(bd);if(!h)continue;const dz=h*E,q=bd.r[0],t=Math.min(1,h/30);
+   ctx.fillStyle=`rgb(${Math.round(70+60*t)},${Math.round(70+55*t)},${Math.round(68+50*t)})`;ctx.beginPath();
+   for(let i=0;i<q.length-1;i++){const A=q[i],B=q[i+1];ctx.moveTo(A[0],-A[1]);ctx.lineTo(B[0],-B[1]);ctx.lineTo(B[0],-(B[1]+dz));ctx.lineTo(A[0],-(A[1]+dz));ctx.closePath()}ctx.fill();
+   ctx.fillStyle=R.height(.25+.75*t);ctx.beginPath();q.forEach((v,i)=>i?ctx.lineTo(v[0],-(v[1]+dz)):ctx.moveTo(v[0],-(v[1]+dz)));ctx.closePath();ctx.fill();
+   ctx.strokeStyle='rgba(0,0,0,.35)';ctx.lineWidth=.6/s;ctx.stroke()}}
  // Tilted 3D view: the map, wind and bus canvases tilt together (CSS perspective), so every layer stays aligned.
  let tilt=false;function setTilt(on){tilt=on;document.body.classList.toggle('tilt13',on);if(on&&iso){iso=false;setIso(false)}render()}
  // The column view is drawn in its own projection: overlays that cannot follow it (wind, buses) pause while it is on.
@@ -230,6 +242,7 @@ window.Ex13=(()=>{
   if(state.boundary.on){ctx.save();draw.outline(ctx,'boundary',LAYERS.boundary,bounds,s);ctx.restore()}
   if(section.pts.length){ctx.save();ctx.strokeStyle='#ff4d40';ctx.fillStyle='#ff4d40';ctx.lineWidth=2/s;ctx.setLineDash([8/s,5/s]);const [A,B]=section.pts;ctx.beginPath();ctx.moveTo(A[0],-A[1]);if(B)ctx.lineTo(B[0],-B[1]);ctx.stroke();ctx.setLineDash([]);
    for(const [p,t] of [[A,'A'],[B,'B']]){if(!p)continue;ctx.beginPath();ctx.arc(p[0],-p[1],5/s,0,7);ctx.fill();ctx.save();ctx.setTransform(1,0,0,1,0,0);const d=Math.min(devicePixelRatio||1,1.5),q=screen(p[0],p[1]);ctx.setTransform(d,0,0,d,0,0);ctx.font='600 13px sans-serif';ctx.fillText(t,q[0]+8,q[1]-8);ctx.restore()}ctx.restore()}
+  if(tilt)paintExtrusion(ctx,bounds,s);
   paintSquares(ctx);
   // frame outline on top
   ctx.save();ctx.strokeStyle=light?'#111':'#fff';ctx.lineWidth=1/s;ctx.setLineDash([6/s,5/s]);ctx.strokeRect(FRAME[0],-FRAME[3],FRAME[2]-FRAME[0],FRAME[3]-FRAME[1]);ctx.restore();
@@ -283,6 +296,12 @@ window.Ex13=(()=>{
    ctx.fillStyle=light?'#2a2f55':'#6f7cff';ctx.fill(p,'nonzero');ctx.fillStyle=light?'#9a9a94':'#d8d6cf';ctx.fill(fp,'nonzero')},
   histplan(ctx,k,def,b,s){window.Timeline13?.paintPlan(ctx,state[k].op)},
   reloc(ctx,k,def,b,s){if(!reloc)return;const P=reloc.places;ctx.lineCap='round';
+   // Demolished site: red outline (traced, exact). Reception site: white frame of the documented area, dashed = approximate.
+   for(const [key,a] of Object.entries(reloc.areas||{})){const p=a.p||(a.p=pathOf(a.rings)),red=a.kind==='demolished';ctx.fillStyle=red?'rgba(255,77,36,.28)':'rgba(255,255,255,.14)';ctx.fill(p,'evenodd');
+    ctx.strokeStyle=red?'#ff4d24':'#ffffff';ctx.lineWidth=2.2/s;ctx.setLineDash(a.exact?[]:[7/s,5/s]);ctx.stroke(p);ctx.setLineDash([])}
+   ctx.save();ctx.setTransform(1,0,0,1,0,0);const dpr=Math.min(devicePixelRatio||1,1.5);ctx.setTransform(dpr,0,0,dpr,0,0);ctx.font='600 11px "Readex Pro","Noto Kufi Arabic",sans-serif';ctx.textAlign='center';
+   for(const [key,a] of Object.entries(reloc.areas||{})){const bb=a.b||(a.b=bbox(a.rings)),[X,Y]=screen((bb[0]+bb[2])/2,bb[3]),t=a.kind==='demolished'?L(`هُدم · ${a.ha} هكتار`,`demolished · ${a.ha} ha`):L(`حي الاستقبال · ≈${a.ha} هكتار (موقع ومساحة تقريبيان)`,`reception district · ≈${a.ha} ha (approximate place + size)`),w=ctx.measureText(t).width+10;
+    ctx.fillStyle='#0e0e0ed9';ctx.fillRect(X-w/2,Y-22,w,16);ctx.fillStyle=a.kind==='demolished'?'#ff866a':'#fff';ctx.fillText(t,X,Y-10)}ctx.restore();
    for(const m of reloc.moves){const [x0,y0]=P[m.from],[x1,y1]=P[m.to],mx=(x0+x1)/2-(y1-y0)*.18,my=(y0+y1)/2+(x1-x0)*.18,a=Math.atan2(y1-my,x1-mx),h=Math.max(260,16/s);
     ctx.strokeStyle=ctx.fillStyle='#ff4d24';ctx.lineWidth=4/s;ctx.beginPath();ctx.moveTo(x0,-y0);ctx.quadraticCurveTo(mx,-my,x1,-y1);ctx.stroke();
     ctx.beginPath();ctx.moveTo(x1,-y1);ctx.lineTo(x1-h*Math.cos(a-.4),-(y1-h*Math.sin(a-.4)));ctx.lineTo(x1-h*Math.cos(a+.4),-(y1-h*Math.sin(a+.4)));ctx.closePath();ctx.fill();
@@ -387,12 +406,14 @@ window.Ex13=(()=>{
  // runs its line's shape at one network speed, so buses never appear mid-street, merge or overtake; a bus
  // vanishes only at its last stop. Clock: 1 s on screen = 1 min of the day, starting at the chosen hour.
  let busOn=false,busRaf=0,bcan=null,bctx=null,buses=null,busTrips=null,busClock=8*3600,busLast=0;
- const BUS_TAIL_S=14*60,BUS_RATE=60;
+ const BUS_TAIL_S=30*60,BUS_RATE=60;
  function prepBuses(){if(!busTrips)return;buses=busTrips.shapes.map(f=>{const pts=[[f[0],f[1]]];for(let i=2;i<f.length;i+=2){const p=pts[pts.length-1];pts.push([p[0]+f[i],p[1]+f[i+1]])}
   const cum=[0];for(let i=1;i<pts.length;i++)cum.push(cum[i-1]+Math.hypot(pts[i][0]-pts[i-1][0],pts[i][1]-pts[i-1][1]));return{pts,cum,len:cum.at(-1)}})}
  function seek(r,d){let lo=0,hi=r.cum.length-1;while(hi-lo>1){const m=(lo+hi)>>1;if(r.cum[m]<d)lo=m;else hi=m}return lo}
  function pointAt(r,i,d){const a=r.pts[i],b=r.pts[i+1],t=(d-r.cum[i])/Math.max(1e-6,r.cum[i+1]-r.cum[i]);return[a[0]+(b[0]-a[0])*t,a[1]+(b[1]-a[1])*t]}
  function busLoop(){busRaf=requestAnimationFrame(busLoop);if(!bctx)return;bctx.clearRect(0,0,bcan.width,bcan.height);if(!busOn||!topic||!state.busflow.on||!buses)return;
+  // Movement only: the map goes black under the buses, so the light comes from the buses alone.
+  bctx.fillStyle='rgba(0,0,0,.88)';bctx.fillRect(0,0,bcan.width,bcan.height);
   bctx.save();if(clipFrame){const [x0,y0]=screen(FRAME[0],FRAME[3]),[x1,y1]=screen(FRAME[2],FRAME[1]);bctx.beginPath();bctx.rect(x0,y0,x1-x0,y1-y0);bctx.clip()}
   // Each bus is a comet: a red tail fading to nothing behind a white head. Tails add up ('lighter'),
   // so streets many lines share glow brighter.
@@ -406,9 +427,10 @@ window.Ex13=(()=>{
    const at=x=>dir===1?r.len-x:x,dh=Math.min(s,r.len),d0=Math.max(0,s-tail);// head stops at the terminus while the tail drains into it
    const a=at(d0),b=at(dh),lo_=Math.min(a,b),hi_=Math.max(a,b),i0=seek(r,lo_),i1=seek(r,hi_);
    const pa=screen(...pointAt(r,i0,lo_)),pb=screen(...pointAt(r,i1,hi_)),hp=dir===1?pa:pb,tp=dir===1?pb:pa,g=bctx.createLinearGradient(tp[0],tp[1],hp[0],hp[1]);
-   g.addColorStop(0,'rgba(255,40,28,0)');g.addColorStop(.8,'rgba(255,50,32,.13)');g.addColorStop(1,'rgba(255,200,190,.45)');bctx.strokeStyle=g;
+   g.addColorStop(0,'rgba(255,30,20,0)');g.addColorStop(.85,'rgba(255,40,24,.12)');g.addColorStop(1,'rgba(255,60,36,.32)');bctx.strokeStyle=g;
    bctx.beginPath();bctx.moveTo(pa[0],pa[1]);for(let i=i0+1;i<=i1;i++){const p=screen(...r.pts[i]);bctx.lineTo(p[0],p[1])}bctx.lineTo(pb[0],pb[1]);bctx.stroke();if(s<=r.len)heads.push(hp)}
-  bctx.globalCompositeOperation='source-over';bctx.fillStyle='#ffffff';for(const [x,y] of heads){bctx.beginPath();bctx.arc(x,y,1.8,0,7);bctx.fill()}bctx.restore()}
+  // head: a soft red glow, not a hard dot
+  for(const [x,y] of heads){const h=bctx.createRadialGradient(x,y,0,x,y,7);h.addColorStop(0,'rgba(255,70,40,.55)');h.addColorStop(1,'rgba(255,40,20,0)');bctx.fillStyle=h;bctx.fillRect(x-7,y-7,14,14)}bctx.globalCompositeOperation='source-over';bctx.restore()}
  function setBus(on){busOn=on;if(on){if(!bcan){bcan=document.createElement('canvas');bcan.id='busLayer';document.body.appendChild(bcan);bctx=bcan.getContext('2d');const fit=()=>{bcan.width=innerWidth;bcan.height=innerHeight};fit();addEventListener('resize',fit)}if(!buses)prepBuses();busClock=busHour*3600;busLast=0;if(!busRaf)busLoop()}else if(bctx)bctx.clearRect(0,0,bcan.width,bcan.height)}
 
  /* ---------- legend ---------- */
@@ -548,7 +570,7 @@ window.Ex13=(()=>{
   const lay=body('layers');if(lay)lay.innerHTML=`<div class="ex13">${T.play?`<div class="playRow"><button id="play13" class="act">${playTimer?'■ '+L('إيقاف','Stop'):'▶ '+L('تشغيل متتابع','Play sequence')}</button><span class="seg"><button data-speed="1000" class="${speed===1000?'on':''}">1 ${L('ث','s')}</button><button data-speed="2000" class="${speed===2000?'on':''}">2 ${L('ث','s')}</button></span></div>`:''}${baseHTML()}${[...order].reverse().filter(k=>!BASEK.has(k)).map(k=>{const d=LAYERS[k],s=state[k];return `<div class="row ${s.on?'on':''}"><label><input type="checkbox" data-on="${k}" ${s.on?'checked':''}> ${L(d.t[0],d.t[1])}</label><span class="ord"><button data-up="${k}" title="up">▲</button><button data-down="${k}" title="down">▼</button></span>${s.on&&k!=='wind'?`<input type="range" min="0" max="1" step=".05" value="${s.op}" data-op="${k}">`:''}${k==='bustime'&&s.on?`<div class="playRow"><button class="act" data-busplay>${busPlay?'■':'▶'}</button><input type="range" min="5" max="22" step="1" value="${busHour}" data-bushour aria-label="${L('الساعة','Hour')}"><span data-bushour-label>${busHour}:00</span></div>`:''}</div>`}).join('')}</div>`;
   const lg=body('legend');if(lg)lg.innerHTML=`<div class="ex13"><p class="q">${L(T.q[0],T.q[1])}</p><p class="form">${L('شكل التمثيل','Representation')}: ${L(T.form[0],T.form[1])}</p>${[...order].reverse().filter(k=>state[k].on&&k!=='wind'&&!BASEK.has(k)).map(k=>`<div class="row on"><b>${L(LAYERS[k].t[0],LAYERS[k].t[1])}</b>${legend(k)}<small class="src">${LAYERS[k].src}</small>${NOTES[k]?`<small class="note">${L(...NOTES[k])}</small>`:''}</div>`).join('')}</div>`;
   // Reading tools sit under the key: 3D view, section, and the conclusion printed under the exported map.
-  const ex=lg?.querySelector('.ex13');if(ex)ex.insertAdjacentHTML('beforeend',`<div class="tools13"><label class="clip"><input type="checkbox" id="tilt13" ${tilt?'checked':''}> ${L('منظر مائل 3D · كل الطبقات تميل معًا (الريح والباصات أيضًا)','Tilted 3D view · all layers tilt together (wind and buses too)')}</label>${T.layers.some(k=>LAYERS[k].type==='grid'||LAYERS[k].type==='value')?`<label class="clip"><input type="checkbox" id="iso13" ${iso?'checked':''}> ${L('3D أيزومتريك · ارتفاع العمود = قيمة أعلى طبقة خلايا ظاهرة','3D isometric · column height = value of the top visible cell layer')}</label>`:''}<button class="action" data-section>${section.drawing?L('اضغط نقطتين على الخريطة…','Click two points on the map…'):L('رسم مقطع ✕','Draw a section ✕')}</button><label class="fieldLabel">${L('الاستنتاج · يُطبع تحت الخريطة، عدّله كما تريد','Conclusion · printed under the map, edit freely')}<textarea id="concl13" rows="7">${esc(conclusion(T))}</textarea></label><button class="textAction" data-concl-reset>${L('استرجاع المسودة','Restore draft')} ↺</button></div>`);
+  const ex=lg?.querySelector('.ex13');if(ex)ex.insertAdjacentHTML('beforeend',`<div class="tools13"><label class="clip"><input type="checkbox" id="tilt13" ${tilt?'checked':''}> ${L('منظر 3D · المباني ترتفع بارتفاعها الحقيقي عند التقريب، وكل الطبقات تميل معها','3D view · buildings rise to their real height when zoomed in; all layers tilt with them')}</label>${T.layers.some(k=>LAYERS[k].type==='grid'||LAYERS[k].type==='value')?`<label class="clip"><input type="checkbox" id="iso13" ${iso?'checked':''}> ${L('3D أيزومتريك · ارتفاع العمود = قيمة أعلى طبقة خلايا ظاهرة','3D isometric · column height = value of the top visible cell layer')}</label>`:''}<button class="action" data-section>${section.drawing?L('اضغط نقطتين على الخريطة…','Click two points on the map…'):L('رسم مقطع ✕','Draw a section ✕')}</button><label class="fieldLabel">${L('الاستنتاج · يُطبع تحت الخريطة، عدّله كما تريد','Conclusion · printed under the map, edit freely')}<textarea id="concl13" rows="7">${esc(conclusion(T))}</textarea></label><button class="textAction" data-concl-reset>${L('استرجاع المسودة','Restore draft')} ↺</button></div>`);
   exportBtn()
   const wd=body('wind');if(wd)wd.innerHTML=`<div class="ex13">${legend('wind')}</div>`}
  function play(){const seq=topic.play;let i=0;const step=()=>{seq.forEach(k=>state[k].on=false);state[seq[i%seq.length]].on=true;state.boundary.on=base.boundary;i++;fill();render()};step();playTimer=setInterval(step,speed);fill()}
@@ -560,7 +582,7 @@ window.Ex13=(()=>{
   patterns:['لكل خلية 400 م نقيس من شبكة شوارع OSM: نوع التقاطعات (مسدود، T، +)، كثافتها، انتظام اتجاهات الشوارع ونسبة الزوايا القائمة، ومن GHS-BUILT نسبة البناء. القواعد مكتوبة أعلاه وتُطبّق بالترتيب؛ لا يوجد تجميع آلي. الأنماط مأخوذة من قراءة المدينة (קריאת העיר) وتمرين 1.2.','For each 400 m cell we measure from the OSM street graph: junction types (dead end, T, four-way), their density, bearing order and right-angle share, and built cover from GHS-BUILT. The rules above are applied in order; there is no clustering. Pattern names follow the course readings and exercise 1.2.'],
   zones:['حدود المراكز رُسمت يدويًا في GIS.','Centre boundaries drawn by hand in GIS.'],
   heat:['صورة يوم واحد صيفي (17.07.2025). تُظهر حرارة سطح الأرض، وليس حرارة الهواء.','A single summer day (17.07.2025). Shows land surface temperature, not air temperature.'],
-  busflow:['كل باص متحرك رحلة حقيقية من جدول Casabus (أيام الأسبوع): يخرج من أول محطة في دقيقته ويختفي عند آخر محطة. الثانية على الشاشة = دقيقة من اليوم. كل الباصات بسرعة واحدة (16.7 كم/س، الوسيط من الجدول) حتى لا تتجاوز بعضها؛ في الواقع تتراوح بين 13 و25 كم/س. الذيل = آخر 14 دقيقة من مسار الباص.','Each moving bus is a real weekday trip from the Casabus timetable: it leaves the first stop at its scheduled minute and vanishes at the last stop. 1 s on screen = 1 min of the day. All buses run at one speed (16.7 km/h, the timetable median) so none overtakes; in reality 13–25 km/h. The tail = the bus\'s last 14 minutes of route.'],
+  busflow:['كل باص متحرك رحلة حقيقية من جدول Casabus (أيام الأسبوع): يخرج من أول محطة في دقيقته ويختفي عند آخر محطة. الثانية على الشاشة = دقيقة من اليوم. كل الباصات بسرعة واحدة (16.7 كم/س، الوسيط من الجدول) حتى لا تتجاوز بعضها؛ في الواقع تتراوح بين 13 و25 كم/س. الذيل = آخر 30 دقيقة من مسار الباص، والخريطة تسودّ حتى تظهر الحركة وحدها.','Each moving bus is a real weekday trip from the Casabus timetable: it leaves the first stop at its scheduled minute and vanishes at the last stop. 1 s on screen = 1 min of the day. All buses run at one speed (16.7 km/h, the timetable median) so none overtakes; in reality 13–25 km/h. The tail = the bus\'s last 30 minutes of route; the map goes black so only movement shows.'],
   pop:['القيمة ÷ 100 من حقل gridcode (Int100) — للتأكيد.','Value = gridcode ÷ 100 (Int100) — to confirm.']};
 
  /* ---------- conclusions: a draft per chapter from the data, edited by the student, kept in this browser ---------- */
@@ -730,7 +752,7 @@ window.Ex13=(()=>{
  document.addEventListener('click',e=>{const b=e.target.closest('[data-ex13]');if(!b)return;e.preventDefault();e.stopPropagation();open(b.dataset.ex13)},true);
  // 07 · Height / 3D: the density chapter with building height on, seen tilted.
  document.addEventListener('click',e=>{const b=e.target.closest('[data-ex13-3d]');if(!b)return;e.preventDefault();e.stopPropagation();open('density');
-  switching=switching.then(()=>{if(topic?.id!=='density')return;state.pop.on=false;state.height.on=true;setTilt(true);fill();render()})},true);
+  switching=switching.then(()=>{if(topic?.id!=='density')return;state.pop.on=false;state.height.on=false;showBuildings=true;view.x=-1800;view.y=18300;view.s=.3;setTilt(true);fill();render()})},true);
  // Language switch: retitle open windows and move them to the new side at once, keeping layer state.
  new MutationObserver(()=>{if(topic){const sp=specsFor(topic);wins.forEach((el,i)=>{const s=sp.find(x=>x[0]===el.dataset.ex);if(s)el.querySelector('.wintitle').innerHTML=`<small>1.3</small>${s[1]}`;placeWin(el,i)})}fill();document.querySelectorAll('[data-ex13]').forEach(b=>{const t=TOPICS.find(x=>x.id===b.dataset.ex13);b.querySelector('span').textContent=L(t.t[0],t.t[1])})}).observe(document.documentElement,{attributes:true,attributeFilter:['lang','dir']});
  document.querySelectorAll('[data-ex13]').forEach(b=>{const t=TOPICS.find(x=>x.id===b.dataset.ex13);b.querySelector('span').textContent=L(t.t[0],t.t[1])});
@@ -752,7 +774,7 @@ window.Ex13=(()=>{
  function paintSquares(ctx){const S_=squares();if(!S_||window.Ex13World)return;sqHit.length=0;
   ctx.save();ctx.setTransform(1,0,0,1,0,0);const dpr=Math.min(devicePixelRatio||1,1.5);ctx.setTransform(dpr,0,0,dpr,0,0);
   for(const sq of S_){const b=sq.f.b,[x0,y0]=screen(b[0],b[3]),[x1,y1]=screen(b[2],b[1]),P=x1-x0;let X,Y,Z;
-   if(P>=120){X=x0;Y=y0;Z=P}else{Z=128;X=Math.min(Math.max(8,(x0+x1)/2+sq.q[4][0]-Z/2),innerWidth-Z-8);Y=Math.min(Math.max(X<300?190:40,(y0+y1)/2+sq.q[4][1]-Z/2),innerHeight-Z-50);
+   if(P>=120&&tilt){ctx.strokeStyle='#ff4d24';ctx.lineWidth=2;ctx.strokeRect(x0,y0,P,P);sqHit.push([x0,y0,P,P,sq]);continue}if(P>=120){X=x0;Y=y0;Z=P}else{Z=128;X=Math.min(Math.max(8,(x0+x1)/2+sq.q[4][0]-Z/2),innerWidth-Z-8);Y=Math.min(Math.max(X<300?190:40,(y0+y1)/2+sq.q[4][1]-Z/2),innerHeight-Z-50);
     ctx.strokeStyle='#ff4d24';ctx.lineWidth=1;ctx.beginPath();ctx.moveTo((x0+x1)/2,(y0+y1)/2);ctx.lineTo(X+Z/2,Y+Z/2);ctx.stroke();ctx.strokeRect(x0,y0,P,P)}
    ctx.drawImage(planCanvas(sq,Z>300?840:420),X,Y,Z,Z);ctx.strokeStyle='#ff4d24';ctx.lineWidth=1.5;ctx.strokeRect(X,Y,Z,Z);
    ctx.font='600 11px "Readex Pro","Noto Kufi Arabic",sans-serif';ctx.textAlign='left';ctx.direction='ltr';const t=`${sq.q[1]} — ${L(sq.q[2],sq.q[3])}`,w=ctx.measureText(t).width+10;ctx.fillStyle='#0e0e0e';ctx.fillRect(X,Y-17,w,17);ctx.fillStyle='#fff';ctx.fillText(t,X+5,Y-5);
@@ -776,8 +798,9 @@ window.Ex13=(()=>{
  document.addEventListener('click',e=>{if(!topic||!sqHit.length||e.target.id!=='map')return;const h=sqHit.find(([x,y,w,hh])=>e.clientX>=x&&e.clientX<=x+w&&e.clientY>=y&&e.clientY<=y+hh);if(h){e.stopPropagation();e.preventDefault();openSquare(h[4])}},true);
  let world=null;
  function drawWorld(ctx,s){const C=world.countries,dest=C.filter(c=>c.v),max=Math.max(...dest.map(c=>c.v)),[ox,oy]=world.centre;
-  for(const c of C){c.p||(c.p=pathOf(c.r));ctx.fillStyle=c.v?`rgba(255,${Math.round(190-150*Math.sqrt(c.v/max))},60,${(.35+.55*Math.sqrt(c.v/max)).toFixed(2)})`:'#1b1b1a';ctx.fill(c.p,'evenodd');ctx.strokeStyle='#4a4a46';ctx.lineWidth=1/s;ctx.stroke(c.p)}
-  ctx.lineCap='round';for(const c of dest){const f=Math.sqrt(c.v/max);ctx.strokeStyle='rgba(255,240,230,.75)';ctx.lineWidth=(1+f*7)/s;ctx.beginPath();ctx.moveTo(ox,-oy);ctx.lineTo(c.lbl[0],-c.lbl[1]);ctx.stroke()}
+  // overseas parts (French Guiana, Canaries of Spain stay: < 3,000 km from the label) are left out of the colour
+  for(const c of C){c.p||(c.p=pathOf(c.lbl?c.r.filter(r=>Math.hypot(r[0][0]-c.lbl[0],r[0][1]-c.lbl[1])<3e6):c.r));ctx.fillStyle=c.v?`rgba(255,${Math.round(190-150*Math.sqrt(c.v/max))},60,${(.35+.55*Math.sqrt(c.v/max)).toFixed(2)})`:'#1b1b1a';ctx.fill(c.p,'evenodd');ctx.strokeStyle='#4a4a46';ctx.lineWidth=1/s;ctx.stroke(c.p)}
+  ctx.lineCap='round';for(const c of dest){const f=Math.sqrt(c.v/max);ctx.strokeStyle='rgba(255,240,230,.55)';ctx.lineWidth=(.8+f*3.2)/s;ctx.beginPath();ctx.moveTo(ox,-oy);ctx.lineTo(c.lbl[0],-c.lbl[1]);ctx.stroke()}
   ctx.fillStyle='#ff4d24';ctx.beginPath();ctx.arc(ox,-oy,7/s,0,7);ctx.fill();
   ctx.save();ctx.setTransform(1,0,0,1,0,0);const dpr=Math.min(devicePixelRatio||1,1.5);ctx.setTransform(dpr,0,0,dpr,0,0);ctx.font='600 11px "Readex Pro","Noto Kufi Arabic",sans-serif';ctx.textAlign='center';ctx.direction='ltr';
   const placed=[];for(const c of [...dest].sort((a,b)=>b.v-a.v)){let [X,Y]=screen(...c.lbl);const n=c.v,t=`${c.un.replace('United States of America','USA').replace('United Arab Emirates','UAE')} ${n>=1e6?(n/1e6).toFixed(2)+'M':Math.round(n/1e3)+'k'} · ${fmt(Math.hypot(c.lbl[0]-ox,c.lbl[1]-oy)/1000,0)} km`;const w=ctx.measureText(t).width+10,Y0=Y;for(let g=0;g<40&&placed.some(q=>Math.abs(q[0]-X)<(q[2]+w)/2&&Math.abs(q[1]-Y)<17);g++)Y+=g%2?-17*(g+1):17*(g+1);placed.push([X,Y,w]);
