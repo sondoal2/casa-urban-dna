@@ -75,7 +75,7 @@ window.Timeline13=(()=>{
  function open(){if(panel)return;panel=document.createElement('section');panel.id='timeline13';panel.innerHTML=`<div class="tlHead"><b>${L('مخطط الزمن · 1880–2026','Chart of time · 1880–2026')}</b><span class="tiny">${L('اسحب على الخط لتغيير السنة · اضغط مسار العمارة لتصفية المباني','Drag along the axis to change the year · click an architecture stream to filter buildings')}</span></div><div class="tlChart"></div><div class="tlBody"></div>`;
   document.body.appendChild(panel);
   const chart=panel.querySelector('.tlChart'),toYear=e=>{const svgEl=chart.querySelector('svg'),b=svgEl.getBoundingClientRect(),w=+svgEl.dataset.w,px=(e.clientX-b.left)/b.width*w;return Y0+(px-118)/(w-130)*(Y1-Y0)};
-  chart.addEventListener('pointerdown',e=>{const fam=e.target.closest('.fam');if(fam){family=family===fam.dataset.fam?null:fam.dataset.fam;setYear(+fam.dataset.y+5);return}drag=true;chart.setPointerCapture(e.pointerId);setYear(toYear(e))});
+  chart.addEventListener('pointerdown',e=>{const fam=e.target.closest('.fam');if(fam){family=family===fam.dataset.fam?null:fam.dataset.fam;setYear(+fam.dataset.y+5);return}drag=true;e.preventDefault();chart.setPointerCapture(e.pointerId);setYear(toYear(e))});
   chart.addEventListener('pointermove',e=>{if(drag)setYear(toYear(e))});chart.addEventListener('pointerup',()=>drag=false);
   panel.addEventListener('mouseover',e=>{const a=e.target.closest('[data-goto]');if(a){hoverAt=a.dataset.goto.split(',').map(Number);onChange()}});panel.addEventListener('mouseout',e=>{if(e.target.closest('[data-goto]')){hoverAt=null;onChange()}});
   addEventListener('resize',render);render()}

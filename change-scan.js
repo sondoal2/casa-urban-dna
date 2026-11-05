@@ -329,6 +329,8 @@ window.ChangeScan=(()=>{
  function setReview(g,state){if(reviews[gid(g)]===state)delete reviews[gid(g)];else reviews[gid(g)]=state;try{localStorage.setItem(reviewKey,JSON.stringify(reviews))}catch{}refreshPanel();render()}
  const reviewLabel=s=>({confirmed:L('مؤكَّد','Confirmed'),rejected:L('مرفوض','Rejected'),unsure:L('غير محسوم','Unsure')})[s]||'';
  function open(){openWindow('changeScan')}
+ // Scanning and reviewing are research tools: only on the local dev server. Visitors see the reviewed results.
+ const DEV=/^(localhost|127\.0\.0\.1|\[::1\])$/.test(location.hostname);
  // Reviewed results shipped with the site (data/demolition.json): every viewer sees the same
  // candidates at once, with the researcher's status as the default review.
  async function loadReviewed(){
@@ -345,7 +347,7 @@ window.ChangeScan=(()=>{
   open();
   if(studyOpened||running)return;
   studyOpened=true;
-  loadReviewed().then(ok=>{if(!ok&&!restoreStudy())void start(null,true)});
+  loadReviewed().then(ok=>{if(!ok&&!restoreStudy()&&DEV)void start(null,true)});
  }
  function choose(index){
   chosen=groups[index];visible=true;
@@ -355,20 +357,21 @@ window.ChangeScan=(()=>{
  }
  function content(){
   return `<p class="lead">${L('أين اختفى النسيج؟','Where did the fabric disappear?')}</p>
-  <p>${L('تظهر المضلّعات أثناء فحص الصور داخل حدود الدار البيضاء وإطار الدراسة. يمكنك أيضًا فحص مساحة أصغر حول مركز الخريطة.','Polygons appear as images are checked within Casablanca and the study frame. You can also scan a smaller area around the map centre.')}</p>
+  ${DEV?`<p>${L('تظهر المضلّعات أثناء فحص الصور داخل حدود الدار البيضاء وإطار الدراسة. يمكنك أيضًا فحص مساحة أصغر حول مركز الخريطة.','Polygons appear as images are checked within Casablanca and the study frame. You can also scan a smaller area around the map centre.')}</p>`:`<p>${L('مواقع هدم حدّدناها بمقارنة صورتين جويتين وراجعناها بصريًا واحدة واحدة.','Demolition sites found by comparing two aerial images and reviewed one by one.')}</p>`}
   ${pair.length?`<p dir="ltr">${pair.map(p=>p.release).join(' ↔ ')}</p>`:''}
-  <button class="action" data-scan-study ${running?'disabled':''}>${L('مسح إطار الدراسة كاملًا','Scan full study area')}</button>
-  <button class="action" data-scan-start ${running?'disabled':''}>${L('مسح المنطقة حول مركز الخريطة','Scan around the map centre')}</button>
+  ${DEV?`<button class="action" data-scan-study ${running?'disabled':''}>${L('مسح إطار الدراسة كاملًا','Scan full study area')}</button>
+  <button class="action" data-scan-start ${running?'disabled':''}>${L('مسح المنطقة حول مركز الخريطة','Scan around the map centre')}</button>`:''}
   ${running?`<button class="action" data-scan-stop>${L('إيقاف','Stop')}</button>`:''}
   <p role="status" data-scan-progress>${esc(message)}</p>
   <p class="tiny">${L('المضلعات مناطق تغيّر مرشّحة للمراجعة البصرية. التواريخ تخص نشر الصور.','Polygons are change candidates for visual review. Dates refer to imagery releases.')}</p>
   <p class="tiny">${L('يُستبعد الشاطئ (200 م من خط الصفر) إلا إذا كان فيه مبنى مرسوم. التغيّر يُحتسب فقط حيث توجد بصمة مبنى (OSM أو Microsoft) أو نسيج سقوف كثيف في الصورة الأقدم، وككتلة لا تقل عن 2,000 م² تقريبًا.','Beaches (200 m from the 0 m contour) are excluded unless a footprint is mapped there. Change counts only where a footprint (OSM or Microsoft) or dense roof texture exists in the earlier image, as a mass of about 2,000 m² or more.')}</p>
-  ${chosen?`<div class="evidencePair">${pair.map((p,i)=>`<figure><figcaption>${p.release}</figcaption><canvas data-scan-proof="${i}" width="400" height="400"></canvas><small data-scan-proof-status="${i}"></small></figure>`).join('')}</div><div class="menuGrid">${['confirmed','unsure','rejected'].map(s=>`<button class="action" data-scan-review="${s}" aria-pressed="${reviews[gid(chosen)]===s}">${reviews[gid(chosen)]===s?'● ':''}${reviewLabel(s)}</button>`).join('')}</div>`:''}
+  ${chosen?`<div class="evidencePair">${pair.map((p,i)=>`<figure><figcaption>${p.release}</figcaption><canvas data-scan-proof="${i}" width="400" height="400"></canvas><small data-scan-proof-status="${i}"></small></figure>`).join('')}</div>${DEV?'':`<p class="tiny">${reviewLabel(reviews[gid(chosen)])}</p>`}<div class="menuGrid" ${DEV?'':'hidden'}>${['confirmed','unsure','rejected'].map(s=>`<button class="action" data-scan-review="${s}" aria-pressed="${reviews[gid(chosen)]===s}">${reviews[gid(chosen)]===s?'● ':''}${reviewLabel(s)}</button>`).join('')}</div>`:''}
   ${groups.slice(0,80).map((g,i)=>`<button class="similarRow" data-scan-result="${i}">${L('موقع مرشّح','Candidate')} ${i+1} · ${fmt(g.area/10000,2)} ha${reviews[gid(g)]?' · '+reviewLabel(reviews[gid(g)]):''} ↗</button>`).join('')}`;
  }
  function bind(body){
-  body.querySelector('[data-scan-study]').onclick=()=>start(null,true);
-  body.querySelector('[data-scan-start]').onclick=()=>start();
+  const scanStudy=body.querySelector('[data-scan-study]'),scanStart=body.querySelector('[data-scan-start]');
+  if(scanStudy)scanStudy.onclick=()=>start(null,true);
+  if(scanStart)scanStart.onclick=()=>start();
   const stop=body.querySelector('[data-scan-stop]');
   if(stop)stop.onclick=()=>{cancelled=true;controller.abort()};
   if(chosen){

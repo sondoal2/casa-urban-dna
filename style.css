@@ -80,3 +80,4 @@ body.dark .brand.lockup{background:#0e0e0ec9;color:#fff;padding:5px 7px}body.dar
 .ex13 .exp{display:flex;gap:6px;align-items:center;border-top:1px solid #222;padding-top:8px;margin-top:6px}
 .ex13 .exp span{flex:1;color:#aaa}
 #windLayer,#busLayer{position:fixed;inset:0;pointer-events:none;z-index:5}
+#timeline13 svg{user-select:none;-webkit-user-select:none;touch-action:none}
