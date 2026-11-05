@@ -43,7 +43,7 @@ window.Ex13=(()=>{
   histext:{t:['امتداد المدينة حسب الحقبة','City extent by period'],type:'histext',src:'Traced from the 1918 and 1942 plans · studio GIS packages (T1900, T1935, T1986)',frame:false},
   histbuild:{t:['مبانٍ مؤرَّخة وطرازها','Dated buildings and their style'],type:'histbuild',src:'Wikidata (CC0) · photos Wikimedia Commons',frame:false},
   height:{t:['ارتفاع المباني · متوسط لكل 100 م','Building height · 100 m average'],type:'value',unit:['متر','m'],min:0,max:25,ramp:'height',src:'GHSL GHS-BUILT-H ANBH 2018, 100 m',frame:true},
-  shadow:{t:['الظل التقريبي','Approximate shadow'],type:'shadow',src:'GHS-BUILT-H heights + sun position at 33.6° N',frame:true},
+  shadow:{t:['الظل التقريبي','Approximate shadow'],type:'shadow',src:'Heights: GlobalBuildingAtlas LoD1 per building (Zhu et al. 2025, CC BY-NC 4.0), else GHS-BUILT-H 100 m · sun position at 33.6° N',frame:true},
   patterns:{t:['أنماط شبكة الشوارع','Street-network patterns'],type:'morph',src:'OSM streets + GHS-BUILT · explicit rules per 400 m cell',frame:true},
   zones:{t:['المراكز الأربعة: تاريخي، حديث، معاصر، ميناء','Four centres: historic, modern, contemporary, port'],type:'zones',src:'Studio GIS layers: historic, modern, contemporary, port centres',frame:true},
   inst:{t:['المؤسسات','Institutions'],type:'inst',src:'Studio GIS layer: Institutions_Only (OSM)',frame:true},
@@ -72,6 +72,9 @@ window.Ex13=(()=>{
  let order=[];
  // Timetable buses: hourly counts per street piece, decoded from base-62 strings (one per hour from h0).
  let busT=null,busHour=8,busPlay=null;const busCache={};
+ // Per-building heights from GlobalBuildingAtlas (prep/gba_heights.py); the 100 m GHSL cell is the fallback.
+ let gbaH=null;
+ const heightOf=bd=>gbaH?.osm[bd.id]??data.hIndex?.get(Math.floor((bd.b[0]+bd.b[2])/200)+','+Math.floor((bd.b[1]+bd.b[3])/200));
  const BUS_CLASSES=[1,6,12,24,48,96],B62='0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ';
  function busPaths(h){if(!busT)return null;if(busCache[h])return busCache[h];const row=busT.hours[h-busT.h0];if(!row)return null;
   const P=BUS_CLASSES.map(()=>null);for(let i=0;i<busT.segs.length;i++){const n=busN(row,i);if(n<1)continue;let c=0;while(c<BUS_CLASSES.length-1&&n>=BUS_CLASSES[c+1])c++;const p=P[c]||(P[c]=new Path2D()),q=busT.segs[i];p.moveTo(q[0],-q[1]);p.lineTo(q[2],-q[3])}
@@ -87,6 +90,7 @@ window.Ex13=(()=>{
   loading=Promise.all([fetch('data/ex13.json').then(r=>r.json()),fetch('data/wind.json?v=2').then(r=>r.json()),fetch('data/layers13b.json?v=2').then(r=>r.ok?r.json():{layers:{}}).catch(()=>({layers:{}})),fetch('data/heights.json?v=1').then(r=>r.ok?r.json():null).catch(()=>null),fetch('data/history_buildings.json?v=1').then(r=>r.ok?r.json():null).catch(()=>null),
    fetch('data/hist_extents.json?v=2').then(r=>r.ok?r.json():null).catch(()=>null),
    fetch('data/bus_gtfs.json?v=1').then(r=>r.ok?r.json():null).then(g=>{busT=g}).catch(()=>null),
+   fetch('data/heights_gba.json?v=1').then(r=>r.ok?r.json():null).then(g=>{gbaH=g}).catch(()=>null),
    ...[1918,1942].map(y=>fetch(`data/hist_${y}.json?v=1`).then(r=>r.ok?r.json():null).then(meta=>meta&&{year:y,meta}).catch(()=>null))]).then(([d,w,b,h,hb,he,...plans])=>{data=d;wind=w;Object.assign(data.layers,b.layers);data.history=hb;data.histExtents=he;data.histPlans=plans.filter(Boolean);
    if(h)data.hIndex=new Map(h.cells.map(([x,y,v])=>[Math.floor(x/h.res)+','+Math.floor(y/h.res),v]));
    if(h)data.layers.height={kind:'poly',features:h.cells.map(([x,y,v])=>({v,r:[[[x,y],[x+h.res,y],[x+h.res,y+h.res],[x,y+h.res],[x,y]]]}))};prepare()});return loading}
@@ -201,10 +205,10 @@ window.Ex13=(()=>{
   circles(ctx,k,def,b,s){ctx.strokeStyle='#ffb347';ctx.fillStyle='rgba(255,179,71,.28)';ctx.lineWidth=1/s;for(const c of data.centreCells){if(c.n<3)continue;const r=Math.sqrt(c.d/data.maxD)*480;ctx.beginPath();ctx.arc(c.c[0],-c.c[1],r,0,7);ctx.fill();ctx.stroke()}},
   civic(ctx,k,def,b,s){ctx.fillStyle='#fff';ctx.strokeStyle='#111';ctx.lineWidth=1/s;const r=Math.max(25,3.2/s);for(const p of data.civic){ctx.beginPath();ctx.rect(p.c[0]-r,-p.c[1]-r,2*r,2*r);ctx.fill();ctx.stroke()}},
   stops(ctx,k,def,b,s){ctx.fillStyle='#ff3b30';const r=Math.max(12,1.8/s);for(const p of data.stops){ctx.beginPath();ctx.arc(p.c[0],-p.c[1],r,0,7);ctx.fill()}},
-  // Each OSM footprint takes the average height of its 100 m cell and is swept along the shadow direction
-  // by h / tan(sun altitude); footprints are drawn on top. Below street scale only (zoom in).
+  // Each OSM footprint takes its own GlobalBuildingAtlas height (else its 100 m cell average) and is swept
+  // along the shadow direction by h / tan(sun altitude); footprints are drawn on top. Street scale only.
   shadow(ctx,k,def,b,s){if(!data.hIndex||s<.12)return;const S=SUN[sun],L=1/Math.tan(S.alt*Math.PI/180),a=(S.az+180)*Math.PI/180,ux=Math.sin(a),uy=Math.cos(a),p=new Path2D(),fp=new Path2D();
-   for(const bd of buildings){if(!overlap(bd.b,b))continue;const h=data.hIndex.get(Math.floor((bd.b[0]+bd.b[2])/200)+','+Math.floor((bd.b[1]+bd.b[3])/200));if(!h)continue;const dx=ux*h*L,dy=uy*h*L,q=bd.r[0];
+   for(const bd of buildings){if(!overlap(bd.b,b))continue;const h=heightOf(bd);if(!h)continue;const dx=ux*h*L,dy=uy*h*L,q=bd.r[0];
     for(let i=0;i<q.length-1;i++){const A=q[i],B=q[i+1];p.moveTo(A[0],-A[1]);p.lineTo(B[0],-B[1]);p.lineTo(B[0]+dx,-(B[1]+dy));p.lineTo(A[0]+dx,-(A[1]+dy));p.closePath()}
     q.forEach((v,i)=>i?fp.lineTo(v[0],-v[1]):fp.moveTo(v[0],-v[1]));fp.closePath()}
    ctx.fillStyle=light?'#2a2f55':'#6f7cff';ctx.fill(p,'nonzero');ctx.fillStyle=light?'#9a9a94':'#d8d6cf';ctx.fill(fp,'nonzero')},
