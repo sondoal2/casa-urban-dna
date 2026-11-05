@@ -16,7 +16,7 @@ const overlap=(a,b)=>a[0]<=b[2]&&a[2]>=b[0]&&a[1]<=b[3]&&a[3]>=b[1];
 const currentBounds=()=>{let a=world(0,H),b=world(W,0);return[a[0],a[1],b[0],b[1]]};
 function toast(s){$('#toast').textContent=Locale.translate(s);$('#toast').classList.add('show');clearTimeout(toast.t);toast.t=setTimeout(()=>$('#toast').classList.remove('show'),3800)}
 function fit(box=meta.bounds){fit.box=box;view.x=(box[0]+box[2])/2;view.y=(box[1]+box[3])/2;view.s=Math.min(Math.max(W-80,W*.5,1)/(box[2]-box[0]),Math.max(H-130,H*.5,1)/(box[3]-box[1]))*.88;if(W<700)view.s=Math.min(Math.max(W,1)/(box[2]-box[0]),Math.max(H-200,H*.5,1)/(box[3]-box[1]))*.9;if(!(view.s>0))view.s=.02;render()}
-function zoom(f,x=W/2,y=H/2){if(ready)beginGesture();let a=world(x,y);view.s=Math.max(.007,Math.min(8,view.s*f));let b=world(x,y);view.x+=a[0]-b[0];view.y+=a[1]-b[1];render()}
+function zoom(f,x=W/2,y=H/2){if(ready)beginGesture();let a=world(x,y);view.s=Math.max(window.Ex13World?2e-5:.007,Math.min(8,view.s*f));let b=world(x,y);view.x+=a[0]-b[0];view.y+=a[1]-b[1];render()}
 function pathFor(rings){let p=new Path2D();for(let r of rings){r.forEach((v,i)=>i?p.lineTo(v[0],-v[1]):p.moveTo(v[0],-v[1]));}return p}
 let renderPending=false,renderTimer=null,gestureBase=null;
 const roadIndex=new Map(),renderCell=600;
@@ -37,7 +37,7 @@ function paint(){renderPending=false;canvas.style.transform='';gestureBase=null;
  const ex13=window.Ex13?.active;
  if(window.Atlas&&!ex13)Atlas.paint(ctx,bounds);
  if(window.Ex13)Ex13.paint(ctx,bounds);
- if(window.Imagery){Imagery.vectorsEnd(ctx);Imagery.drawBounds(ctx,ex13?{samplesOnly:true}:undefined);}
+ if(window.Imagery){Imagery.vectorsEnd(ctx);if(!window.Ex13World)Imagery.drawBounds(ctx,ex13?{samplesOnly:true}:undefined);}
  if(!ex13){
   if(window.Transform)Transform.paint(ctx,bounds);
   if(window.ObservedLoss)ObservedLoss.paint(ctx,bounds);

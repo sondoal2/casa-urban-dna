@@ -129,6 +129,7 @@ window.Ex13=(()=>{
    fetch('data/places_overture.json?v=1').then(r=>r.ok?r.json():null).then(g=>{ovP=g}).catch(()=>null),
    fetch('data/districts.json?v=2').then(r=>r.ok?r.json():null).then(g=>{distD=g}).catch(()=>null),
    fetch('data/emigration_un.json?v=1').then(r=>r.ok?r.json():null).then(g=>{emig=g}).catch(()=>null),
+   fetch('data/world_emig.json?v=1').then(r=>r.ok?r.json():null).then(g=>{world=g}).catch(()=>null),
    fetch('data/bouskoura_buried.json?v=2').then(r=>r.ok?r.json():null).then(g=>{bousk=g}).catch(()=>null),
    fetch('data/markets.json?v=1').then(r=>r.ok?r.json():null).then(g=>{mkts=g}).catch(()=>null),
    fetch('data/parking.json?v=1').then(r=>r.ok?r.json():null).then(g=>{if(!g)return;park=g;for(const l of g.lots){l.p=pathOf(l.r);l.b=bbox(l.r)}
@@ -216,15 +217,15 @@ window.Ex13=(()=>{
  function setIso(on){if(on&&tilt){tilt=false;document.body.classList.remove('tilt13')}setWind(on?false:!!state.wind?.on);setBus(on?false:!!state.busflow?.on);iso=on;if(topic){showBuildings=on?false:topic.id==='morphology'||topic.id==='human';showRoads=on?false:base.streets}render()}
 
  function paint(ctx,bounds){
-  if(!data)return;const s=view.s,vis=order.filter(k=>state[k].on);if(!vis.length)return;
+  if(!data)return;const s=view.s,vis=window.Ex13World&&world?['emigration']:order.filter(k=>state[k].on);if(!vis.length)return;
   if(iso){paintIso(ctx,[...vis].reverse(),s);return}
   for(const k of vis){if(k==='boundary')continue;const def=LAYERS[k];
    if(def.type==='grid'||def.type==='value'||def.type==='shadow'){drawOpaque(ctx,k,def,bounds,s);continue}
    ctx.save();ctx.globalAlpha=state[k].op;
    if(def.frame&&clipFrame){ctx.beginPath();ctx.rect(FRAME[0],-FRAME[3],FRAME[2]-FRAME[0],FRAME[3]-FRAME[1]);ctx.clip()}
    draw[def.type](ctx,k,def,bounds,s);ctx.restore()}
-  if(maskOut&&state.boundary.on!==undefined&&topic){ctx.save();const big=new Path2D();big.rect(-60000,-60000,120000,120000);for(const f of data.layers.boundary.features)big.addPath(f.p||(f.p=pathOf(f.r)));ctx.fillStyle=light?'rgba(244,244,240,.8)':'rgba(8,8,8,.78)';ctx.fill(big,'evenodd');ctx.restore()}
-  if(base.dimFrame&&topic){ctx.save();const big=new Path2D();big.rect(-60000,-60000,120000,120000);big.rect(FRAME[0],-FRAME[3],FRAME[2]-FRAME[0],FRAME[3]-FRAME[1]);ctx.fillStyle=light?'rgba(244,244,240,.7)':'rgba(8,8,8,.7)';ctx.fill(big,'evenodd');ctx.restore()}
+  if(maskOut&&!state.emigration.on&&state.boundary.on!==undefined&&topic){ctx.save();const big=new Path2D();big.rect(-60000,-60000,120000,120000);for(const f of data.layers.boundary.features)big.addPath(f.p||(f.p=pathOf(f.r)));ctx.fillStyle=light?'rgba(244,244,240,.8)':'rgba(8,8,8,.78)';ctx.fill(big,'evenodd');ctx.restore()}
+  if(base.dimFrame&&!state.emigration.on&&topic){ctx.save();const big=new Path2D();big.rect(-60000,-60000,120000,120000);big.rect(FRAME[0],-FRAME[3],FRAME[2]-FRAME[0],FRAME[3]-FRAME[1]);ctx.fillStyle=light?'rgba(244,244,240,.7)':'rgba(8,8,8,.7)';ctx.fill(big,'evenodd');ctx.restore()}
   if(state.boundary.on){ctx.save();draw.outline(ctx,'boundary',LAYERS.boundary,bounds,s);ctx.restore()}
   if(section.pts.length){ctx.save();ctx.strokeStyle='#ff4d40';ctx.fillStyle='#ff4d40';ctx.lineWidth=2/s;ctx.setLineDash([8/s,5/s]);const [A,B]=section.pts;ctx.beginPath();ctx.moveTo(A[0],-A[1]);if(B)ctx.lineTo(B[0],-B[1]);ctx.stroke();ctx.setLineDash([]);
    for(const [p,t] of [[A,'A'],[B,'B']]){if(!p)continue;ctx.beginPath();ctx.arc(p[0],-p[1],5/s,0,7);ctx.fill();ctx.save();ctx.setTransform(1,0,0,1,0,0);const d=Math.min(devicePixelRatio||1,1.5),q=screen(p[0],p[1]);ctx.setTransform(d,0,0,d,0,0);ctx.font='600 13px sans-serif';ctx.fillText(t,q[0]+8,q[1]-8);ctx.restore()}ctx.restore()}
@@ -317,7 +318,10 @@ window.Ex13=(()=>{
   photos(ctx,k,def,b,s){if(!mly)return;const r=Math.max(5,1.6/s);ctx.fillStyle='#eeeeea';ctx.beginPath();for(const [x,y,,,pano] of mly.pts){if(x<b[0]||x>b[2]||y<b[1]||y>b[3])continue;ctx.moveTo(x+r,-y);ctx.arc(x,-y,pano?r*1.5:r,0,7)}ctx.fill()},
   buried(ctx,k,def,b,s){if(!bousk)return;const line=(fs,col,w,dash)=>{ctx.strokeStyle=col;ctx.lineWidth=w/s;ctx.setLineDash(dash.map(v=>v/s));for(const f of fs||[]){ctx.beginPath();f.r.forEach((p,i)=>i?ctx.lineTo(p[0],-p[1]):ctx.moveTo(p[0],-p[1]));ctx.stroke()}ctx.setLineDash([])};ctx.lineCap='round';
    line(bousk.open,'#5fb4ff',2.6,[]);line(bousk.gap,'rgba(238,238,234,.6)',1.6,[2,6]);line(bousk.historic,'#ff4d24',3,[9,6]);line(bousk.buried,'#ff4d24',3,[])},
-  emigration(ctx,k,def,b,s){if(!emig)return;const top=emig.top.filter(c=>c.pos),max=Math.max(...top.map(c=>c.v.at(-1))),[cx,cy]=EMIG_C,lbl=[];
+  // The map zooms out to the world (prep/world_countries.py): azimuthal equidistant around Casablanca, so the
+  // line to each country has its true length and direction. Countries are filled by people born in Morocco
+  // living there (UN DESA 2024); line width ∝ √people.
+  emigration(ctx,k,def,b,s){if(world)return drawWorld(ctx,s);if(!emig)return;const top=emig.top.filter(c=>c.pos),max=Math.max(...top.map(c=>c.v.at(-1))),[cx,cy]=EMIG_C,lbl=[];
    ctx.lineCap='round';for(const c of top){const n=c.v.at(-1),f=Math.sqrt(n/max),dx=(c.pos[0]-CASA_LL[0])*Math.cos(CASA_LL[1]*Math.PI/180),dy=c.pos[1]-CASA_LL[1],d=Math.hypot(dx,dy),ux=dx/d,uy=dy/d,Lm=1800+6200*f,x=cx+ux*Lm,y=cy+uy*Lm;
     ctx.strokeStyle='rgba(255,77,36,.85)';ctx.lineWidth=(1.5+f*9)/s;ctx.beginPath();ctx.moveTo(cx+ux*400,-(cy+uy*400));ctx.lineTo(x,-y);ctx.stroke();lbl.push([x+ux*500,y+uy*500,c,n])}
    ctx.fillStyle='#ff4d24';ctx.beginPath();ctx.arc(cx,-cy,6/s,0,7);ctx.fill();
@@ -478,11 +482,11 @@ window.Ex13=(()=>{
   bind(el);wins.push(el);return el}
  async function closeWins(list,step=90){for(const el of [...list].reverse()){el.classList.add('leaving');await wait(step);el.remove()}}
  async function closeSiteWindows(){try{const list=[...windows.values()].map(w=>w.el);windows.clear();await closeWins(list,80)}catch{}}
- async function closeAll(){stopPlay();tilt=false;document.body.classList.remove('tilt13');setWind(false);setBus(false);iso=false;section.pts=[];section.drawing=false;window.Timeline13?.close();const list=wins;wins=[];await closeWins(list);for(const k in state)state[k].on=false;topic=null;fg(false);window.Ex13MSHi=false;const xb=document.getElementById('exp13');if(xb)xb.hidden=true;showBuildings=true;showRoads=true;roadGroups={major:true,local:true,walking:true};render()}
+ async function closeAll(){stopPlay();window.Ex13World=false;tilt=false;document.body.classList.remove('tilt13');setWind(false);setBus(false);iso=false;section.pts=[];section.drawing=false;window.Timeline13?.close();const list=wins;wins=[];await closeWins(list);for(const k in state)state[k].on=false;topic=null;fg(false);window.Ex13MSHi=false;const xb=document.getElementById('exp13');if(xb)xb.hidden=true;showBuildings=true;showRoads=true;roadGroups={major:true,local:true,walking:true};render()}
 
  function open(id){if(typeof setMenu==='function')setMenu(false);
   switching=switching.then(async()=>{
-   const prev=wins;wins=[];stopPlay();setWind(false);setBus(false);iso=false;section.pts=[];section.drawing=false;window.Timeline13?.close();
+   const prev=wins;wins=[];stopPlay();if(window.Ex13World){window.Ex13World=false;fit(FRAME)}setWind(false);setBus(false);iso=false;section.pts=[];section.drawing=false;window.Timeline13?.close();
    await Promise.all([closeWins(prev),closeSiteWindows()]);
    try{if(window.Imagery){Imagery.state.swipe=false;Imagery.state.enabled=false;Imagery.sync?.()}}catch{}
    topic=TOPICS.find(t=>t.id===id);for(const k in state){state[k].on=false;state[k].op=1}
@@ -523,7 +527,7 @@ window.Ex13=(()=>{
   el.addEventListener('input',e=>{const k=e.target.dataset.op;if(k){state[k].op=+e.target.value;render()}
    if(e.target.dataset.bushour!==undefined)setBusHour(+e.target.value);
    if(e.target.id==='concl13'&&topic){try{localStorage.setItem('casa13-concl-'+topic.id,e.target.value)}catch{}}});
-  el.addEventListener('change',e=>{const k=e.target.dataset.on;if(k){state[k].on=e.target.checked;if(k==='wind')setWind(e.target.checked);if(k==='busflow')setBus(e.target.checked);fill();render()}
+  el.addEventListener('change',e=>{const k=e.target.dataset.on;if(k){state[k].on=e.target.checked;if(k==='wind')setWind(e.target.checked);if(k==='busflow')setBus(e.target.checked);if(k==='emigration')setWorld(e.target.checked);fill();render()}
    if(e.target.id==='clipF'){clipFrame=e.target.checked;render()}if(e.target.id==='maskF'){maskOut=e.target.checked;render()}
    const bk=e.target.dataset.base;if(bk){base[bk]=e.target.checked;applyBase()}
    if(e.target.id==='iso13'){setIso(e.target.checked);fill()}if(e.target.id==='tilt13'){setTilt(e.target.checked);fill()}});
@@ -728,6 +732,19 @@ window.Ex13=(()=>{
  // Language switch: retitle open windows and move them to the new side at once, keeping layer state.
  new MutationObserver(()=>{if(topic){const sp=specsFor(topic);wins.forEach((el,i)=>{const s=sp.find(x=>x[0]===el.dataset.ex);if(s)el.querySelector('.wintitle').innerHTML=`<small>1.3</small>${s[1]}`;placeWin(el,i)})}fill();document.querySelectorAll('[data-ex13]').forEach(b=>{const t=TOPICS.find(x=>x.id===b.dataset.ex13);b.querySelector('span').textContent=L(t.t[0],t.t[1])})}).observe(document.documentElement,{attributes:true,attributeFilter:['lang','dir']});
  document.querySelectorAll('[data-ex13]').forEach(b=>{const t=TOPICS.find(x=>x.id===b.dataset.ex13);b.querySelector('span').textContent=L(t.t[0],t.t[1])});
+ let world=null;
+ function drawWorld(ctx,s){const C=world.countries,dest=C.filter(c=>c.v),max=Math.max(...dest.map(c=>c.v)),[ox,oy]=world.centre;
+  for(const c of C){c.p||(c.p=pathOf(c.r));ctx.fillStyle=c.v?`rgba(255,${Math.round(190-150*Math.sqrt(c.v/max))},60,${(.35+.55*Math.sqrt(c.v/max)).toFixed(2)})`:'#1b1b1a';ctx.fill(c.p,'evenodd');ctx.strokeStyle='#4a4a46';ctx.lineWidth=1/s;ctx.stroke(c.p)}
+  ctx.lineCap='round';for(const c of dest){const f=Math.sqrt(c.v/max);ctx.strokeStyle='rgba(255,240,230,.75)';ctx.lineWidth=(1+f*7)/s;ctx.beginPath();ctx.moveTo(ox,-oy);ctx.lineTo(c.lbl[0],-c.lbl[1]);ctx.stroke()}
+  ctx.fillStyle='#ff4d24';ctx.beginPath();ctx.arc(ox,-oy,7/s,0,7);ctx.fill();
+  ctx.save();ctx.setTransform(1,0,0,1,0,0);const dpr=Math.min(devicePixelRatio||1,1.5);ctx.setTransform(dpr,0,0,dpr,0,0);ctx.font='600 11px "Readex Pro","Noto Kufi Arabic",sans-serif';ctx.textAlign='center';ctx.direction='ltr';
+  const placed=[];for(const c of [...dest].sort((a,b)=>b.v-a.v)){let [X,Y]=screen(...c.lbl);const n=c.v,t=`${c.un.replace('United States of America','USA').replace('United Arab Emirates','UAE')} ${n>=1e6?(n/1e6).toFixed(2)+'M':Math.round(n/1e3)+'k'} · ${fmt(Math.hypot(c.lbl[0]-ox,c.lbl[1]-oy)/1000,0)} km`;const w=ctx.measureText(t).width+10,Y0=Y;for(let g=0;g<40&&placed.some(q=>Math.abs(q[0]-X)<(q[2]+w)/2&&Math.abs(q[1]-Y)<17);g++)Y+=g%2?-17*(g+1):17*(g+1);placed.push([X,Y,w]);
+   if(Y!==Y0){ctx.strokeStyle='#ffd2a866';ctx.lineWidth=1;ctx.beginPath();ctx.moveTo(X,Y0);ctx.lineTo(X,Y);ctx.stroke()}ctx.fillStyle='#0e0e0ed9';ctx.fillRect(X-w/2,Y-9,w,16);ctx.fillStyle='#ffd2a8';ctx.fillText(t,X,Y+3)}
+  const [X,Y]=screen(ox,oy);ctx.fillStyle='#fff';ctx.fillText(L('الدار البيضاء','Casablanca'),X,Y-12);ctx.restore()}
+ // Toggling the layer flies the map out to the destinations and back to the 15×15 km frame.
+ function flyTo(box,ms=1100){const W_=innerWidth,H_=innerHeight,s1=Math.min((W_-80)/(box[2]-box[0]),(H_-130)/(box[3]-box[1]))*.88,x1=(box[0]+box[2])/2,y1=(box[1]+box[3])/2,v0={...view},t0=performance.now();
+  const step=now=>{const t=Math.min(1,(now-t0)/ms),e=t<.5?2*t*t:1-Math.pow(-2*t+2,2)/2;view.s=Math.exp(Math.log(v0.s)+(Math.log(s1)-Math.log(v0.s))*e);view.x=v0.x+(x1-v0.x)*e;view.y=v0.y+(y1-v0.y)*e;render();if(t<1)requestAnimationFrame(step)};requestAnimationFrame(step)}
+ function setWorld(on){window.Ex13World=on;if(!world)return;if(on){const d=world.countries.filter(c=>c.v);let bx=[...world.centre,...world.centre];for(const c of d){bx=[Math.min(bx[0],c.lbl[0]),Math.min(bx[1],c.lbl[1]),Math.max(bx[2],c.lbl[0]),Math.max(bx[3],c.lbl[1])]}const m=(bx[2]-bx[0])*.08;flyTo([bx[0]-m,bx[1]-m,bx[2]+m,bx[3]+m])}else flyTo(FRAME)}
  // Per-cell indicators for the fabric families: street pattern + mean height + wealth.
  let fric=null;
  function cellInd(c){if(c.h===undefined){let n=0,t=0;const [x0,y0,x1,y1]=c.box;for(let x=x0;x<x1;x+=100)for(let y=y0;y<y1;y+=100){const v=data.hIndex?.get(Math.floor((x+50)/100)+','+Math.floor((y+50)/100));if(v){t+=v;n++}}c.h=n?t/n:null;
