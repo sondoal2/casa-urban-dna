@@ -41,6 +41,7 @@ window.Ex13=(()=>{
   civic:{t:['المؤسسات العامة','Public institutions'],type:'civic',src:'OpenStreetMap POIs',frame:true},
   stops:{t:['محطات الباص والترام','Bus + tram stops'],type:'stops',src:'OpenStreetMap',frame:true},
   histplan:{t:['الخريطة التاريخية الأصلية (مثبّتة)','Original historical plan (georeferenced)'],type:'histplan',src:'1918: Service topographique du Maroc 1:25,000 (BnF) · 1942: War Office 1:10,000 (Wikimedia Commons, public domain) · 1938, 1955: Schéma directeur 1975 schematics in Kasmi (1994), ±300 m',frame:false},
+  histmig:{t:['الهجرة داخل المدينة · أسهم المخطط المديري','Moves within the city · Schéma directeur arrows'],type:'histmig',src:'Mécanismes d\'urbanisation de la ville de Casablanca, Schéma directeur 1975, in Kasmi (1994) fig. 2–4 · arrows read by hand, ±300 m',frame:false},
   histext:{t:['امتداد المدينة حسب الحقبة','City extent by period'],type:'histext',src:'Traced from the 1918 and 1942 plans · studio GIS packages (T1900, T1935, T1986)',frame:false},
   histbuild:{t:['مبانٍ مؤرَّخة وطرازها','Dated buildings and their style'],type:'histbuild',src:'Wikidata (CC0) · photos Wikimedia Commons',frame:false},
   height:{t:['ارتفاع المباني · متوسط لكل 100 م','Building height · 100 m average'],type:'value',unit:['متر','m'],min:0,max:25,ramp:'height',src:'GHSL GHS-BUILT-H ANBH 2018, 100 m',frame:true},
@@ -65,7 +66,7 @@ window.Ex13=(()=>{
   flood:{t:['أرض قابلة للغمر','Flood-prone ground'],type:'fill',color:'#3d8bff',alpha:.55,src:'GIS: HAND < 5 m above drainage lines · SRTM 1″ (2000)',frame:true},
   water:{t:['المجاري ووادي بوسكورة','Streams + Oued Bouskoura'],type:'water',src:'Hydrology (user) + OSM',frame:true},
   contours:{t:['خطوط الكنتور · 10 م','Contours · 10 m'],type:'contours',unit:['م فوق سطح البحر','m a.s.l.'],src:'DEM contours (user)',frame:false},
-  wind:{t:['الريح السائدة · محطة أنفا','Prevailing wind · Anfa station'],type:'wind',src:'EPW TMYx Casablanca-Anfa 601550',frame:true},
+  wind:{t:['الريح السائدة · محطة أنفا','Prevailing wind · Anfa station'],type:'wind',src:'Direction by season: EPW TMYx Casablanca-Anfa 601550 · local speed: Global Wind Atlas 3, 10 m, 250 m (CC BY 4.0) — 0.4–4.3 m/s, weaker inside the dense city',frame:true},
   dots:{t:['أين الناس: تجارة ومقاهٍ (نقطة = محل)','Where people are: shops + cafés (1 dot = 1 place)'],type:'dots',src:'OpenStreetMap POIs',frame:true},
   boundary:{t:['حدود الدار البيضاء','Casablanca boundary'],type:'outline',src:'OSM admin boundary',frame:false}
  };
@@ -75,7 +76,7 @@ window.Ex13=(()=>{
   {id:'centre',n:'03',t:['مركز المدينة','City centre'],q:['أين القلب — وهل هو واحد؟','Where is the heart — and is there only one?'],layers:['zones','centres','inst','civic','busstops','bustime','busflow','districts','boundary'],form:['دوائر متناسبة','Proportional circles']},
   {id:'climate',n:'04',t:['المناخ','Climate'],q:['أين الحرّ وأين أقل — وبكم درجة؟','Where is it hot, where less — and by how much?'],layers:['heat','ndvi','flood','water','buried','contours','wind','boundary'],form:['حقل متصل + خطوط تساوٍ','Continuous field + isolines'],play:['heat','ndvi','flood','contours']},
   {id:'human',n:'05',t:['البعد الإنساني','Human dimension'],q:['أين الناس فعلًا — أين يشترون ويلتقون؟','Where are people actually — buying, meeting?'],layers:['dots','overture','placegap','markets','photos','nightlights','bustime','busflow','busstops','rwi','districts','emigration','boundary'],form:['كثافة نقاط','Dot density']},
-  {id:'history',n:'06',t:['التطور التاريخي','Historical development'],q:['كيف نمت المدينة، ومن خطّطها، وبأي لغة معمارية؟','How did the city grow, who planned it, and in which architectural language?'],layers:['histext','histbuild','histplan','boundary'],form:['مخطط زمني بمسارات متوازية + امتدادات','Chart of time in parallel streams + extents']}
+  {id:'history',n:'06',t:['التطور التاريخي','Historical development'],q:['كيف نمت المدينة، ومن خطّطها، وبأي لغة معمارية؟','How did the city grow, who planned it, and in which architectural language?'],layers:['histext','histmig','histbuild','histplan','boundary'],form:['مخطط زمني بمسارات متوازية + امتدادات','Chart of time in parallel streams + extents']}
  ];
  const state={};Object.keys(LAYERS).forEach(k=>state[k]={on:false,op:1});
  let order=[];
@@ -95,7 +96,9 @@ window.Ex13=(()=>{
  // Known markets (prep/markets_layer.py) and Mapillary photo points [x,y,id,year,pano] (prep/mapillary_points.py).
  let mkts=null,mly=null;
  // Street-pattern cells measured once (Morph13.dump on the dev server) instead of on every first chapter open.
- let morphPre=null;const EMIG_C=[-2226,15519],CASA_LL=[-7.6,33.57];
+ let morphPre=null;
+ // Migration arrows of the 1918/1938/1955 Schéma directeur maps (prep/kasmi_arrows.py); the timeline year picks the map.
+ let kArrows=null;const MIG_COL={european:'#7ad7ff',muslim:'#ffb347',slum:'#ff4d24'};const EMIG_C=[-2226,15519],CASA_LL=[-7.6,33.57];
  let ovP=null;const OV_COL=['#e0a400','#ff7a59','#7ad7ff','#8ce0a0','#9a9a94'];
  const heightOf=bd=>gbaH?.osm[bd.id]??data.hIndex?.get(Math.floor((bd.b[0]+bd.b[2])/200)+','+Math.floor((bd.b[1]+bd.b[3])/200));
  const BUS_CLASSES=[1,6,12,24,48,96],B62='0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ';
@@ -120,6 +123,8 @@ window.Ex13=(()=>{
    fetch('data/bouskoura_buried.json?v=2').then(r=>r.ok?r.json():null).then(g=>{bousk=g}).catch(()=>null),
    fetch('data/markets.json?v=1').then(r=>r.ok?r.json():null).then(g=>{mkts=g}).catch(()=>null),
    fetch('data/morph_pre.json?v=1').then(r=>r.ok?r.json():null).then(g=>{morphPre=g}).catch(()=>null),
+   fetch('data/kasmi_arrows.json?v=1').then(r=>r.ok?r.json():null).then(g=>{kArrows=g}).catch(()=>null),
+   fetch('data/wind_gwa.json?v=1').then(r=>r.ok?r.json():null).then(g=>{gwa=g;if(g){const v=g.v.filter(x=>x>0).sort((a,b)=>a-b);gwaMed=v[v.length>>1]/10||2.6}}).catch(()=>null),
    fetch('data/mapillary_points.json?v=1').then(r=>r.ok?r.json():null).then(g=>{mly=g}).catch(()=>null),
    // Plans shown under the timeline: the latest one not after the cursor year. 1938 and 1955 are the
    // Schéma directeur 1975 schematics reproduced by Kasmi (1994), georeferenced in prep/georef_kasmi*.json.
@@ -253,6 +258,10 @@ window.Ex13=(()=>{
     q.forEach((v,i)=>i?fp.lineTo(v[0],-v[1]):fp.moveTo(v[0],-v[1]));fp.closePath()}
    ctx.fillStyle=light?'#2a2f55':'#6f7cff';ctx.fill(p,'nonzero');ctx.fillStyle=light?'#9a9a94':'#d8d6cf';ctx.fill(fp,'nonzero')},
   histplan(ctx,k,def,b,s){window.Timeline13?.paintPlan(ctx,state[k].op)},
+  histmig(ctx,k,def,b,s){if(!kArrows||!window.Timeline13)return;const yr=Timeline13.year,key=['1955','1938','1918'].find(y=>+y<=yr);if(!key)return;
+   ctx.lineCap='round';for(const m of kArrows[key]){const [x0,y0]=m.a,[x1,y1]=m.b,a=Math.atan2(y1-y0,x1-x0),h=Math.max(90,14/s),w=(m.t==='slum'?4:2.4)/s;
+    ctx.strokeStyle=ctx.fillStyle=MIG_COL[m.t];ctx.lineWidth=w;ctx.setLineDash(m.t==='muslim'?[8/s,5/s]:[]);ctx.beginPath();ctx.moveTo(x0,-y0);ctx.lineTo(x1,-y1);ctx.stroke();ctx.setLineDash([]);
+    ctx.beginPath();ctx.moveTo(x1,-y1);ctx.lineTo(x1-h*Math.cos(a-.45),-(y1-h*Math.sin(a-.45)));ctx.lineTo(x1-h*Math.cos(a+.45),-(y1-h*Math.sin(a+.45)));ctx.closePath();ctx.fill()}},
   histext(ctx,k,def,b,s){window.Timeline13?.paintExtents(ctx,s)},
   histbuild(ctx,k,def,b,s){if(!window.Timeline13)return;Timeline13.paintBuildings(ctx,s);Timeline13.paintHover(ctx,s)},
   morph(ctx,k,def,b,s){if(!window.Morph13?.cells)return;const P=Morph13.streetPaths();ctx.lineCap='round';
@@ -264,9 +273,10 @@ window.Ex13=(()=>{
   inst(ctx,k,def,b,s){const r=Math.max(30,4/s);ctx.fillStyle='#7ad7ff';ctx.strokeStyle='#0b2530';ctx.lineWidth=1/s;for(const p of data.layers.institutions?.features||[]){ctx.beginPath();ctx.moveTo(p.c[0],-p.c[1]-r);ctx.lineTo(p.c[0]+r,-p.c[1]);ctx.lineTo(p.c[0],-p.c[1]+r);ctx.lineTo(p.c[0]-r,-p.c[1]);ctx.closePath();ctx.fill();ctx.stroke()}},
   glow(ctx,k,def,b,s){const g=nightGlow();if(!g)return;ctx.imageSmoothingEnabled=true;ctx.drawImage(g.canvas,g.box[0],-g.box[3],g.box[2]-g.box[0],g.box[3]-g.box[1])},
   busflow(ctx,k,def,b,s){const L_=data.layers;if(!L_.bus_routes)return;ctx.lineCap=ctx.lineJoin='round';
-   ctx.strokeStyle=R.bus(0);ctx.lineWidth=.9/s;for(const f of L_.bus_routes.features)if(vis(f,b))ctx.stroke(f.p||(f.p=pathOf(f.r)));
+   // Quiet base: routes in dark red-grey, a little thicker where lines overlap; the moving comets carry the colour.
+   ctx.strokeStyle='#3a2522';ctx.lineWidth=.9/s;for(const f of L_.bus_routes.features)if(vis(f,b))ctx.stroke(f.p||(f.p=pathOf(f.r)));
    const ov=[...L_.bus_overlap.features].sort((a,c)=>(a.n||1)-(c.n||1));
-   for(const f of ov){if(!vis(f,b))continue;const t=((f.n||1)-1)/Math.max(1,data.busMax-1);ctx.strokeStyle=R.bus(t);ctx.lineWidth=(1+t*3.5)/s;ctx.stroke(f.p||(f.p=pathOf(f.r)))}},
+   for(const f of ov){if(!vis(f,b))continue;const t=((f.n||1)-1)/Math.max(1,data.busMax-1);ctx.strokeStyle=`rgba(120,40,32,${(.35+t*.5).toFixed(2)})`;ctx.lineWidth=(1+t*3)/s;ctx.stroke(f.p||(f.p=pathOf(f.r)))}},
   // A soft halo, not a pin: the position of a market is known to tens of metres, not to the metre.
   markets(ctx,k,def,b,s){if(!mkts)return;for(const m of mkts.markets){if(m.x<b[0]-400||m.x>b[2]+400||m.y<b[1]-400||m.y>b[3]+400)continue;const big=m.kind==='joutia',r=big?380:180,g=ctx.createRadialGradient(m.x,-m.y,0,m.x,-m.y,r);
     g.addColorStop(0,big?'rgba(255,77,36,.75)':'rgba(255,179,71,.6)');g.addColorStop(1,'rgba(255,179,71,0)');ctx.fillStyle=g;ctx.beginPath();ctx.arc(m.x,-m.y,r,0,7);ctx.fill()}},
@@ -295,7 +305,8 @@ window.Ex13=(()=>{
    for(const p of [...L_.bus_stops.features].sort((a,c)=>(a.n||1)-(c.n||1))){const r=u*Math.sqrt(p.n||1);ctx.beginPath();ctx.arc(p.c[0],-p.c[1],r,0,7);ctx.fillStyle=R.bus(((p.n||1)-1)/Math.max(1,data.stopMax-1));ctx.fill();ctx.lineWidth=.6/s;ctx.strokeStyle='#120403';ctx.stroke()}
    ctx.strokeStyle='#fff';ctx.lineWidth=1.6/s;for(const p of L_.transport_hubs.features){ctx.beginPath();ctx.arc(p.c[0],-p.c[1],u*Math.sqrt(p.n||1)+3/s,0,7);ctx.stroke()}},
   dots(ctx,k,def,b,s){const r=Math.max(10,1.4/s);for(const p of data.commerce){ctx.fillStyle=FOOD.has(p.fclass)?'#ffd166':'#f4f1ea';ctx.beginPath();ctx.arc(p.c[0],-p.c[1],r,0,7);ctx.fill()}},
-  wind(){}
+  // Thin blue streamlines of the season's prevailing direction; brighter where Global Wind Atlas is faster.
+  wind(ctx,k,def,b,s){const L_=windLines();if(!L_)return;ctx.lineCap='round';for(const l of L_){ctx.strokeStyle=`rgba(95,180,255,${(.18+.5*l.f).toFixed(2)})`;ctx.lineWidth=(.6+.8*l.f)/s;ctx.beginPath();l.p.forEach((p,i)=>i?ctx.lineTo(p[0],-p[1]):ctx.moveTo(p[0],-p[1]));ctx.stroke()}}
  };
  const LU={residential:'#4a3f35',commercial:'#a5673a',retail:'#c07a3e',industrial:'#5b5f73',park:'#3f7a43',grass:'#58864a',forest:'#2f5e35',cemetery:'#6a6a5a',farmland:'#7d7748',meadow:'#6d8a4f',recreation_ground:'#4f8f5a',military:'#704848',scrub:'#5e6b45',_:'#3d3d3a'};
 
@@ -305,12 +316,22 @@ window.Ex13=(()=>{
  function sampleDir(){const f=wind[windSeason].freq;let u=Math.random()*f.reduce((a,b)=>a+b,0);for(let i=0;i<16;i++){u-=f[i];if(u<=0)return i}return 0}
  function mean(){const w=wind[windSeason];let u=0,v=0,n=0;w.freq.forEach((f,i)=>{const to=(i*22.5+180)*Math.PI/180;u+=f*w.speed[i]*Math.sin(to);v+=f*w.speed[i]*Math.cos(to);n+=f});return{ang:Math.atan2(u,v),spd:Math.max(1.5,Math.hypot(u,v)/n*1.6)}}
  function spawn(){return{x:lerp(FRAME[0],FRAME[2],Math.random()),y:lerp(FRAME[1],FRAME[3],Math.random()),age:0,life:60+Math.random()*90}}
+ // Global Wind Atlas mean speed at 10 m (data/wind_gwa.json, 250 m cells): local speed relative to the frame median.
+ let gwa=null,gwaMed=2.6,wLines=null,wLinesKey='';
+ const gwaAt=(x,y)=>{if(!gwa)return gwaMed;const i=Math.floor((x-gwa.x0)/gwa.cell),j=Math.floor((y-gwa.y0)/gwa.cell);const v=(i>=0&&j>=0&&i<gwa.nx&&j<gwa.ny)?gwa.v[j*gwa.nx+i]/10:0;return v||gwaMed};
+ const windAng=(x,y,M,t)=>M.ang+.12*Math.sin(x/2600+t)*Math.cos(y/3100-t*.7);
+ function windLines(){if(!wind)return null;if(wLines&&wLinesKey===windSeason)return wLines;const M=mean();wLines=[];wLinesKey=windSeason;
+  for(let x=FRAME[0]+450;x<FRAME[2];x+=900)for(let y=FRAME[1]+450;y<FRAME[3];y+=900){const p=[[x,y]];let px=x,py=y,f=0;
+   for(let n=0;n<28;n++){const a=windAng(px,py,M,0);px+=Math.sin(a)*90;py+=Math.cos(a)*90;if(!inF([px,py]))break;p.push([px,py]);f+=gwaAt(px,py)}
+   if(p.length>4)wLines.push({p,f:Math.max(0,Math.min(1,(f/p.length-1)/(4.3-1)))})}
+  return wLines}
  let tick=0;
  function windLoop(){windRaf=requestAnimationFrame(windLoop);if(!windOn||!state.wind.on){octx.clearRect(0,0,overlay.width,overlay.height);return}
   octx.globalCompositeOperation='destination-out';octx.fillStyle='rgba(0,0,0,.14)';octx.fillRect(0,0,overlay.width,overlay.height);octx.globalCompositeOperation='source-over';
-  while(particles.length<1400)particles.push(spawn());
-  octx.fillStyle='rgba(130,200,255,.9)';const k=14; // metres per frame per m/s (visual speed)
-  const M=mean();tick+=.004;for(const p of particles){const a=M.ang+.12*Math.sin(p.x/2600+tick)*Math.cos(p.y/3100-tick*.7);p.x+=Math.sin(a)*M.spd*k;p.y+=Math.cos(a)*M.spd*k;p.age++;if(p.age>p.life||!inF([p.x,p.y])){Object.assign(p,spawn());continue}const [sx,sy]=screen(p.x,p.y);octx.fillRect(sx-1,sy-1,2,2)}}
+  while(particles.length<700)particles.push(spawn());
+  // White comets: the fading overlay leaves each one a short tail; speed scales with the local GWA speed.
+  octx.fillStyle='rgba(255,255,255,.95)';const k=6; // metres per frame per m/s (visual speed)
+  const M=mean();tick+=.002;for(const p of particles){const a=windAng(p.x,p.y,M,tick),v=M.spd*gwaAt(p.x,p.y)/gwaMed;p.x+=Math.sin(a)*v*k;p.y+=Math.cos(a)*v*k;p.age++;if(p.age>p.life||!inF([p.x,p.y])){Object.assign(p,spawn());continue}const [sx,sy]=screen(p.x,p.y);octx.beginPath();octx.arc(sx,sy,1.4,0,7);octx.fill()}}
  function setWind(on){windOn=on;if(on){ensureOverlay();if(!windRaf)windLoop()}else if(octx)octx.clearRect(0,0,overlay.width,overlay.height)}
 
  /* ---------- buses: illustrative pulse along the studio's bus routes (no timetable) ----------
@@ -318,16 +339,20 @@ window.Ex13=(()=>{
     several lines build up towards bright red. */
  let busOn=false,busRaf=0,bcan=null,bctx=null,buses=null;
  const BUS_TAIL=650,BUS_SPACING=2600;
- function prepBuses(){buses=[];for(const f of data.layers.bus_routes?.features||[])for(const pts of f.r){if(pts.length<2)continue;const cum=[0];for(let i=1;i<pts.length;i++)cum.push(cum[i-1]+Math.hypot(pts[i][0]-pts[i-1][0],pts[i][1]-pts[i-1][1]));const len=cum.at(-1);if(len<500)continue;const route={pts,cum,len};for(let n=Math.max(1,Math.round(len/BUS_SPACING)),i=0;i<n;i++)buses.push({route,d:(i+Math.random()*.6)*len/n,v:10+Math.random()*5})}}
+ function prepBuses(){buses=[];for(const f of data.layers.bus_routes?.features||[])for(const pts of f.r){if(pts.length<2)continue;const cum=[0];for(let i=1;i<pts.length;i++)cum.push(cum[i-1]+Math.hypot(pts[i][0]-pts[i-1][0],pts[i][1]-pts[i-1][1]));const len=cum.at(-1);if(len<500)continue;const route={pts,cum,len};for(let n=Math.max(1,Math.round(len/BUS_SPACING)),i=0;i<n;i++)buses.push({route,d:(i+Math.random()*.6)*len/n,v:2.5+Math.random()*1.5})}}
  function seek(r,d){let lo=0,hi=r.cum.length-1;while(hi-lo>1){const m=(lo+hi)>>1;if(r.cum[m]<d)lo=m;else hi=m}return lo}
  function pointAt(r,i,d){const a=r.pts[i],b=r.pts[i+1],t=(d-r.cum[i])/Math.max(1e-6,r.cum[i+1]-r.cum[i]);return[a[0]+(b[0]-a[0])*t,a[1]+(b[1]-a[1])*t]}
  function busLoop(){busRaf=requestAnimationFrame(busLoop);if(!bctx)return;bctx.clearRect(0,0,bcan.width,bcan.height);if(!busOn||!topic||!state.busflow.on||!buses)return;
   bctx.save();if(clipFrame){const [x0,y0]=screen(FRAME[0],FRAME[3]),[x1,y1]=screen(FRAME[2],FRAME[1]);bctx.beginPath();bctx.rect(x0,y0,x1-x0,y1-y0);bctx.clip()}
-  bctx.globalAlpha=state.busflow.op;bctx.globalCompositeOperation='lighter';bctx.lineCap=bctx.lineJoin='round';bctx.lineWidth=3.2;bctx.strokeStyle='rgba(255,40,28,.10)';
+  // Each bus is a comet: a red tail fading to nothing behind a white head. Tails add up ('lighter'),
+  // so streets many lines share glow brighter.
+  bctx.globalAlpha=state.busflow.op;bctx.globalCompositeOperation='lighter';bctx.lineCap=bctx.lineJoin='round';bctx.lineWidth=2.6;
   const heads=[];
   for(const b of buses){const r=b.route;b.d+=b.v;if(b.d>r.len)b.d-=r.len;const d0=Math.max(0,b.d-BUS_TAIL),i0=seek(r,d0),i1=seek(r,b.d);
-   const head=pointAt(r,i1,b.d);bctx.beginPath();let p=screen(...pointAt(r,i0,d0));bctx.moveTo(p[0],p[1]);for(let i=i0+1;i<=i1;i++){p=screen(...r.pts[i]);bctx.lineTo(p[0],p[1])}p=screen(...head);bctx.lineTo(p[0],p[1]);bctx.stroke();heads.push(p)}
-  bctx.globalCompositeOperation='source-over';bctx.fillStyle='#ff6a52';for(const [x,y] of heads)bctx.fillRect(x-1.5,y-1.5,3,3);bctx.restore()}
+   const head=pointAt(r,i1,b.d),tail=screen(...pointAt(r,i0,d0)),hp=screen(...head),g=bctx.createLinearGradient(tail[0],tail[1],hp[0],hp[1]);
+   g.addColorStop(0,'rgba(255,40,28,0)');g.addColorStop(.75,'rgba(255,60,40,.22)');g.addColorStop(1,'rgba(255,230,220,.55)');bctx.strokeStyle=g;
+   bctx.beginPath();bctx.moveTo(tail[0],tail[1]);for(let i=i0+1;i<=i1;i++){const p=screen(...r.pts[i]);bctx.lineTo(p[0],p[1])}bctx.lineTo(hp[0],hp[1]);bctx.stroke();heads.push(hp)}
+  bctx.globalCompositeOperation='source-over';bctx.fillStyle='#ffffff';for(const [x,y] of heads){bctx.beginPath();bctx.arc(x,y,1.8,0,7);bctx.fill()}bctx.restore()}
  function setBus(on){busOn=on;if(on){if(!bcan){bcan=document.createElement('canvas');bcan.id='busLayer';document.body.appendChild(bcan);bctx=bcan.getContext('2d');const fit=()=>{bcan.width=innerWidth;bcan.height=innerHeight};fit();addEventListener('resize',fit)}if(!buses)prepBuses();if(!busRaf)busLoop()}else if(bctx)bctx.clearRect(0,0,bcan.width,bcan.height)}
 
  /* ---------- legend ---------- */
@@ -336,6 +361,7 @@ window.Ex13=(()=>{
   if(d.type==='grid'){const br=d.breaks;return `<div class="lg">${br.map((v,i)=>`<span>${swatch(R[d.ramp](i/(br.length-1)))}${i===br.length-1?'≥ '+v:v+'–'+br[i+1]}</span>`).join('')}<small>${u}</small></div>`}
   if(d.type==='value'){const n=8,ticks=[...Array(n+1)].map((_,i)=>d.min+(d.max-d.min)*i/n);return `<div class="lg grad"><b style="background:linear-gradient(90deg,${ticks.map((v,i)=>R[d.ramp](i/n)).join(',')})"></b><div>${ticks.filter((_,i)=>i%2===0).map(v=>`<span>${k==='ndvi'?v.toFixed(2):Math.round(v)}</span>`).join('')}</div><small>${u}${k==='heat'?L(' · القيم الأصلية 21–57؛ التدرّج يبدأ من 30 لإظهار الفروق',' · source values 21–57; the ramp starts at 30 to show the differences'):''}</small></div>`}
   if(d.type==='rwi'){const n=6;return `<div class="lg grad"><b style="background:linear-gradient(90deg,${[...Array(n+1)].map((_,i)=>R.rwi(i/n)).join(',')})"></b><div><span>${L('أفقر نسبيًا','relatively poorer')}</span><span>${L('أغنى نسبيًا','relatively richer')}</span></div><small>${u} · ${L('دقته ≈2.4 كم: صورة عامة بين الأحياء، لا بلوكًا ببلوك','≈2.4 km: a broad picture between districts, not block by block')}</small></div>`}
+  if(d.type==='histmig')return `<div class="lg"><span>${swatch(MIG_COL.european)}${L('هجرة الأوروبيين','European moves')}</span><span>${swatch(MIG_COL.muslim)}${L('هجرة / انتقال السكن المسلم (متقطع)','Muslim moves / rehousing (dashed)')}</span><span>${swatch(MIG_COL.slum)}${L('ترحيل أحياء الصفيح','Shantytowns displaced')}</span><small>${L('الأسهم من خريطة 1918 أو 1938 أو 1955 حسب سنة التايملاين. اتجاه ووجهة، لا مسار.','Arrows from the 1918, 1938 or 1955 map, following the timeline year. Direction and destination, not a route.')}</small></div>`;
   if(d.type==='markets'&&mkts)return `<div class="lg"><span>${swatch('rgba(255,77,36,.8)')}${L('جوطية درب غلف · أكثر من 4000 تاجر دون ترخيص رسمي','Derb Ghallef joutia · 4,000+ traders without official authorisation')}</span><span>${swatch('rgba(255,179,71,.7)')}${L(`أسواق أخرى بالاسم (${mkts.markets.length-1})`,`other named markets (${mkts.markets.length-1})`)}</span><small>${L('الهالة تعني موقعًا تقريبيًا. البسطات الليلية والباعة المتجولون غير موجودين في أي قاعدة بيانات.','The halo means an approximate position. Night stalls and itinerant vendors are in no dataset.')}</small></div>`;
   if(d.type==='photos'&&mly)return `<div class="lg"><span>${swatch('#eeeeea')}${L(`${mly.pts.length.toLocaleString('en-US')} موقع صورة (الكبيرة بانوراما)`,`${mly.pts.length.toLocaleString('en-US')} photo spots (larger = panorama)`)}</span><small>${L('اضغط على نقطة لفتح الصورة في عارض Mapillary.','Click a dot to open the photo in the Mapillary viewer.')}</small></div>`;
   if(d.type==='buried'&&bousk)return `<div class="lg"><span>${swatch('#5fb4ff')}${L(`مكشوف · ${bousk.km.open} كم`,`open · ${bousk.km.open} km`)}</span><span>${swatch('#ff4d24')}${L(`مدفون تحت وسط المدينة (موثّق) · ${bousk.km.historic} كم`,`buried under the centre (documented) · ${bousk.km.historic} km`)}</span><span>${swatch('rgba(238,238,234,.6)')}${L(`مسار غير موثّق · ${bousk.km.gap} كم`,`undocumented stretch · ${bousk.km.gap} km`)}</span><small>${L('كان الوادي يصل البحر قرب الدار البيضاء-الميناء أوائل القرن العشرين؛ يُصرَّف اليوم عبر «السوبر كولكتور الغربي» نحو البحر قرب موروكو مول.','In the early 20th century the wadi still reached the sea near Casa-Port; today its floods are diverted by the Super Collecteur Ouest to the sea near Morocco Mall.')}</small></div>`;

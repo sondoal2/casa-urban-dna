@@ -37,7 +37,7 @@ function paint(){renderPending=false;canvas.style.transform='';gestureBase=null;
  const ex13=window.Ex13?.active;
  if(window.Atlas&&!ex13)Atlas.paint(ctx,bounds);
  if(window.Ex13)Ex13.paint(ctx,bounds);
- if(window.Imagery){Imagery.vectorsEnd(ctx);if(!ex13)Imagery.drawBounds(ctx);}
+ if(window.Imagery){Imagery.vectorsEnd(ctx);Imagery.drawBounds(ctx,ex13?{samplesOnly:true}:undefined);}
  if(!ex13){
   if(window.Transform)Transform.paint(ctx,bounds);
   if(window.ObservedLoss)ObservedLoss.paint(ctx,bounds);

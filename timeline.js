@@ -72,15 +72,19 @@ window.Timeline13=(()=>{
   <div class="tlStrip">${items.length?items.map(b=>`<a class="tlItem" ${b.file?`href="${b.file}" target="_blank" rel="noopener"`:''} data-goto="${b.c.join(',')}">${b.img?`<img src="${b.img}" alt="" loading="lazy">`:'<span class="noimg"></span>'}<span>${esc(Locale.language==='ar'&&b.ar?b.ar:b.name)}<small>${b.year}${b.arch?' · '+esc(b.arch.join(', ')):''}${b.style?' · '+esc(b.style.join(', ')):''}</small></span></a>`).join(''):`<p class="tiny">${L('لا مبانٍ مؤرَّخة في Wikidata لهذه الحقبة.','No dated buildings in Wikidata for this era.')}</p>`}</div>`}
  function render(){if(!panel)return;const w=Math.max(520,panel.clientWidth-26);panel.querySelector('.tlChart').innerHTML=svg(w);panel.querySelector('.tlBody').innerHTML=card()}
  function setYear(y){year=Math.max(Y0,Math.min(Y1,Math.round(y)));render();onChange()}
- function open(){if(panel)return;panel=document.createElement('section');panel.id='timeline13';panel.innerHTML=`<div class="tlHead"><b>${L('مخطط الزمن · 1880–2026','Chart of time · 1880–2026')}</b><span class="tiny">${L('اسحب على الخط لتغيير السنة · اضغط مسار العمارة لتصفية المباني','Drag along the axis to change the year · click an architecture stream to filter buildings')}</span></div><div class="tlChart"></div><div class="tlBody"></div>`;
-  document.body.appendChild(panel);
+ // The city's growth plays on its own from 1900 to today, looping, until the visitor stops it or drags the axis.
+ let playTimer=null;
+ function stopPlay(){clearInterval(playTimer);playTimer=null;const b=panel?.querySelector('[data-tlplay]');if(b)b.textContent='▶ '+L('تشغيل','Play')}
+ function startPlay(){stopPlay();if(year>=Y1)year=1900;playTimer=setInterval(()=>setYear(year>=Y1?1900:year+2),220);const b=panel?.querySelector('[data-tlplay]');if(b)b.textContent='■ '+L('إيقاف','Stop')}
+ function open(){if(panel)return;panel=document.createElement('section');panel.id='timeline13';panel.innerHTML=`<div class="tlHead"><button class="act" data-tlplay>■ ${L('إيقاف','Stop')}</button><b>${L('مخطط الزمن · 1880–2026','Chart of time · 1880–2026')}</b><span class="tiny">${L('اسحب على الخط لتغيير السنة · اضغط مسار العمارة لتصفية المباني','Drag along the axis to change the year · click an architecture stream to filter buildings')}</span></div><div class="tlChart"></div><div class="tlBody"></div>`;
+  document.body.appendChild(panel);panel.querySelector('[data-tlplay]').onclick=()=>playTimer?stopPlay():startPlay();year=1900;startPlay();
   const chart=panel.querySelector('.tlChart'),toYear=e=>{const svgEl=chart.querySelector('svg'),b=svgEl.getBoundingClientRect(),w=+svgEl.dataset.w,px=(e.clientX-b.left)/b.width*w;return Y0+(px-118)/(w-130)*(Y1-Y0)};
-  chart.addEventListener('pointerdown',e=>{const fam=e.target.closest('.fam');if(fam){family=family===fam.dataset.fam?null:fam.dataset.fam;setYear(+fam.dataset.y+5);return}drag=true;e.preventDefault();chart.setPointerCapture(e.pointerId);setYear(toYear(e))});
+  chart.addEventListener('pointerdown',e=>{stopPlay();const fam=e.target.closest('.fam');if(fam){family=family===fam.dataset.fam?null:fam.dataset.fam;setYear(+fam.dataset.y+5);return}drag=true;e.preventDefault();chart.setPointerCapture(e.pointerId);setYear(toYear(e))});
   chart.addEventListener('pointermove',e=>{if(drag)setYear(toYear(e))});chart.addEventListener('pointerup',()=>drag=false);
   panel.addEventListener('mouseover',e=>{const a=e.target.closest('[data-goto]');if(a){hoverAt=a.dataset.goto.split(',').map(Number);onChange()}});panel.addEventListener('mouseout',e=>{if(e.target.closest('[data-goto]')){hoverAt=null;onChange()}});
   addEventListener('resize',render);render()}
  let hoverAt=null;
  function paintHover(ctx,s){if(!hoverAt)return;ctx.beginPath();ctx.arc(hoverAt[0],-hoverAt[1],Math.max(60,14/s),0,7);ctx.strokeStyle='#fff';ctx.lineWidth=3/s;ctx.stroke()}
- function close(){panel?.remove();panel=null;family=null;hoverAt=null}
+ function close(){stopPlay();panel?.remove();panel=null;family=null;hoverAt=null}
  return{attach,open,close,render,setYear,paintPlan,paintExtents,paintBuildings,paintHover,extents,get year(){return year},get family(){return family},FAM,ERAS};
 })();
