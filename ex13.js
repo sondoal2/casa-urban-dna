@@ -246,7 +246,8 @@ window.Ex13=(()=>{
   stops(ctx,k,def,b,s){ctx.fillStyle='#ff3b30';const r=Math.max(12,1.8/s);for(const p of data.stops){ctx.beginPath();ctx.arc(p.c[0],-p.c[1],r,0,7);ctx.fill()}},
   // Each OSM footprint takes its own GlobalBuildingAtlas height (else its 100 m cell average) and is swept
   // along the shadow direction by h / tan(sun altitude); footprints are drawn on top. Street scale only.
-  shadow(ctx,k,def,b,s){if(!data.hIndex||s<.12)return;const S=SUN[sun],L=1/Math.tan(S.alt*Math.PI/180),a=(S.az+180)*Math.PI/180,ux=Math.sin(a),uy=Math.cos(a),p=new Path2D(),fp=new Path2D();
+  // Street scale only: at s 0.28 one frame took 1–2 s (tens of thousands of swept edges), at s 0.88 ≈ 36 ms.
+  shadow(ctx,k,def,b,s){if(!data.hIndex||s<.7)return;const S=SUN[sun],L=1/Math.tan(S.alt*Math.PI/180),a=(S.az+180)*Math.PI/180,ux=Math.sin(a),uy=Math.cos(a),p=new Path2D(),fp=new Path2D();
    for(const bd of buildings){if(!overlap(bd.b,b))continue;const h=heightOf(bd);if(!h)continue;const dx=ux*h*L,dy=uy*h*L,q=bd.r[0];
     for(let i=0;i<q.length-1;i++){const A=q[i],B=q[i+1];p.moveTo(A[0],-A[1]);p.lineTo(B[0],-B[1]);p.lineTo(B[0]+dx,-(B[1]+dy));p.lineTo(A[0]+dx,-(A[1]+dy));p.closePath()}
     q.forEach((v,i)=>i?fp.lineTo(v[0],-v[1]):fp.moveTo(v[0],-v[1]));fp.closePath()}
