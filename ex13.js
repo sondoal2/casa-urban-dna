@@ -10,18 +10,29 @@ window.Ex13=(()=>{
  const hex=h=>[1,3,5].map(i=>parseInt(h.slice(i,i+2),16));
  function ramp(stops){const c=stops.map(hex);return t=>{t=Math.max(0,Math.min(1,t));const p=t*(c.length-1),i=Math.min(c.length-2,Math.floor(p)),f=p-i;return'rgb('+c[i].map((v,k)=>Math.round(lerp(v,c[i+1][k],f))).join(',')+')'}}
  const R={
-  heat:ramp(['#1d1546','#2d3f8f','#2a7ab0','#2fae9c','#9ccc65','#f4dc4c','#f7a13b','#e5522f','#a3152a']),
-  ndvi:ramp(['#8a5a34','#c9a36b','#ece4c4','#a9cf7d','#4f9e48','#155e2e']),
-  pop:ramp(['#2a2117','#5a3a1c','#98682c','#d39a4a','#f3cf87','#fff3d2']),
+  heat:ramp(['#151514','#2a1d1a','#4f2419','#86301c','#c23b1f','#ff4d24','#ff9a6e']),
+  ndvi:ramp(['#151514','#1b211a','#223322','#2c4a2c','#3d6b3a','#5f9a52']),
+  pop:ramp(['#171614','#2b2418','#4d3a18','#7d5a16','#b8820f','#e0a400','#ffd76a']),
   built:ramp(['#202020','#4a4a46','#7c7c76','#adada6','#dcdcd4','#ffffff']),
   bus:ramp(['#c97b6e','#d9452f','#f0281a','#ff1f10']),
-  rwi:ramp(['#3b2a5c','#6a4f8f','#a58bbf','#e5dccf','#f2c26b','#e08a1e']),
+  rwi:ramp(['#1a1a19','#2e2e2b','#4a4a46','#73726c','#a3a29b','#d9d7cf']),
   bustime:ramp(['#f4f1ea','#f6c3b3','#f07a5c','#e2321c','#a3110a']),
-  height:ramp(['#1e2433','#34466e','#5f78a8','#9fb2d6','#e6e2d6','#ffffff']),
+  height:ramp(['#1c1c1b','#2f2f2d','#4a4a47','#6e6d69','#9a9993','#cfcdc6']),
   night:ramp(['#000000','#2b1600','#8a4a00','#e09a2a','#ffe3a0','#fffdf2'])};
  // Sun at 33.6° N, solar time (declination ±23.44°). Azimuth from north, clockwise.
  const SUN={dec12:{alt:33.0,az:180,t:['21 ديسمبر · 12:00','21 Dec · 12:00']},dec15:{alt:18.7,az:223.2,t:['21 ديسمبر · 15:00','21 Dec · 15:00']},jun12:{alt:79.8,az:180,t:['21 يونيو · 12:00','21 Jun · 12:00']},jun15:{alt:49.5,az:267.6,t:['21 يونيو · 15:00','21 Jun · 15:00']}};
  let sun='dec15';
+ /* ---------- drawing vocabulary (from the reference, in the dark): hatching, thin circles, vertical tags ---------- */
+ const C_AMB='#e0a400',C_RED='#ff4d24',C_BLUE='#5f8dff',C_LG='#c9c7c0';
+ const hatchCache={};
+ // screen-constant hatching: spacing in px, angle in degrees; the pattern ignores the map zoom
+ function hatch(ctx,col,gap=6,ang=45,w=1){const k=col+gap+ang+w;let c=hatchCache[k];if(!c){const n=64,cv=document.createElement('canvas');cv.width=cv.height=n;const g=cv.getContext('2d');g.strokeStyle=col;g.lineWidth=w;g.translate(n/2,n/2);g.rotate(ang*Math.PI/180);for(let x=-n;x<=n;x+=gap){g.beginPath();g.moveTo(x,-n);g.lineTo(x,n);g.stroke()}c=hatchCache[k]=cv}
+  const pat=ctx.createPattern(c,'repeat');try{pat.setTransform(ctx.getTransform().inverse().scale(Math.min(devicePixelRatio||1,1.5)))}catch{}return pat}
+ // a vertical tag: stem from the point, a narrow box with the name read top to bottom
+ function vtag(ctx,wx,wy,text,col=C_RED,len=46){const [x,y]=screen(wx,wy);ctx.save();ctx.setTransform(1,0,0,1,0,0);const dpr=Math.min(devicePixelRatio||1,1.5);ctx.setTransform(dpr,0,0,dpr,0,0);
+  ctx.font='600 10px "Readex Pro","Noto Kufi Arabic",sans-serif';const w=ctx.measureText(text).width+10;ctx.strokeStyle=col;ctx.lineWidth=1;ctx.beginPath();ctx.moveTo(x,y);ctx.lineTo(x,y-len);ctx.stroke();
+  ctx.fillStyle=col;ctx.fillRect(x-8,y-len-w,16,w);ctx.translate(x,y-len-w/2);ctx.rotate(-Math.PI/2);ctx.fillStyle='#0e0e0e';ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText(text,0,1);ctx.restore();ctx.fillStyle=col;ctx.beginPath();ctx.arc(wx,-wy,Math.max(2/view.s,3),0,7);ctx.fill()}
+ const ring_=(ctx,x,y,r,col,s,w=1)=>{ctx.strokeStyle=col;ctx.lineWidth=w/s;ctx.beginPath();ctx.arc(x,-y,r,0,7);ctx.stroke()};
  const ZONES=[['centre_historic','#ffd166','المركز التاريخي','Historic centre'],['centre_modern','#7ad7ff','المركز الحديث','Modern centre'],['centre_contemporary','#c58cff','المركز المعاصر','Contemporary centre'],['centre_port','#8ce0a0','الميناء / الاقتصادي','Port / economic']];
  const popBreaks=[0,25,50,100,200,400,800,1600],builtBreaks=[0,10,25,40,55,70,85];
  const classOf=(v,br)=>{let k=0;for(let i=0;i<br.length;i++)if(v>=br[i])k=i;return k/(br.length-1)};
@@ -36,7 +47,7 @@ window.Ex13=(()=>{
   pop:{t:['السكان · GHS-POP 2025','Population · GHS-POP 2025'],type:'grid',unit:['نسمة / خلية 100م (هكتار)','people / 100 m cell (ha)'],src:'GHSL GHS-POP E2025, 100 m',breaks:popBreaks,ramp:'pop',frame:true},
   built:{t:['المساحة المبنية · GHS-BUILT-S','Built-up surface · GHS-BUILT-S'],type:'grid',unit:['% من الخلية مبني','% of cell built'],src:'GHSL GHS-BUILT-S E2025, 100 m',breaks:builtBreaks,ramp:'built',frame:true},
   landuse:{t:['استعمالات الأراضي','Land use'],type:'landuse',src:'OpenStreetMap (Geofabrik)',frame:true},
-  rail:{t:['السكك — حدود تقطع المدينة','Railways — city edges'],type:'line',color:'#ff5a36',w:2.2,src:'OpenStreetMap',frame:true},
+  rail:{t:['السكك — حدود تقطع المدينة','Railways — city edges'],type:'line',color:'#7a7972',w:1.4,src:'OpenStreetMap',frame:true},
   centres:{t:['تركّز التجارة والخدمات / كم²','Commerce + services per km²'],type:'circles',src:'OpenStreetMap POIs',frame:true},
   civic:{t:['المؤسسات العامة','Public institutions'],type:'civic',src:'OpenStreetMap POIs',frame:true},
   stops:{t:['محطات الباص والترام','Bus + tram stops'],type:'stops',src:'OpenStreetMap',frame:true},
@@ -77,9 +88,9 @@ window.Ex13=(()=>{
   boundary:{t:['حدود الدار البيضاء','Casablanca boundary'],type:'outline',src:'OSM admin boundary',frame:false}
  };
  const TOPICS=[
-  {id:'density',n:'01',t:['الكثافة','Density'],q:['أين المدينة كثيفة — بالناس أم بالبناء؟','Where is the city dense — in people or in buildings?'],layers:['pop','built','height','shadow','rwi','distdens'],form:['شبكة خلايا 100 م','100 m grid']},
-  {id:'morphology',n:'02',t:['المورفولوجيا','Morphology'],q:['مِمّ صُنعت المدينة، وأين يتبدّل منطقها؟','What is the city made of, and where does its logic change?'],layers:['frict','fabric','patterns','friction','landuse'],form:['مليء وفارغ + حدود','Figure-ground + edges'],base:true},
-  {id:'centre',n:'03',t:['مركز المدينة','City centre'],q:['أين القلب — وهل هو واحد؟','Where is the heart — and is there only one?'],layers:['zones','centres','inst','civic','parking','busstops','busflow'],form:['دوائر متناسبة','Proportional circles']},
+  {id:'density',n:'01',t:['الكثافة','Density'],q:['أين المدينة كثيفة — بالناس أم بالبناء؟','Where is the city dense — in people or in buildings?'],layers:['pop','built','shadow','rwi','distdens'],form:['شبكة خلايا 100 م','100 m grid']},
+  {id:'morphology',n:'02',t:['المورفولوجيا','Morphology'],q:['مِمّ صُنعت المدينة، وأين يتبدّل منطقها؟','What is the city made of, and where does its logic change?'],layers:['frict','fabric','patterns','landuse'],form:['مليء وفارغ + حدود','Figure-ground + edges'],base:true},
+  {id:'centre',n:'03',t:['مركز المدينة','City centre'],q:['أين القلب — وهل هو واحد؟','Where is the heart — and is there only one?'],layers:['zones','centres','inst','parking','busstops','busflow'],form:['دوائر متناسبة','Proportional circles']},
   {id:'climate',n:'04',t:['المناخ','Climate'],q:['أين الحرّ وأين أقل — وبكم درجة؟','Where is it hot, where less — and by how much?'],layers:['heat','ndvi','flood','water','buried','contours','wind'],form:['حقل متصل + خطوط تساوٍ','Continuous field + isolines'],play:['heat','ndvi','flood','contours']},
   {id:'human',n:'05',t:['البعد الإنساني','Human dimension'],q:['أين الناس فعلًا — أين يشترون ويلتقون؟','Where are people actually — buying, meeting?'],layers:['dots','overture','markets','photos','nightlights','busflow','busstops','rwi','reloc','emigration'],form:['كثافة نقاط','Dot density']},
   {id:'history',n:'06',t:['التطور التاريخي','Historical development'],q:['كيف نمت المدينة، ومن خطّطها، وبأي لغة معمارية؟','How did the city grow, who planned it, and in which architectural language?'],layers:['histext','histmig','histbuild','histplan'],form:['مخطط زمني بمسارات متوازية + امتدادات','Chart of time in parallel streams + extents']}
@@ -102,7 +113,7 @@ window.Ex13=(()=>{
  // Known markets (prep/markets_layer.py) and Mapillary photo points [x,y,id,year,pano] (prep/mapillary_points.py).
  let mkts=null,mly=null;
  // Car parks from the studio packages (prep/parking_layer.py): OSM polygons + parking area per centre.
- let park=null,blk=null;const PARK_COL={street_side:'#7ad7ff',surface:'#e0a400',underground:'#c58cff','multi-storey':'#c58cff'};
+ let park=null,blk=null;const PARK_COL={street_side:'#9a9993',surface:'#e0a400',underground:'#f4f2ec','multi-storey':'#f4f2ec'};
  // Street-pattern cells measured once (Morph13.dump on the dev server) instead of on every first chapter open.
  let morphPre=null;
  // Migration arrows of the 1918/1938/1955 Schéma directeur maps (prep/kasmi_arrows.py); the timeline year picks the map.
@@ -135,7 +146,7 @@ window.Ex13=(()=>{
    fetch('data/world_emig.json?v=1').then(r=>r.ok?r.json():null).then(g=>{world=g}).catch(()=>null),
    fetch('data/bouskoura_buried.json?v=2').then(r=>r.ok?r.json():null).then(g=>{bousk=g}).catch(()=>null),
    fetch('data/markets.json?v=1').then(r=>r.ok?r.json():null).then(g=>{mkts=g}).catch(()=>null),
-   void fetch('data/blocks.json?v=3').then(r=>r.ok?r.json():null).then(g=>{if(!g)return;const col={};for(const r of g.rules)col[r[0]]=r[3];blk={raw:g,col,list:g.blocks.map(([t,c,gr,h,a,rect,f])=>{const r=[];for(let i=0;i<f.length;i+=2)r.push([f[i],f[i+1]]);return{t,c,gr,h,a,rect,r:[r],p:pathOf([r]),b:bbox([r])}})}}).catch(()=>null),
+   void fetch('data/blocks.json?v=3').then(r=>r.ok?r.json():null).then(g=>{if(!g)return;const col={industrial:'#55534e',medina:'#c98a2a',villa:'#4f6b4a',slab:'#6a5a86',colonial:'#3f6f9a',rowhousing:'#a24a33',midrise:'#3e7a72',open:'#1c1c1b',mixed:'#363532'};for(const r of g.rules){if(!col[r[0]])col[r[0]]=r[3];r[3]=col[r[0]]}blk={raw:g,col,list:g.blocks.map(([t,c,gr,h,a,rect,f])=>{const r=[];for(let i=0;i<f.length;i+=2)r.push([f[i],f[i+1]]);return{t,c,gr,h,a,rect,r:[r],p:pathOf([r]),b:bbox([r])}})}}).catch(()=>null),
    fetch('data/parking.json?v=1').then(r=>r.ok?r.json():null).then(g=>{if(!g)return;park=g;for(const l of g.lots){l.p=pathOf(l.r);l.b=bbox(l.r)}
     // The centre table repeats its totals on every piece of a centre: sum the pieces' areas once per name.
     const c={};for(const x of g.centres){const o=c[x.name]||(c[x.name]={name:x.name,n:x.n,km2:x.km2,area:0});o.area+=x.area_km2}park.sum=Object.values(c)}).catch(()=>null),
@@ -278,15 +289,15 @@ window.Ex13=(()=>{
  function clipCasa(ctx){const p=new Path2D();for(const f of data.layers.boundary.features)p.addPath(f.p||(f.p=pathOf(f.r)));ctx.clip(p)}
  const vis=(f,b)=>!f.b||overlap(f.b,b);
  const draw={
-  grid(ctx,k,def,b,s){const fn=R[def.ramp];ctx.lineWidth=.7/s;for(const f of data.layers[k].features){if(!vis(f,b))continue;const c=fn(classOf(f.v,def.breaks)),p=f.p||(f.p=pathOf(f.r));ctx.fillStyle=ctx.strokeStyle=c;ctx.fill(p);ctx.stroke(p)}},
+  grid(ctx,k,def,b,s){if(k==='built'){const P=[0,1,2,3,4,5,6].map(i=>i?hatch(ctx,C_LG,Math.max(2.2,9-i*1.15),45,1):null);for(const f of data.layers[k].features){if(!vis(f,b))continue;const i=Math.round(classOf(f.v,def.breaks)*6);if(!i)continue;ctx.fillStyle=P[i];ctx.fill(f.p||(f.p=pathOf(f.r)))}return}const fn=R[def.ramp];ctx.lineWidth=.7/s;for(const f of data.layers[k].features){if(!vis(f,b))continue;const c=fn(classOf(f.v,def.breaks)),p=f.p||(f.p=pathOf(f.r));ctx.fillStyle=ctx.strokeStyle=c;ctx.fill(p);ctx.stroke(p)}},
   value(ctx,k,def,b,s){const fn=R[def.ramp];ctx.lineWidth=.7/s;for(const f of data.layers[k].features){if(!vis(f,b))continue;const c=fn((f.v-def.min)/(def.max-def.min)),p=f.p||(f.p=pathOf(f.r));ctx.fillStyle=ctx.strokeStyle=c;ctx.fill(p);ctx.stroke(p)}},
-  fill(ctx,k,def,b){ctx.fillStyle=def.color;ctx.globalAlpha*=def.alpha;for(const f of data.layers[k].features)if(vis(f,b))ctx.fill(f.p||(f.p=pathOf(f.r)),'evenodd')},
+  fill(ctx,k,def,b){ctx.fillStyle=k==='flood'?hatch(ctx,C_BLUE,5,45,1.2):def.color;if(k!=='flood')ctx.globalAlpha*=def.alpha;for(const f of data.layers[k].features)if(vis(f,b))ctx.fill(f.p||(f.p=pathOf(f.r)),'evenodd')},
   line(ctx,k,def,b,s){ctx.strokeStyle=def.color;ctx.lineWidth=def.w/s;for(const f of data.layers[k].features)if(vis(f,b))ctx.stroke(f.p||(f.p=pathOf(f.r)))},
-  outline(ctx,k,def,b,s){ctx.strokeStyle='#e0a050';ctx.lineWidth=2.4/s;for(const f of data.layers[k].features)ctx.stroke(f.p||(f.p=pathOf(f.r)))},
-  water(ctx,k,def,b,s){ctx.strokeStyle='#5fb4ff';ctx.lineWidth=.8/s;for(const f of data.layers.streams.features)if(vis(f,b))ctx.stroke(f.p||(f.p=pathOf(f.r)));ctx.strokeStyle='#8fd0ff';ctx.lineWidth=2.4/s;for(const f of data.layers.bouskoura.features)ctx.stroke(f.p||(f.p=pathOf(f.r)))},
-  contours(ctx,k,def,b,s){const step=s<.08?50:s<.2?20:10;for(const f of data.layers.contours.features){if(f.v%step||!vis(f,b))continue;const major=f.v%50===0;ctx.strokeStyle=major?'#d8c9a6':'#8f8670';ctx.lineWidth=(major?1.1:.5)/s;ctx.stroke(f.p||(f.p=pathOf(f.r)))}},
-  landuse(ctx,k,def,b){for(const f of data.layers.landuse.features){if(!vis(f,b))continue;ctx.fillStyle=LU[f.fclass]||LU._;ctx.fill(f.p||(f.p=pathOf(f.r)))}},
-  circles(ctx,k,def,b,s){ctx.strokeStyle='#ffb347';ctx.fillStyle='rgba(255,179,71,.28)';ctx.lineWidth=1/s;for(const c of data.centreCells){if(c.n<3)continue;const r=Math.sqrt(c.d/data.maxD)*480;ctx.beginPath();ctx.arc(c.c[0],-c.c[1],r,0,7);ctx.fill();ctx.stroke()}},
+  outline(ctx,k,def,b,s){ctx.strokeStyle='#8a8983';ctx.lineWidth=1.2/s;for(const f of data.layers[k].features)ctx.stroke(f.p||(f.p=pathOf(f.r)))},
+  water(ctx,k,def,b,s){ctx.strokeStyle=C_BLUE;ctx.lineWidth=.8/s;for(const f of data.layers.streams.features)if(vis(f,b))ctx.stroke(f.p||(f.p=pathOf(f.r)));ctx.strokeStyle=C_BLUE;ctx.lineWidth=2/s;for(const f of data.layers.bouskoura.features)ctx.stroke(f.p||(f.p=pathOf(f.r)))},
+  contours(ctx,k,def,b,s){const step=s<.08?50:s<.2?20:10;for(const f of data.layers.contours.features){if(f.v%step||!vis(f,b))continue;const major=f.v%50===0;ctx.strokeStyle=major?'#6e6d69':'#3a3a37';ctx.lineWidth=(major?1.1:.5)/s;ctx.stroke(f.p||(f.p=pathOf(f.r)))}},
+  landuse(ctx,k,def,b){const H={residential:hatch(ctx,'#6e6d69',7,45),commercial:hatch(ctx,C_AMB,5,45),industrial:hatch(ctx,C_RED,4,-45),park:hatch(ctx,'#5f9a52',6,0),farmland:hatch(ctx,'#4a4a46',9,90)};for(const f of data.layers.landuse.features){if(!vis(f,b))continue;const h=H[f.fclass];if(!h)continue;ctx.fillStyle=h;ctx.fill(f.p||(f.p=pathOf(f.r)))}},
+  circles(ctx,k,def,b,s){for(const c of data.centreCells){if(c.n<3)continue;const r=Math.sqrt(c.d/data.maxD)*480;ring_(ctx,c.c[0],c.c[1],r,c.d>data.maxD*.5?C_RED:C_AMB,s,1)}},
   civic(ctx,k,def,b,s){ctx.fillStyle='#fff';ctx.strokeStyle='#111';ctx.lineWidth=1/s;const r=Math.max(25,3.2/s);for(const p of data.civic){ctx.beginPath();ctx.rect(p.c[0]-r,-p.c[1]-r,2*r,2*r);ctx.fill();ctx.stroke()}},
   stops(ctx,k,def,b,s){ctx.fillStyle='#ff3b30';const r=Math.max(12,1.8/s);for(const p of data.stops){ctx.beginPath();ctx.arc(p.c[0],-p.c[1],r,0,7);ctx.fill()}},
   // Each OSM footprint takes its own GlobalBuildingAtlas height (else its 100 m cell average) and is swept
@@ -329,20 +340,19 @@ window.Ex13=(()=>{
   morph(ctx,k,def,b,s){if(!window.Morph13?.cells)return;const P=Morph13.streetPaths();ctx.lineCap='round';
    for(const [id,,,c] of Morph13.RULES){ctx.strokeStyle=c;ctx.lineWidth=(id==='mixed'?.7:1.8)/s;ctx.globalAlpha=state[k].op*(id==='mixed'?.5:1);ctx.stroke(P[id])}
    if(s>.35){ctx.globalAlpha=state[k].op;const r=Math.max(2.5,2.2/s);for(const j of Morph13.junctions){if(j.c[0]<b[0]||j.c[0]>b[2]||j.c[1]<b[1]||j.c[1]>b[3])continue;ctx.beginPath();ctx.arc(j.c[0],-j.c[1],r,0,7);if(j.t===1){ctx.strokeStyle='#fff';ctx.lineWidth=1/s;ctx.stroke()}else{ctx.fillStyle=j.t===3?'#ffb347':'#5fb4ff';ctx.fill()}}}},
-  zones(ctx,k,def,b,s){for(const [key,c] of ZONES){const f=data.layers[key]?.features[0];if(!f)continue;const p=f.p||(f.p=pathOf(f.r));ctx.fillStyle=c+'2e';ctx.fill(p,'evenodd');ctx.strokeStyle=c;ctx.lineWidth=2/s;ctx.stroke(p)}
+  zones(ctx,k,def,b,s){for(const [key,c,a,e] of ZONES){const f=data.layers[key]?.features[0];if(!f)continue;const p=f.p||(f.p=pathOf(f.r));ctx.fillStyle=hatch(ctx,'#ffffff22',6,45);ctx.fill(p,'evenodd');ctx.strokeStyle='#f4f2ec';ctx.lineWidth=1.4/s;ctx.setLineDash([6/s,4/s]);ctx.stroke(p);ctx.setLineDash([]);vtag(ctx,(f.b[0]+f.b[2])/2,(f.b[1]+f.b[3])/2,L(a,e),key==='centre_historic'?C_RED:'#f4f2ec')}return
    ctx.save();ctx.setTransform(1,0,0,1,0,0);ctx.font='600 12px "Readex Pro","Noto Kufi Arabic",sans-serif';ctx.textAlign='center';
    for(const [key,c,a,e] of ZONES){const f=data.layers[key]?.features[0];if(!f)continue;const [x,y]=screen((f.b[0]+f.b[2])/2,f.b[3]),d=Math.min(devicePixelRatio||1,1.5),t=L(a,e);ctx.setTransform(d,0,0,d,0,0);ctx.fillStyle='#0e0e0ecc';const w=ctx.measureText(t).width+12;ctx.fillRect(x-w/2,y-22,w,18);ctx.fillStyle=c;ctx.fillText(t,x,y-9)}ctx.restore()},
-  inst(ctx,k,def,b,s){const r=Math.max(30,4/s);ctx.fillStyle='#7ad7ff';ctx.strokeStyle='#0b2530';ctx.lineWidth=1/s;for(const p of data.layers.institutions?.features||[]){ctx.beginPath();ctx.moveTo(p.c[0],-p.c[1]-r);ctx.lineTo(p.c[0]+r,-p.c[1]);ctx.lineTo(p.c[0],-p.c[1]+r);ctx.lineTo(p.c[0]-r,-p.c[1]);ctx.closePath();ctx.fill();ctx.stroke()}},
+  inst(ctx,k,def,b,s){const r=Math.max(8,2/s);ctx.fillStyle='#f4f2ec';for(const p of [...(data.layers.institutions?.features||[]),...data.civic]){ctx.beginPath();ctx.arc(p.c[0],-p.c[1],r,0,7);ctx.fill()}},
   glow(ctx,k,def,b,s){const g=nightGlow();if(!g)return;ctx.imageSmoothingEnabled=true;ctx.drawImage(g.canvas,g.box[0],-g.box[3],g.box[2]-g.box[0],g.box[3]-g.box[1])},
   busflow(ctx,k,def,b,s){const L_=data.layers;if(!L_.bus_routes)return;ctx.lineCap=ctx.lineJoin='round';
    // Quiet base: routes in dark red-grey, a little thicker where lines overlap; the moving comets carry the colour.
    ctx.strokeStyle='#3a2522';ctx.lineWidth=.9/s;for(const f of L_.bus_routes.features)if(vis(f,b))ctx.stroke(f.p||(f.p=pathOf(f.r)));
    const ov=[...L_.bus_overlap.features].sort((a,c)=>(a.n||1)-(c.n||1));
    for(const f of ov){if(!vis(f,b))continue;const t=((f.n||1)-1)/Math.max(1,data.busMax-1);ctx.strokeStyle=`rgba(120,40,32,${(.35+t*.5).toFixed(2)})`;ctx.lineWidth=(1+t*3)/s;ctx.stroke(f.p||(f.p=pathOf(f.r)))}},
-  parking(ctx,k,def,b,s){if(!park)return;for(const l of park.lots){if(!overlap(l.b,b))continue;ctx.fillStyle=PARK_COL[l.kind]||'#9a9a94';ctx.fill(l.p);ctx.strokeStyle=ctx.fillStyle;ctx.lineWidth=Math.max(1.2/s,6);ctx.stroke(l.p)}},
+  parking(ctx,k,def,b,s){if(!park)return;for(const l of park.lots){if(!overlap(l.b,b))continue;ctx.fillStyle=hatch(ctx,PARK_COL[l.kind]||C_LG,3,45);ctx.fill(l.p);ctx.strokeStyle=PARK_COL[l.kind]||C_LG;ctx.lineWidth=1/s;ctx.stroke(l.p)}},
   // A soft halo, not a pin: the position of a market is known to tens of metres, not to the metre.
-  markets(ctx,k,def,b,s){if(!mkts)return;for(const m of mkts.markets){if(m.x<b[0]-400||m.x>b[2]+400||m.y<b[1]-400||m.y>b[3]+400)continue;const big=m.kind==='joutia',r=big?380:180,g=ctx.createRadialGradient(m.x,-m.y,0,m.x,-m.y,r);
-    g.addColorStop(0,big?'rgba(255,77,36,.75)':'rgba(255,179,71,.6)');g.addColorStop(1,'rgba(255,179,71,0)');ctx.fillStyle=g;ctx.beginPath();ctx.arc(m.x,-m.y,r,0,7);ctx.fill()}},
+  markets(ctx,k,def,b,s){if(!mkts)return;for(const m of mkts.markets){if(m.x<b[0]-400||m.x>b[2]+400||m.y<b[1]-400||m.y>b[3]+400)continue;const big=m.kind==='joutia';ring_(ctx,m.x,m.y,big?380:160,big?C_RED:C_AMB,s,big?1.6:1);ring_(ctx,m.x,m.y,big?200:80,big?C_RED:C_AMB,s,.7);if(big)vtag(ctx,m.x,m.y,L('درب غلف','Derb Ghallef'),C_RED,60)}},
   photos(ctx,k,def,b,s){if(!mly)return;const r=Math.max(5,1.6/s);ctx.fillStyle='#eeeeea';ctx.beginPath();for(const [x,y,,,pano] of mly.pts){if(x<b[0]||x>b[2]||y<b[1]||y>b[3])continue;ctx.moveTo(x+r,-y);ctx.arc(x,-y,pano?r*1.5:r,0,7)}ctx.fill()},
   buried(ctx,k,def,b,s){if(!bousk)return;const line=(fs,col,w,dash)=>{ctx.strokeStyle=col;ctx.lineWidth=w/s;ctx.setLineDash(dash.map(v=>v/s));for(const f of fs||[]){ctx.beginPath();f.r.forEach((p,i)=>i?ctx.lineTo(p[0],-p[1]):ctx.moveTo(p[0],-p[1]));ctx.stroke()}ctx.setLineDash([])};ctx.lineCap='round';
    line(bousk.open,'#5fb4ff',2.6,[]);line(bousk.gap,'rgba(238,238,234,.6)',1.6,[2,6]);line(bousk.historic,'#ff4d24',3,[9,6]);line(bousk.buried,'#ff4d24',3,[])},
@@ -363,12 +373,12 @@ window.Ex13=(()=>{
   blocks(ctx,k,def,b,s){if(!blk)return;ctx.lineWidth=.6/s;ctx.strokeStyle='#0b0b0b';for(const q of blk.list){if(q.b[2]<b[0]||q.b[0]>b[2]||q.b[3]<b[1]||q.b[1]>b[3])continue;ctx.fillStyle=blk.col[q.t];ctx.fill(q.p);if(s>.15)ctx.stroke(q.p)}},
   bfriction(ctx,k,def,b,s){if(!blk)return;ctx.lineCap='round';for(const f of blk.raw.friction){const [x0,y0,x1,y1,v]=f;if(x1<b[0]-50&&x0<b[0]-50||x0>b[2]+50&&x1>b[2]+50)continue;const t=Math.min(1,(v-2.2)/2);ctx.strokeStyle=`rgba(255,${Math.round(120-90*t)},${Math.round(80-60*t)},${(.65+.35*t).toFixed(2)})`;ctx.lineWidth=Math.max(2+5*t,(10+20*t)*s)/s;ctx.beginPath();ctx.moveTo(x0,-y0);ctx.lineTo(x1,-y1);ctx.stroke()}},
   // 'distdens' is the density fill (density chapter); 'districts' alone is the base outline + names.
-  districts(ctx,k,def,b,s){if(!distD)return;if(k==='distdens'){for(const d of distD.districts){if(!d.dens)continue;ctx.fillStyle=R.pop(Math.min(1,d.dens/36000)).replace('rgb','rgba').replace(')',',.45)');ctx.fill(d.p||(d.p=pathOf(d.r)))}return}ctx.strokeStyle='#eeeeea';ctx.lineWidth=1.2/s;ctx.setLineDash([6/s,4/s]);for(const d of distD.districts)ctx.stroke(d.p||(d.p=pathOf(d.r)));ctx.setLineDash([]);
+  districts(ctx,k,def,b,s){if(!distD)return;if(k==='distdens'){for(const d of distD.districts){ctx.strokeStyle='#3a3a37';ctx.lineWidth=1/s;ctx.stroke(d.p||(d.p=pathOf(d.r)));if(!d.dens)continue;const bb=d.b||(d.b=bbox(d.r)),r=Math.sqrt(d.dens/36000)*1500;ring_(ctx,(bb[0]+bb[2])/2,(bb[1]+bb[3])/2,r,d.dens>25000?C_RED:C_AMB,s,1.4)}return}ctx.strokeStyle='#eeeeea';ctx.lineWidth=1.2/s;ctx.setLineDash([6/s,4/s]);for(const d of distD.districts)ctx.stroke(d.p||(d.p=pathOf(d.r)));ctx.setLineDash([]);
    ctx.save();ctx.setTransform(1,0,0,1,0,0);const dpr=Math.min(devicePixelRatio||1,1.5);ctx.font='600 11px "Readex Pro","Noto Kufi Arabic",sans-serif';ctx.textAlign='center';
    for(const d of distD.districts){const bb=d.b||(d.b=bbox(d.r)),[x,y]=screen((bb[0]+bb[2])/2,(bb[1]+bb[3])/2),t=L(d.ar||d.fr,d.fr)+(d.dens&&state.distdens.on?` · ${(d.dens/1000).toFixed(1)}k/km²`:'');ctx.setTransform(dpr,0,0,dpr,0,0);ctx.fillStyle='#0e0e0ebb';const w=ctx.measureText(t).width+10;ctx.fillRect(x-w/2,y-9,w,16);ctx.fillStyle='#eeeeea';ctx.fillText(t,x,y+3)}ctx.restore()},
-  rwi(ctx,k,def,b,s){if(!distD)return;for(const [x0,y0,x1,y1,v] of distD.rwi){if(x1<b[0]||x0>b[2]||y1<b[1]||y0>b[3])continue;ctx.fillStyle=R.rwi((v+.1)/1.7);ctx.fillRect(x0,-y1,x1-x0,y1-y0)}},
-  overture(ctx,k,def,b,s){if(!ovP)return;const p=ovP.pts,r=Math.max(6,1.1/s);for(let c=4;c>=0;c--){ctx.fillStyle=OV_COL[c];ctx.beginPath();
-    for(let i=0;i<p.length;i+=3){if(p[i+2]!==c)continue;const x=p[i],y=p[i+1];if(x<b[0]||x>b[2]||y<b[1]||y>b[3])continue;ctx.moveTo(x+r,-y);ctx.arc(x,-y,r,0,7)}ctx.fill()}},
+  rwi(ctx,k,def,b,s){if(!distD)return;for(const [x0,y0,x1,y1,v] of distD.rwi){if(x1<b[0]||x0>b[2]||y1<b[1]||y0>b[3])continue;const t=Math.max(0,Math.min(1,(v+.1)/1.7));ctx.fillStyle=hatch(ctx,'#d9d7cf',Math.round(12-t*9),-45,1);ctx.fillRect(x0,-y1,x1-x0,y1-y0)}},
+  overture(ctx,k,def,b,s){if(!ovP)return;const p=ovP.pts,r=Math.max(6,1.1/s);ctx.lineWidth=.8/s;for(let c=4;c>=0;c--){ctx.strokeStyle=c<2?'#ffd76a':c===2?C_LG:'#7a7972';ctx.beginPath();
+    for(let i=0;i<p.length;i+=3){if(p[i+2]!==c)continue;const x=p[i],y=p[i+1];if(x<b[0]||x>b[2]||y<b[1]||y>b[3])continue;ctx.moveTo(x+r,-y);ctx.arc(x,-y,r,0,7)}ctx.stroke()}},
   // Cells where OSM shows no shop or café but Overture shows several: commerce the volunteer map misses.
   placegap(ctx,k,def,b,s){if(!ovP)return;const h=ovP.cell/2;for(const [x,y,a,o] of ovP.grid){if(x+h<b[0]||x-h>b[2]||y+h<b[1]||y-h>b[3])continue;const t=Math.min(1,Math.log2((a+1)/(o+1))/4);if(t<=0)continue;
     ctx.fillStyle=o===0&&a>=5?'rgba(255,77,36,.55)':`rgba(255,179,71,${(.12+t*.4).toFixed(2)})`;ctx.fillRect(x-h,-(y+h),2*h,2*h)}},
@@ -376,9 +386,9 @@ window.Ex13=(()=>{
   bustime(ctx,k,def,b,s){const P=busPaths(busHour);if(!P)return;ctx.lineCap='round';
    P.forEach((p,i)=>{if(!p)return;const t=i/(BUS_CLASSES.length-1);ctx.strokeStyle=R.bustime(.08+t*.92);ctx.lineWidth=(1+t*3.2)/s;ctx.stroke(p)})},
   busstops(ctx,k,def,b,s){const L_=data.layers;if(!L_.bus_stops)return;const u=Math.max(8,1.1/s);
-   for(const p of [...L_.bus_stops.features].sort((a,c)=>(a.n||1)-(c.n||1))){const r=u*Math.sqrt(p.n||1);ctx.beginPath();ctx.arc(p.c[0],-p.c[1],r,0,7);ctx.fillStyle=R.bus(((p.n||1)-1)/Math.max(1,data.stopMax-1));ctx.fill();ctx.lineWidth=.6/s;ctx.strokeStyle='#120403';ctx.stroke()}
-   ctx.strokeStyle='#fff';ctx.lineWidth=1.6/s;for(const p of L_.transport_hubs.features){ctx.beginPath();ctx.arc(p.c[0],-p.c[1],u*Math.sqrt(p.n||1)+3/s,0,7);ctx.stroke()}},
-  dots(ctx,k,def,b,s){const r=Math.max(10,1.4/s);for(const p of data.commerce){ctx.fillStyle=FOOD.has(p.fclass)?'#ffd166':'#f4f1ea';ctx.beginPath();ctx.arc(p.c[0],-p.c[1],r,0,7);ctx.fill()}},
+   for(const p of [...L_.bus_stops.features].sort((a,c)=>(a.n||1)-(c.n||1))){const r=u*Math.sqrt(p.n||1);ring_(ctx,p.c[0],p.c[1],r,(p.n||1)>=8?C_RED:'#f4f2ec',s,.9)}
+   ctx.strokeStyle=C_RED;ctx.lineWidth=1.6/s;for(const p of L_.transport_hubs.features){ctx.beginPath();ctx.arc(p.c[0],-p.c[1],u*Math.sqrt(p.n||1)+3/s,0,7);ctx.stroke()}},
+  dots(ctx,k,def,b,s){const r=Math.max(10,1.4/s);for(const p of data.commerce){ctx.fillStyle=FOOD.has(p.fclass)?'#ffd76a':C_AMB;ctx.beginPath();ctx.arc(p.c[0],-p.c[1],r,0,7);ctx.fill()}},
   // Thin blue streamlines of the season's prevailing direction; brighter where Global Wind Atlas is faster.
   wind(ctx,k,def,b,s){const L_=windLines();if(!L_)return;ctx.lineCap='round';for(const l of L_){ctx.strokeStyle=`rgba(95,180,255,${(.18+.5*l.f).toFixed(2)})`;ctx.lineWidth=(.6+.8*l.f)/s;ctx.beginPath();l.p.forEach((p,i)=>i?ctx.lineTo(p[0],-p[1]):ctx.moveTo(p[0],-p[1]));ctx.stroke()}}
  };
@@ -477,13 +487,13 @@ window.Ex13=(()=>{
   if(k==='shadow'&&window.City3D?.ready){const S=City3D.opt.sun;return `<div class="lg"><div class="seg">${[[80,'21 مارس','21 Mar'],[172,'21 يونيو','21 Jun'],[355,'21 ديسمبر','21 Dec']].map(([d_,a,e])=>`<button data-sunday="${d_}" class="${sunDay===d_?'on':''}">${L(a,e)}</button>`).join('')}</div><div class="playRow"><button class="act" data-sunplay>${sunPlay?'■':'▶'}</button><input type="range" min="6" max="19.5" step=".25" value="${sunHour}" data-sunhour aria-label="${L('الساعة','Hour')}"><span data-sunhour-label>${Math.floor(sunHour)}:00</span></div><small>${L('ظل كل مبنى في المدينة، محسوبًا من شكله وارتفاعه وموقع الشمس على خط عرض 33.6°. الوقت شمسي. الارتفاع من GlobalBuildingAtlas لكل مبنى، وإلا متوسط GHSL.','The shadow of every building in the city, from its shape, its height and the sun at 33.6° N. Solar time. Heights from GlobalBuildingAtlas per building, else the GHSL mean.')}</small></div>`}
   if(k==='shadow'){const S=SUN[sun];return `<div class="lg"><div class="seg">${Object.entries(SUN).map(([id,x])=>`<button data-sun="${id}" class="${sun===id?'on':''}">${L(...x.t)}</button>`).join('')}</div><span>${swatch(light?'#2a2f55':'#6f7cff')}${L('ظل','shadow')} · ${L('ارتفاع الشمس','sun altitude')} ${S.alt}° · ${L('مبنى 10 م يرمي ظلًا','a 10 m building casts')} ${fmt(10/Math.tan(S.alt*Math.PI/180),0)} ${L('م','m')}</span><small>${L('كل مبنى (OSM) يأخذ متوسط ارتفاع خليته (100 م) من GHS-BUILT-H، فالظل تقريبي: المبنى الأعلى من متوسط حيّه يرمي ظلًا أطول في الواقع. قرّب على الحي لرؤيته. التوقيت شمسي.','Each OSM building takes its 100 m cell\'s average height from GHS-BUILT-H, so shadows are approximate: a building taller than its block average casts longer in reality. Zoom in to a neighbourhood to see it. Solar time.')}</small></div>`}
   if(k==='patterns'&&window.Morph13?.cells){const n={};for(const c of Morph13.cells)n[c.type]=(n[c.type]||0)+1;return `<div class="lg morphLg">${Morph13.RULES.map(([id,,name,c,rule])=>`<span>${swatch(c)}<b>${L(...name)}</b> · ${n[id]||0} ${L('خلية','cells')}<small>${L(...rule)}</small></span>`).join('')}<small>${L('عند التكبير: ○ طريق مسدود · ● برتقالي تقاطع T · ● أزرق تقاطع +','Zoomed in: ○ dead end · orange ● T-junction · blue ● four-way')}</small></div>`}
-  if(k==='zones')return `<div class="lg">${ZONES.map(([,c,a,e])=>`<span>${swatch(c)}${L(a,e)}</span>`).join('')}</div>`;
+  if(k==='zones')return `<div class="lg">${ZONES.map(([key,c,a,e])=>`<span>${swatch(key==='centre_historic'?C_RED:'#f4f2ec')}${L(a,e)}</span>`).join('')}<small>${L('حدود متقطعة واسم رأسي؛ التاريخي بالأحمر لأنه أصل الباقي','dashed outlines with a vertical name; the historic one in red as the origin of the others')}</small></div>`;
   if(k==='inst'&&data?.layers.institutions){const n={};for(const p of data.layers.institutions.features)n[p.fclass]=(n[p.fclass]||0)+1;return `<div class="lg"><span><em class="circ" style="background:#7ad7ff;border-radius:0;transform:rotate(45deg)"></em>${data.layers.institutions.features.length} ${L('مؤسسة','institutions')}</span><small>${Object.entries(n).sort((a,b)=>b[1]-a[1]).map(([k,v])=>k+' '+v).join(' · ')}</small></div>`}
   if(k==='nightlights'&&data?.layers.night_lights){const m=Math.round(data.nightMax);return `<div class="lg grad"><b style="background:linear-gradient(90deg,${[0,.2,.4,.6,.8,1].map(t=>R.night(t)).join(',')})"></b><div><span>0</span><span>${Math.round(m/2)}</span><span>${m}</span></div><small>${L('إشعاع ليلي','night radiance')} · nW/cm²/sr</small></div>`}
   if(k==='busflow'&&data?.layers.bus_routes){const n=data.busMax;return `<div class="lg grad"><b style="background:linear-gradient(90deg,${[0,.33,.66,1].map(t=>R.bus(t)).join(',')})"></b><div><span>1</span><span>${Math.round((n+1)/2)}</span><span>${n}</span></div><small>${L('عدد الخطوط على نفس المقطع','lines sharing the same street segment')} · ${data.layers.bus_routes.features.length} ${L('مسارًا','routes')}<br>${L('الساعة على الخريطة','Clock on the map')}: <b data-busclock>${busHour}:00</b> <input type="range" min="5" max="22" step="1" value="${busHour}" data-bushour aria-label="${L('ابدأ من الساعة','Start at hour')}"> · ${busTrips?busTrips.trips.length.toLocaleString('en-US'):''} ${L('رحلة يوميًا','trips a day')}</small></div>`}
   if(k==='busstops'&&data?.layers.bus_stops){const n=data.stopMax;return `<div class="lg">${[1,Math.round(n/2),n].map(v=>`<span><em class="circ" style="width:${Math.round(6*Math.sqrt(v))}px;height:${Math.round(6*Math.sqrt(v))}px;background:${R.bus((v-1)/Math.max(1,n-1))}"></em>${v} ${L('خط','lines')}</span>`).join('')}<span><em class="circ" style="background:none;border:1.5px solid #fff"></em>${L('محطة رئيسية','major hub')} (${data.layers.transport_hubs.features.length})</span><small>${data.layers.bus_stops.features.length} ${L('محطة · مساحة الدائرة ∝ عدد الخطوط','stops · circle area ∝ number of lines')}</small></div>`}
-  if(k==='dots')return `<div class="lg"><span>${swatch('#f4f1ea')}${L('محل / سوق','shop / market')}</span><span>${swatch('#ffd166')}${L('مقهى / مطعم','café / restaurant')}</span><small>${data?data.commerce.length:''} ${L('نقطة','places')}</small></div>`;
-  if(k==='landuse')return `<div class="lg">${[['residential','سكني','residential'],['commercial','تجاري','commercial'],['industrial','صناعي','industrial'],['park','حدائق','parks'],['farmland','زراعي','farmland']].map(([c,a,e])=>`<span>${swatch(LU[c])}${L(a,e)}</span>`).join('')}</div>`;
+  if(k==='dots')return `<div class="lg"><span>${swatch(C_AMB)}${L('محل / سوق','shop / market')}</span><span>${swatch('#ffd76a')}${L('مقهى / مطعم','café / restaurant')}</span><small>${data?data.commerce.length:''} ${L('نقطة','places')}</small></div>`;
+  if(k==='landuse')return `<div class="lg">${[['residential','سكني','residential'],['commercial','تجاري','commercial'],['industrial','صناعي','industrial'],['park','حدائق','parks'],['farmland','زراعي','farmland']].map(([c,a,e])=>`<span>${swatch({residential:'#6e6d69',commercial:C_AMB,industrial:C_RED,park:'#5f9a52',farmland:'#4a4a46'}[c])}${L(a,e)}</span>`).join('')}<small>${L('تهشير لكل نوع؛ الصناعي بالأحمر لأنه ما يقطع النسيج','hatched by type; industry in red because it is what cuts the fabric')}</small></div>`;
   if(k==='wind'&&wind){const w=wind[windSeason],i=w.freq.indexOf(Math.max(...w.freq)),dirs=['N','NNE','NE','ENE','E','ESE','SE','SSE','S','SSW','SW','WSW','W','WNW','NW','NNW'];
    const seasons=[['winter','شتاء','Winter'],['spring','ربيع','Spring'],['summer','صيف','Summer'],['autumn','خريف','Autumn'],['annual','سنوي','Year']].filter(([s])=>wind[s]);
    return `<div class="lg"><div class="seg">${seasons.map(([s,a,e])=>`<button data-season="${s}" class="${windSeason===s?'on':''}">${L(a,e)}</button>`).join('')}</div>${rose(w)}<small>${L('السائدة من','Prevailing from')} ${dirs[i]} · ${Math.round(w.freq[i]*100)}% · ${w.speed[i]} m/s · ${L('سكون','calm')} ${Math.round(w.calm*100)}%<br>${L('رياح مرجعية لمحطة واحدة — ليست حقل رياح محلي','Single-station reference wind — not a local wind field')}</small></div>`}
@@ -511,7 +521,7 @@ window.Ex13=(()=>{
  const MOMENTS={
   density:[{l:['pop'],t:['السكان: أين يسكن الناس فعلًا، خلية 100 م','Population: where people actually live, 100 m cells']},
    {l:['built'],t:['البناء: كم من الأرض مبني، وليس دائمًا حيث الناس','Built-up: how much ground is built, not always where people are']},
-   {l:['height'],t:['الارتفاع: معظم المدينة منخفضة، نحو 3 طوابق في المتوسط','Height: most of the city is low, about 3 storeys on average']},
+   {l:[],tilt:true,t:['الارتفاع بالـ3D: معظم المدينة منخفضة، نحو 3 طوابق في المتوسط','Height in 3D: most of the city is low, about 3 storeys on average']},
    {l:['shadow'],t:['الظل: من يحجب الشمس عن من؟ قرّبي على حي','Shadow: who blocks whose sun? Zoom into a district']},
    {l:['distdens'],t:['لكل مقاطعة: من أنفا ≈3.9 ألف/كم² إلى مولاي رشيد ≈34.6 ألف/كم²','Per arrondissement: from Anfa ≈3.9k/km² to Moulay Rachid ≈34.6k/km²']},
    {l:['rwi'],t:['الثروة النسبية: صورة عامة بمربعات 2.4 كم','Relative wealth: a broad picture in 2.4 km tiles']},{concl:true}],
@@ -521,7 +531,7 @@ window.Ex13=(()=>{
    {l:['landuse'],t:['استعمالات الأرض: الصناعة والسكك تقطع النسيج','Land use: industry and rail cut the fabric']},{concl:true}],
   centre:[{l:['zones'],t:['أربعة مراكز، لا مركز واحد','Four centres, not one']},
    {l:['centres'],t:['أين تتجمع التجارة والخدمات','Where commerce and services gather']},
-   {l:['inst','civic'],t:['المؤسسات: أين تُدار المدينة','Institutions: where the city is run']},
+   {l:['inst'],t:['المؤسسات: أين تُدار المدينة','Institutions: where the city is run']},
    {l:['busflow'],t:['حركة الباصات طوال اليوم: 12,712 رحلة','Buses through the day: 12,712 trips']},
    {l:['busstops'],t:['المحطات: أين تلتقي الخطوط','Stops: where the lines meet']},
    {l:['parking','zones'],t:['المواقف: أقل من 0.5% من مساحة كل مركز في OSM','Car parks: under 0.5% of each centre in OSM']},{concl:true}],
@@ -546,6 +556,7 @@ window.Ex13=(()=>{
  function fadeTo(){let run=false;for(const k in state){const s=state[k],t=s.on?1:0;if(s.fade===undefined)s.fade=t;if(Math.abs(s.fade-t)>.01){s.fade+=(t-s.fade)*.25;run=true}else s.fade=t}render();if(run)requestAnimationFrame(fadeTo)}
  function wipe(){let w=document.getElementById('wipe13');if(!w){w=document.createElement('div');w.id='wipe13';document.body.append(w)}w.classList.remove('go');void w.offsetWidth;w.classList.add('go')}
  function setMoment(i){const M=moments();if(!M.length)return;mi=(i+M.length)%M.length;const m=M[mi];
+  if(!!m.tilt!==tilt)setTilt(!!m.tilt);
   if(!m.concl){for(const k of topic.layers)state[k].on=m.l.includes(k);setWind(state.wind.on);setBus(state.busflow.on);const w=state.emigration.on;if(w!==!!window.Ex13World)setWorld(w)}
   wipe();requestAnimationFrame(fadeTo);fill()}
  function ui(){let c=document.getElementById('moment13'),d=document.getElementById('drawer13');
