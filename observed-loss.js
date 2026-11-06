@@ -5,7 +5,7 @@ window.ObservedLoss=(()=>{
  const rings=data.rings,box=ChangeGeometry.bounds(rings),area=data.area_m2||rings.reduce((sum,ring)=>sum+ChangeGeometry.area([ring]),0);
  // One control only: which year of the Esri Wayback archive is under the outline.
  const YEARS=[2014,2016,2019,2026];
- let visible=false,year=2014;
+ let visible=true,year=2014;
  const releaseFor=y=>{const r=Imagery.sources.filter(s=>s.release&&+s.release.slice(0,4)<=y).sort((a,b)=>a.release<b.release?-1:1);return r[r.length-1]||null};
  async function showYear(y){year=y;if(Imagery.catalogStatus!=='ready'&&!Imagery.sources.some(s=>s.release))await Imagery.loadCatalog();
   const s=releaseFor(y);if(s){Imagery.state.enabled=true;Imagery.state.swipe=false;Imagery.state.left=s;Imagery.state.right=s;Imagery.sync?.()}
@@ -36,3 +36,13 @@ window.ObservedLoss=(()=>{
  }
  return{open,content,bind,paint,show(){visible=true;render()},hide(){visible=false;render()}};
 })();
+// Threatened places (data/threatened.json, press-sourced): a halo that pulses on its own light canvas, so the
+// map itself is not redrawn. Shown from the first view, with the demolished settlement outlined.
+window.Threats=(()=>{let T=null,cv=null,cx=null,on=true;fetch('data/threatened.json?v=1').then(r=>r.ok?r.json():null).then(d=>{T=d;start()}).catch(()=>{});
+ function start(){if(cv||!T)return;cv=document.createElement('canvas');cv.id='threatLayer';document.body.appendChild(cv);cx=cv.getContext('2d');const fitC=()=>{cv.width=innerWidth;cv.height=innerHeight};fitC();addEventListener('resize',fitC);requestAnimationFrame(loop)}
+ function loop(t){requestAnimationFrame(loop);if(!cx)return;cx.clearRect(0,0,cv.width,cv.height);if(!on||!T||window.Ex13World||typeof screen!=='function'||typeof view==='undefined')return;
+  for(const s of T.sites){const [x,y]=screen(s.x,s.y),R=Math.max(10,s.r*view.s);if(x<-R*3||y<-R*3||x>cv.width+R*3||y>cv.height+R*3)continue;
+   for(let k=0;k<2;k++){const ph=(((t/2400)+k/2+Math.abs(s.x%7)/7)%1+1)%1,rr=R*(.6+ph*1.4);cx.strokeStyle=`rgba(255,77,36,${(1-ph)*.7})`;cx.lineWidth=1.5;cx.setLineDash(s.approx?[4,4]:[]);cx.beginPath();cx.arc(x,y,rr,0,7);cx.stroke()}
+   cx.setLineDash([]);cx.fillStyle='rgba(255,77,36,.85)';cx.beginPath();cx.arc(x,y,3,0,7);cx.fill()}}
+ function hit(px,py){if(!T)return null;for(const s of T.sites){const [x,y]=screen(s.x,s.y),R=Math.max(10,s.r*view.s);if(Math.hypot(px-x,py-y)<R)return s}return null}
+ return{hit,get sites(){return T?.sites||[]},set visible(v){on=v}}})();

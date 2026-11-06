@@ -398,12 +398,17 @@ window.ChangeScan=(()=>{
   for(const g of groups){
    if(!overlap(g.bounds,bounds))continue;
    const color=reviewColor[reviews[gid(g)]]||'#ffb347';
-   ctx.fillStyle=color+(g===chosen?'88':'44');
-   g.path??=pathFor(g.rings);
-   ctx.fill(g.path,'evenodd');
-   ctx.strokeStyle=color;ctx.lineWidth=1.8/view.s;
-   ctx.setLineDash(reviews[gid(g)]==='rejected'?[5/view.s,4/view.s]:[]);
-   ctx.stroke(g.path);ctx.setLineDash([]);
+   // Real shapes, not pixel squares: the building footprints (OSM + Microsoft) whose centre falls inside the
+   // detected area are drawn as the change; where there are none, the pixel outline is smoothed (Chaikin).
+   if(g.fpPath===undefined){const inside=(x,y)=>{let c=false;for(const r of g.rings)for(let i=0,j=r.length-1;i<r.length;j=i++){const a=r[i],b=r[j];if((a[1]>y)!==(b[1]>y)&&x<(b[0]-a[0])*(y-a[1])/(b[1]-a[1])+a[0])c=!c}return c};
+    const fp=new Path2D();let n=0;const test=bd=>{if(!overlap(bd.b,g.bounds))return;const r=bd.r[0];let cx=0,cy=0;for(const p of r){cx+=p[0];cy+=p[1]}cx/=r.length;cy/=r.length;if(inside(cx,cy)){fp.addPath(bd.path||(bd.path=pathFor(bd.r)));n++}};
+    for(const bd of window.DNA?.buildings||[])test(bd);if(typeof msGrid!=='undefined'){const seen=new Set();for(const a of msGrid.values())for(const bd of a)if(!seen.has(bd)){seen.add(bd);test(bd)}}
+    g.fpPath=n?fp:null;g.fpN=n;
+    const smooth=r=>{let p=r.slice(0,-1);for(let k=0;k<3;k++){const q=[];for(let i=0;i<p.length;i++){const a=p[i],b=p[(i+1)%p.length];q.push([a[0]*.75+b[0]*.25,a[1]*.75+b[1]*.25],[a[0]*.25+b[0]*.75,a[1]*.25+b[1]*.75])}p=q}return[...p,p[0]]};
+    g.smoothPath=pathFor(g.rings.map(smooth))}
+   ctx.fillStyle=color+(g===chosen?'55':'22');ctx.fill(g.smoothPath,'evenodd');
+   ctx.strokeStyle=color;ctx.lineWidth=1.4/view.s;ctx.setLineDash(reviews[gid(g)]==='rejected'?[5/view.s,4/view.s]:[3/view.s,3/view.s]);ctx.stroke(g.smoothPath);ctx.setLineDash([]);
+   if(g.fpPath){ctx.fillStyle=color+'cc';ctx.fill(g.fpPath,'evenodd');ctx.strokeStyle=color;ctx.lineWidth=1/view.s;ctx.stroke(g.fpPath)}
   }
  }
  return{open,openStudy,content,bind,paint,scanLocation:bounds=>{open();return start(ChangeGeometry.evidenceBox(bounds))}};

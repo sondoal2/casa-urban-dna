@@ -104,3 +104,48 @@ html[dir=rtl] #exp13{right:auto;left:16px;align-items:flex-start}
 body.tilt13 #map,body.tilt13 #windLayer,body.tilt13 #busLayer{transform:perspective(1300px) rotateX(50deg) scale(1.45);transform-origin:50% 66%;transition:transform .5s}
 #map,#windLayer,#busLayer{transition:transform .5s}
 .sqCard .sqPlan{width:100%;display:block;border:1px solid #ff4d24;margin-bottom:8px}.sqCard .sqStats{width:100%;border-collapse:collapse;margin:8px 0}.sqCard .sqStats td{border-top:1px solid #222;padding:4px 2px;color:#ddd}.sqCard .sqStats td:first-child{color:#999}.sqCard .studySheet{width:100%;display:block;margin:6px 0;background:#fff}
+/* ---------- 1.3 moments + explore drawer (replace the chapter windows) ---------- */
+#moment13{position:fixed;bottom:22px;left:22px;width:min(440px,calc(100vw - 44px));z-index:25;background:#0b0b0bf2;border:1px solid #262624;border-top:2px solid #ff4d24;color:#eeeeea;padding:14px 16px 10px;font-size:12px;animation:mIn .35s both}
+html[dir=rtl] #moment13{left:auto;right:22px}
+#moment13[hidden],#drawer13[hidden]{display:none}
+@keyframes mIn{from{opacity:0;transform:translateY(10px)}}
+#moment13 .mHead{display:flex;gap:8px;align-items:baseline;color:#8a8a84;font-size:11px;letter-spacing:.06em}
+#moment13 .mNo{color:#ff4d24}#moment13 .mCount{margin-inline-start:auto}
+#moment13 .mText{font-size:17px;line-height:1.45;margin:8px 0 10px;color:#f4f2ec}
+#moment13 .mSub{color:#8a8a84;margin:0 0 8px}
+#moment13 .mChips{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px}
+#moment13 .chip{border:1px solid #3a3a37;padding:4px 10px;border-radius:999px;cursor:pointer;color:#bbb;transition:border-color .2s,color .2s,background .2s}
+#moment13 .chip.on{border-color:#ff4d24;color:#fff;background:#ff4d2418}
+#moment13 .chip input{display:none}
+#moment13 .mKey{max-height:28vh;overflow:auto;border-top:1px solid #1f1f1d;padding-top:6px}
+#moment13 .kRow{margin-bottom:6px}#moment13 .kRow .src{display:block;color:#666;font-size:10px;margin-top:2px}
+#moment13 .mNav{display:flex;align-items:center;gap:8px;margin-top:8px;border-top:1px solid #1f1f1d;padding-top:8px}
+#moment13 .mNav button{background:none;border:0;color:#eee;font-size:20px;width:30px;height:30px;border-radius:50%;cursor:pointer;transition:background .2s}
+#moment13 .mNav button:hover{background:#ff4d2433}
+#moment13 .mDots{display:flex;gap:5px}#moment13 .mDots i{width:14px;height:2px;background:#3a3a37;transition:background .3s}#moment13 .mDots i.on{background:#ff4d24}
+#moment13 .mExplore{margin-inline-start:auto;font-size:12px!important;width:auto!important;border-radius:999px!important;border:1px solid #3a3a37!important;padding:0 12px}
+html[dir=rtl] #moment13 .mNav button[data-mnav]{transform:scaleX(-1)}
+#drawer13{position:fixed;top:0;bottom:0;left:0;width:min(360px,100vw);z-index:40;background:#0b0b0bf7;border-inline-end:1px solid #262624;color:#eee;overflow:auto;padding:14px;transform:translateX(-105%);transition:transform .35s cubic-bezier(.2,.8,.2,1)}
+html[dir=rtl] #drawer13{left:auto;right:0;transform:translateX(105%)}
+#drawer13.open{transform:none!important}
+#drawer13 .dHead{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;color:#ff4d24}
+#drawer13 .dHead button{background:none;border:0;color:#eee;font-size:20px;cursor:pointer}
+/* a quick accent band sweeps across when the content changes */
+#wipe13{position:fixed;inset:0;z-index:6;pointer-events:none;background:linear-gradient(90deg,transparent 0,#ff4d2440 45%,#ff4d2466 50%,#ff4d2440 55%,transparent 100%);background-size:40% 100%;background-repeat:no-repeat;background-position:-60% 0;opacity:0}
+#wipe13.go{animation:wipe .45s ease-out}
+@keyframes wipe{0%{opacity:1;background-position:-60% 0}100%{opacity:0;background-position:160% 0}}
+/* film grain over the whole site */
+body::after{content:"";position:fixed;inset:0;pointer-events:none;z-index:60;opacity:.07;mix-blend-mode:overlay;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E")}
+#sq13{position:fixed;top:96px;left:22px;z-index:24;display:flex;gap:8px;align-items:flex-start}
+html[dir=rtl] #sq13{left:auto;right:22px}
+#sq13[hidden]{display:none}
+#sq13 .sqC{background:#0b0b0bf2;border:1px solid #262624;padding:3px;cursor:pointer;width:84px;color:#ddd;font-size:10px;transition:border-color .2s,transform .2s}
+#sq13 .sqC:hover{border-color:#ff4d24;transform:translateY(-2px)}
+#sq13 .sqC img{width:76px;height:76px;display:block;filter:grayscale(.2) brightness(.92)}
+#sq13 .sqC span{display:block;padding:3px 1px 1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#sq13 .sqX{background:#0b0b0bf2;border:1px solid #ff4d24;color:#ff866a;font-size:11px;padding:4px 8px;cursor:pointer}
+#sq13.closed .sqC{display:none}
+#sq13{left:auto!important;right:22px!important}
+#moment13 .mKey{max-height:20vh}#moment13 .mKey .morphLg span small{display:none}#moment13 .mKey .morphLg span:hover small{display:block}
+#threatLayer{position:fixed;inset:0;pointer-events:none;z-index:7}
+body.tilt13 #map,body.tilt13 #windLayer,body.tilt13 #busLayer{transform:none!important}#gl3d{position:fixed;inset:0;width:100vw;height:100vh;pointer-events:none;z-index:3;display:none}

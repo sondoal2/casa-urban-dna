@@ -1,0 +1,6 @@
+{"source":"Press reports, each with its date; positions from OpenStreetMap (Overpass 2026-11-06). Approximate where noted. Not a full list.",
+"sites":[
+ {"id":"rhamna","x":7510,"y":17500,"r":420,"ar":"كاريان الرحامنة (سيدي مومن) · 7000 براكة على الأقل، الهدم متوقع قريبًا","en":"Karyan Rhamna (Sidi Moumen) · at least 7,000 shacks, demolition expected soon","src":"Le360, 15.10.2026 · position: OSM neighbourhood “Carrières Rehamna” + Karyan Rhamna mosque","approx":false},
+ {"id":"sidimessaoud","x":-2596,"y":9306,"r":320,"ar":"دوار سيدي مسعود (عين الشق) · أُبلغ السكان أن الهدم يبدأ خلال أسبوعين","en":"Douar Sidi Messaoud (Aïn Chock) · residents told demolition starts within two weeks","src":"Le360, 28.10.2026 · position approximate: Sidi Messaoud mosque (OSM)","approx":true},
+ {"id":"medina","x":-1918,"y":18628,"r":520,"ar":"المدينة القديمة · 792 من 3644 مبنى مصنّفة للهدم الكلي (مبانٍ آيلة للسقوط)","en":"Old medina · 792 of 3,644 buildings classed for full demolition (buildings at risk of collapse)","src":"Le360 2024 (Avenue Royale census); demolitions in Derb Lingliz, 06.01.2026","approx":true}
+]}

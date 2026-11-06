@@ -47,6 +47,8 @@ window.Ex13=(()=>{
   height:{t:['ارتفاع المباني · متوسط لكل 100 م','Building height · 100 m average'],type:'value',unit:['متر','m'],min:0,max:25,ramp:'height',src:'GHSL GHS-BUILT-H ANBH 2018, 100 m',frame:true},
   shadow:{t:['الظل التقريبي','Approximate shadow'],type:'shadow',src:'Heights: GlobalBuildingAtlas LoD1 per building (Zhu et al. 2025, CC BY-NC 4.0), else GHS-BUILT-H 100 m · sun position at 33.6° N',frame:true},
   patterns:{t:['أنماط شبكة الشوارع','Street-network patterns'],type:'morph',src:'OSM streets + GHS-BUILT · explicit rules per 400 m cell',frame:true},
+  fabric:{t:['أنواع الأنسجة · بلوك ببلوك','Fabric types · block by block'],type:'blocks',src:'Blocks = areas enclosed by OSM streets · buildings OSM + Microsoft · height GlobalBuildingAtlas, else GHS-BUILT-H (prep/blocks_fabric.py)',frame:true},
+  frict:{t:['الاحتكاك: الشوارع التي تفصل نسيجين','Friction: streets that separate two fabrics'],type:'bfriction',src:'prep/blocks_fabric.py · 1 if the type changes + Δ height ÷ 6 m + Δ cover ÷ 30 %',frame:true},
   friction:{t:['نقاط الاحتكاك بين الأنسجة','Friction between fabrics'],type:'friction',src:'Street pattern (OSM, 400 m cells) + building height (GHS-BUILT-H 100 m) + Meta Relative Wealth Index (≈2.4 km)',frame:true},
   zones:{t:['المراكز الأربعة: تاريخي، حديث، معاصر، ميناء','Four centres: historic, modern, contemporary, port'],type:'zones',src:'Studio GIS layers: historic, modern, contemporary, port centres',frame:true},
   inst:{t:['المؤسسات','Institutions'],type:'inst',src:'Studio GIS layer: Institutions_Only (OSM)',frame:true},
@@ -76,10 +78,10 @@ window.Ex13=(()=>{
  };
  const TOPICS=[
   {id:'density',n:'01',t:['الكثافة','Density'],q:['أين المدينة كثيفة — بالناس أم بالبناء؟','Where is the city dense — in people or in buildings?'],layers:['pop','built','height','shadow','rwi','distdens'],form:['شبكة خلايا 100 م','100 m grid']},
-  {id:'morphology',n:'02',t:['المورفولوجيا','Morphology'],q:['مِمّ صُنعت المدينة، وأين يتبدّل منطقها؟','What is the city made of, and where does its logic change?'],layers:['friction','patterns','landuse'],form:['مليء وفارغ + حدود','Figure-ground + edges'],base:true},
-  {id:'centre',n:'03',t:['مركز المدينة','City centre'],q:['أين القلب — وهل هو واحد؟','Where is the heart — and is there only one?'],layers:['zones','centres','inst','civic','parking','busstops','bustime','busflow'],form:['دوائر متناسبة','Proportional circles']},
+  {id:'morphology',n:'02',t:['المورفولوجيا','Morphology'],q:['مِمّ صُنعت المدينة، وأين يتبدّل منطقها؟','What is the city made of, and where does its logic change?'],layers:['frict','fabric','patterns','friction','landuse'],form:['مليء وفارغ + حدود','Figure-ground + edges'],base:true},
+  {id:'centre',n:'03',t:['مركز المدينة','City centre'],q:['أين القلب — وهل هو واحد؟','Where is the heart — and is there only one?'],layers:['zones','centres','inst','civic','parking','busstops','busflow'],form:['دوائر متناسبة','Proportional circles']},
   {id:'climate',n:'04',t:['المناخ','Climate'],q:['أين الحرّ وأين أقل — وبكم درجة؟','Where is it hot, where less — and by how much?'],layers:['heat','ndvi','flood','water','buried','contours','wind'],form:['حقل متصل + خطوط تساوٍ','Continuous field + isolines'],play:['heat','ndvi','flood','contours']},
-  {id:'human',n:'05',t:['البعد الإنساني','Human dimension'],q:['أين الناس فعلًا — أين يشترون ويلتقون؟','Where are people actually — buying, meeting?'],layers:['dots','overture','placegap','markets','photos','nightlights','bustime','busflow','busstops','rwi','reloc','emigration'],form:['كثافة نقاط','Dot density']},
+  {id:'human',n:'05',t:['البعد الإنساني','Human dimension'],q:['أين الناس فعلًا — أين يشترون ويلتقون؟','Where are people actually — buying, meeting?'],layers:['dots','overture','markets','photos','nightlights','busflow','busstops','rwi','reloc','emigration'],form:['كثافة نقاط','Dot density']},
   {id:'history',n:'06',t:['التطور التاريخي','Historical development'],q:['كيف نمت المدينة، ومن خطّطها، وبأي لغة معمارية؟','How did the city grow, who planned it, and in which architectural language?'],layers:['histext','histmig','histbuild','histplan'],form:['مخطط زمني بمسارات متوازية + امتدادات','Chart of time in parallel streams + extents']}
  ];
  const state={};Object.keys(LAYERS).forEach(k=>state[k]={on:false,op:1});
@@ -100,7 +102,7 @@ window.Ex13=(()=>{
  // Known markets (prep/markets_layer.py) and Mapillary photo points [x,y,id,year,pano] (prep/mapillary_points.py).
  let mkts=null,mly=null;
  // Car parks from the studio packages (prep/parking_layer.py): OSM polygons + parking area per centre.
- let park=null;const PARK_COL={street_side:'#7ad7ff',surface:'#e0a400',underground:'#c58cff','multi-storey':'#c58cff'};
+ let park=null,blk=null;const PARK_COL={street_side:'#7ad7ff',surface:'#e0a400',underground:'#c58cff','multi-storey':'#c58cff'};
  // Street-pattern cells measured once (Morph13.dump on the dev server) instead of on every first chapter open.
  let morphPre=null;
  // Migration arrows of the 1918/1938/1955 Schéma directeur maps (prep/kasmi_arrows.py); the timeline year picks the map.
@@ -133,6 +135,7 @@ window.Ex13=(()=>{
    fetch('data/world_emig.json?v=1').then(r=>r.ok?r.json():null).then(g=>{world=g}).catch(()=>null),
    fetch('data/bouskoura_buried.json?v=2').then(r=>r.ok?r.json():null).then(g=>{bousk=g}).catch(()=>null),
    fetch('data/markets.json?v=1').then(r=>r.ok?r.json():null).then(g=>{mkts=g}).catch(()=>null),
+   void fetch('data/blocks.json?v=3').then(r=>r.ok?r.json():null).then(g=>{if(!g)return;const col={};for(const r of g.rules)col[r[0]]=r[3];blk={raw:g,col,list:g.blocks.map(([t,c,gr,h,a,rect,f])=>{const r=[];for(let i=0;i<f.length;i+=2)r.push([f[i],f[i+1]]);return{t,c,gr,h,a,rect,r:[r],p:pathOf([r]),b:bbox([r])}})}}).catch(()=>null),
    fetch('data/parking.json?v=1').then(r=>r.ok?r.json():null).then(g=>{if(!g)return;park=g;for(const l of g.lots){l.p=pathOf(l.r);l.b=bbox(l.r)}
     // The centre table repeats its totals on every piece of a centre: sum the pieces' areas once per name.
     const c={};for(const x of g.centres){const o=c[x.name]||(c[x.name]={name:x.name,n:x.n,km2:x.km2,area:0});o.area+=x.area_km2}park.sum=Object.values(c)}).catch(()=>null),
@@ -225,16 +228,20 @@ window.Ex13=(()=>{
    ctx.fillStyle=R.height(.25+.75*t);ctx.beginPath();q.forEach((v,i)=>i?ctx.lineTo(v[0],-(v[1]+dz)):ctx.moveTo(v[0],-(v[1]+dz)));ctx.closePath();ctx.fill();
    ctx.strokeStyle='rgba(0,0,0,.35)';ctx.lineWidth=.6/s;ctx.stroke()}}
  // Tilted 3D view: the map, wind and bus canvases tilt together (CSS perspective), so every layer stays aligned.
- let tilt=false;function setTilt(on){tilt=on;document.body.classList.toggle('tilt13',on);if(on&&iso){iso=false;setIso(false)}render()}
+ let tilt=false;function setTilt(on){tilt=on;if(on&&iso){iso=false;setIso(false)}window.TiltK=on?Math.cos(55*Math.PI/180):1;if(window.City3D){City3D.opt.buildings=on}showBuildings=on?false:(topic?.id==='morphology'||topic?.id==='human');if(on&&window.City3D&&!City3D.ready)toast(L('الـ3D يُجهَّز في الخلفية، ثوانٍ…','3D is being prepared in the background, a few seconds…'));render()}
+ // Sun for the GPU shadow: a day of the year and a solar hour, played through the day on demand.
+ let sunDay=355,sunHour=15,sunPlay=null;function setSun(){if(window.City3D)City3D.opt.sun=City3D.sunAt(sunDay,sunHour);document.querySelectorAll('[data-sunhour-label]').forEach(e=>e.textContent=`:${String(Math.round((sunHour%1)*60)).padStart(2,'0')}`);render()}
+ // Build the 3D mesh quietly a few seconds after the site opens, so 3D and shadows are ready when asked for.
+ setTimeout(function pre(){if(!window.DNA?.ready||typeof msGrid==='undefined'||!msGrid.size||!window.City3D){setTimeout(pre,1500);return}load().then(()=>{const list=[];const add=bd=>{if(!bd.r?.[0]||bd.r[0].length<4)return;const h=heightOf(bd)||6;const r=bd.r[0].slice(0,-1);if(r.length>=3)list.push({r,h})};for(const bd of DNA.buildings)add(bd);const seen=new Set();for(const a of msGrid.values())for(const bd of a)if(!seen.has(bd)){seen.add(bd);add(bd)}City3D.prepare(list);City3D.opt.sun=City3D.sunAt(sunDay,sunHour)})},4000);
  // The column view is drawn in its own projection: overlays that cannot follow it (wind, buses) pause while it is on.
  function setIso(on){if(on&&tilt){tilt=false;document.body.classList.remove('tilt13')}setWind(on?false:!!state.wind?.on);setBus(on?false:!!state.busflow?.on);iso=on;if(topic){showBuildings=on?false:topic.id==='morphology'||topic.id==='human';showRoads=on?false:base.streets}render()}
 
  function paint(ctx,bounds){
-  if(!data)return;const s=view.s,vis=window.Ex13World&&world?['emigration']:order.filter(k=>state[k].on);if(!vis.length)return;
+  if(!data)return;const s=view.s,vis=window.Ex13World&&world?['emigration']:order.filter(k=>state[k].on||state[k].fade>.01);if(!vis.length)return;
   if(iso){paintIso(ctx,[...vis].reverse(),s);return}
   for(const k of vis){if(k==='boundary')continue;const def=LAYERS[k];
    if(def.type==='grid'||def.type==='value'||def.type==='shadow'){drawOpaque(ctx,k,def,bounds,s);continue}
-   ctx.save();ctx.globalAlpha=state[k].op;
+   ctx.save();ctx.globalAlpha=state[k].op*(state[k].fade??1);
    if(def.frame&&clipFrame){ctx.beginPath();ctx.rect(FRAME[0],-FRAME[3],FRAME[2]-FRAME[0],FRAME[3]-FRAME[1]);ctx.clip()}
    draw[def.type](ctx,k,def,bounds,s);ctx.restore()}
   if(maskOut&&!state.emigration.on&&state.boundary.on!==undefined&&topic){ctx.save();const big=new Path2D();big.rect(-60000,-60000,120000,120000);for(const f of data.layers.boundary.features)big.addPath(f.p||(f.p=pathOf(f.r)));ctx.fillStyle=light?'rgba(244,244,240,.8)':'rgba(8,8,8,.78)';ctx.fill(big,'evenodd');ctx.restore()}
@@ -242,8 +249,8 @@ window.Ex13=(()=>{
   if(state.boundary.on){ctx.save();draw.outline(ctx,'boundary',LAYERS.boundary,bounds,s);ctx.restore()}
   if(section.pts.length){ctx.save();ctx.strokeStyle='#ff4d40';ctx.fillStyle='#ff4d40';ctx.lineWidth=2/s;ctx.setLineDash([8/s,5/s]);const [A,B]=section.pts;ctx.beginPath();ctx.moveTo(A[0],-A[1]);if(B)ctx.lineTo(B[0],-B[1]);ctx.stroke();ctx.setLineDash([]);
    for(const [p,t] of [[A,'A'],[B,'B']]){if(!p)continue;ctx.beginPath();ctx.arc(p[0],-p[1],5/s,0,7);ctx.fill();ctx.save();ctx.setTransform(1,0,0,1,0,0);const d=Math.min(devicePixelRatio||1,1.5),q=screen(p[0],p[1]);ctx.setTransform(d,0,0,d,0,0);ctx.font='600 13px sans-serif';ctx.fillText(t,q[0]+8,q[1]-8);ctx.restore()}ctx.restore()}
-  if(tilt)paintExtrusion(ctx,bounds,s);
-  paintSquares(ctx);
+  if(window.City3D)City3D.opt.shadow=!!(topic&&state.shadow?.on&&City3D.ready);
+  paintSquares(ctx);sqCards();
   // frame outline on top
   ctx.save();ctx.strokeStyle=light?'#111':'#fff';ctx.lineWidth=1/s;ctx.setLineDash([6/s,5/s]);ctx.strokeRect(FRAME[0],-FRAME[3],FRAME[2]-FRAME[0],FRAME[3]-FRAME[1]);ctx.restore();
  }
@@ -255,7 +262,7 @@ window.Ex13=(()=>{
   const o=scratch.getContext('2d');o.setTransform(1,0,0,1,0,0);o.clearRect(0,0,scratch.width,scratch.height);o.setTransform(ctx.getTransform());
   if(def.frame&&clipFrame){o.save();o.beginPath();o.rect(FRAME[0],-FRAME[3],FRAME[2]-FRAME[0],FRAME[3]-FRAME[1]);o.clip()}
   draw[def.type](o,k,def,bounds,s);if(def.frame&&clipFrame)o.restore();
-  ctx.save();ctx.setTransform(1,0,0,1,0,0);ctx.globalAlpha=state[k].op;ctx.drawImage(scratch,0,0);ctx.restore()}
+  ctx.save();ctx.setTransform(1,0,0,1,0,0);ctx.globalAlpha=state[k].op*(state[k].fade??1);ctx.drawImage(scratch,0,0);ctx.restore()}
  // Night lights: a Gaussian-weighted average of the ≈460 m VIIRS cells, sampled at 50 m/px and coloured
  // with the night ramp. Every pixel stays within the range of its neighbouring cells; smoothing is for display.
  let glowCache=null;
@@ -285,7 +292,7 @@ window.Ex13=(()=>{
   // Each OSM footprint takes its own GlobalBuildingAtlas height (else its 100 m cell average) and is swept
   // along the shadow direction by h / tan(sun altitude); footprints are drawn on top. Street scale only.
   // Street scale only: at s 0.28 one frame took 1–2 s (tens of thousands of swept edges), at s 0.88 ≈ 36 ms.
-  shadow(ctx,k,def,b,s){if(!data.hIndex||s<.7)return;const S=SUN[sun],L=1/Math.tan(S.alt*Math.PI/180),a=(S.az+180)*Math.PI/180,ux=Math.sin(a),uy=Math.cos(a),p=new Path2D(),fp=new Path2D();
+  shadow(ctx,k,def,b,s){if(window.City3D?.ready)return;if(!data.hIndex||s<.7)return;const S=SUN[sun],L=1/Math.tan(S.alt*Math.PI/180),a=(S.az+180)*Math.PI/180,ux=Math.sin(a),uy=Math.cos(a),p=new Path2D(),fp=new Path2D();
    // The shadow is the area swept from each corner of the footprint to the same corner moved by h/tan(alt):
    // every edge quad and the moved roof, all wound the same way so nonzero fill unions them (no cancelling).
    const poly=(pts)=>{let a=0;for(let i=0;i<pts.length;i++){const P=pts[i],Q=pts[(i+1)%pts.length];a+=P[0]*Q[1]-Q[0]*P[1]}if(a<0)pts=pts.slice().reverse();pts.forEach((v,i)=>i?p.lineTo(v[0],-v[1]):p.moveTo(v[0],-v[1]));p.closePath()};
@@ -352,6 +359,9 @@ window.Ex13=(()=>{
   // + |Δ mean height| / 6 m, + |Δ wealth index| / 0.8. Edges scoring ≥ 1.2 are drawn, thicker = stronger.
   friction(ctx,k,def,b,s){const F=frictionEdges();if(!F)return;ctx.lineCap='round';for(const e of F){if(e.x1<b[0]-400||e.x0>b[2]+400||e.y1<b[1]-400||e.y0>b[3]+400)continue;
     const t=Math.min(1,(e.f-1.2)/1.8);ctx.strokeStyle=`rgba(255,${Math.round(200-170*t)},${Math.round(200-170*t)},${(.55+.45*t).toFixed(2)})`;ctx.lineWidth=(2.5+5*t)/s;ctx.beginPath();ctx.moveTo(e.x0,-e.y0);ctx.lineTo(e.x1,-e.y1);ctx.stroke()}},
+  // Blocks coloured by fabric type (prep/blocks_fabric.py); the rules are in the key and on hover.
+  blocks(ctx,k,def,b,s){if(!blk)return;ctx.lineWidth=.6/s;ctx.strokeStyle='#0b0b0b';for(const q of blk.list){if(q.b[2]<b[0]||q.b[0]>b[2]||q.b[3]<b[1]||q.b[1]>b[3])continue;ctx.fillStyle=blk.col[q.t];ctx.fill(q.p);if(s>.15)ctx.stroke(q.p)}},
+  bfriction(ctx,k,def,b,s){if(!blk)return;ctx.lineCap='round';for(const f of blk.raw.friction){const [x0,y0,x1,y1,v]=f;if(x1<b[0]-50&&x0<b[0]-50||x0>b[2]+50&&x1>b[2]+50)continue;const t=Math.min(1,(v-2.2)/2);ctx.strokeStyle=`rgba(255,${Math.round(120-90*t)},${Math.round(80-60*t)},${(.65+.35*t).toFixed(2)})`;ctx.lineWidth=Math.max(2+5*t,(10+20*t)*s)/s;ctx.beginPath();ctx.moveTo(x0,-y0);ctx.lineTo(x1,-y1);ctx.stroke()}},
   // 'distdens' is the density fill (density chapter); 'districts' alone is the base outline + names.
   districts(ctx,k,def,b,s){if(!distD)return;if(k==='distdens'){for(const d of distD.districts){if(!d.dens)continue;ctx.fillStyle=R.pop(Math.min(1,d.dens/36000)).replace('rgb','rgba').replace(')',',.45)');ctx.fill(d.p||(d.p=pathOf(d.r)))}return}ctx.strokeStyle='#eeeeea';ctx.lineWidth=1.2/s;ctx.setLineDash([6/s,4/s]);for(const d of distD.districts)ctx.stroke(d.p||(d.p=pathOf(d.r)));ctx.setLineDash([]);
    ctx.save();ctx.setTransform(1,0,0,1,0,0);const dpr=Math.min(devicePixelRatio||1,1.5);ctx.font='600 11px "Readex Pro","Noto Kufi Arabic",sans-serif';ctx.textAlign='center';
@@ -441,6 +451,8 @@ window.Ex13=(()=>{
   if(d.type==='rwi'){const n=6;return `<div class="lg grad"><b style="background:linear-gradient(90deg,${[...Array(n+1)].map((_,i)=>R.rwi(i/n)).join(',')})"></b><div><span>${L('أفقر نسبيًا','relatively poorer')}</span><span>${L('أغنى نسبيًا','relatively richer')}</span></div><small>${u} · ${L('دقته ≈2.4 كم: صورة عامة بين الأحياء، لا بلوكًا ببلوك','≈2.4 km: a broad picture between districts, not block by block')}</small></div>`}
   if(d.type==='reloc'&&reloc)return `<div class="lg">${reloc.moves.map(m=>`<span>${swatch('#ff4d24')}${L(m.ar,m.en)}<br><small>${m.src}</small></span>`).join('')}${reloc.sites.map(st=>`<span>${swatch('rgba(255,77,36,.5)')}${L(st.ar,st.en)}<br><small>${st.src}</small></span>`).join('')}<small>${L('حالات موثقة فقط، ليست سجلًا كاملًا. الدراسات تصف مواقع الاستقبال بأنها بعيدة عن المدينة وهشّة. الجنترفكيشن والتنقل اليومي للعمال بلا بيانات منشورة.','Documented cases only, not a full record. Studies describe the reception sites as far from the city and precarious. Gentrification and daily commuting have no published data.')}</small></div>`;
   if(d.type==='histmig')return `<div class="lg"><span>${swatch(MIG_COL.european)}${L('هجرة الأوروبيين','European moves')}</span><span>${swatch(MIG_COL.muslim)}${L('هجرة / انتقال السكن المسلم (متقطع)','Muslim moves / rehousing (dashed)')}</span><span>${swatch(MIG_COL.slum)}${L('ترحيل أحياء الصفيح','Shantytowns displaced')}</span><small>${L('كل سهم = مجموعة سكانية غيّرت مكان سكنها: النقطة حيث كانوا، والرأس حيث انتقلوا. الأسهم منقولة من خرائط المخطط المديري 1975 (عن قاسمي 1994) لسنوات 1918 و1938 و1955، وتتبدّل مع سنة التايملاين. تُظهر الاتجاه والوجهة لا المسار ولا العدد، والمواقع ±300 م.','Each arrow = a group of residents who changed where they lived: the dot is where they were, the head where they went. Read from the 1975 Schéma directeur maps (in Kasmi 1994) for 1918, 1938 and 1955, switching with the timeline year. Direction and destination only, not route or numbers; positions ±300 m.')}</small></div>`;
+  if(d.type==='blocks'&&blk){const n={};for(const q of blk.list)n[q.t]=(n[q.t]||0)+1;return `<div class="lg morphLg">${blk.raw.rules.map(([id,a,e,c,ra,re])=>`<span>${swatch(c)}<b>${L(a,e)}</b> · ${n[id]||0}<small>${L(ra,re)}</small></span>`).join('')}<small>${L('ثلاثة معايير لكل بلوك: (1) الشكل: المساحة ومدى انتظامه، (2) الحبّة: نسبة البناء ومتوسط حجم المبنى، (3) الارتفاع. يُطبّق أول شرط ينطبق. مرّري على أي بلوك لترين أرقامه.','Three criteria per block: (1) shape: area and regularity, (2) grain: built cover and mean building size, (3) height. The first rule that fits applies. Hover any block for its numbers.')}</small></div>`}
+  if(d.type==='bfriction')return `<div class="lg"><span><em class="circ" style="border-radius:0;height:3px;width:22px;background:#ff7850"></em>${L('نسيجان مختلفان','two different fabrics')}</span><span><em class="circ" style="border-radius:0;height:6px;width:22px;background:#ff1e14"></em>${L('اختلاف قوي في الارتفاع أو الكثافة أيضًا','also a strong jump in height or cover')}</span><small>${L('الخط = شارع يفصل بلوكين من نوعين مختلفين. سماكته = 1 لتغيّر النوع + فرق الارتفاع ÷ 6 م + فرق نسبة البناء ÷ 30%. يُرسم من 2.2: أي تغيّر نوع مع قفزة واضحة في الارتفاع أو الكثافة.','The line = a street separating two blocks of different types. Thickness = 1 for the type change + Δ height ÷ 6 m + Δ cover ÷ 30 %. Drawn from 2.2: a type change plus a clear jump in height or cover.')}</small></div>`;
   if(d.type==='friction')return `<div class="lg"><span><em class="circ" style="border-radius:0;height:3px;width:22px;background:#ffdcc8"></em>${L('احتكاك','friction')}</span><span><em class="circ" style="border-radius:0;height:5px;width:22px;background:#ff3220"></em>${L('احتكاك قوي','strong friction')}</span><small>${L('على الحد بين خليتين متجاورتين (400 م) نجمع: 1 إذا تغيّر نمط الشوارع + فرق متوسط الارتفاع ÷ 6 م + فرق مؤشر الثروة ÷ 0.8. يُرسم الحد إذا تجاوز 1.2. مرّر الفأرة على أي خلية لترى عائلتها: النمط والارتفاع والثروة. الثروة بدقة ≈2.4 كم فتتغيّر على حدود مربعاتها، لا بلوكًا ببلوك.','On the edge between two neighbouring 400 m cells we add: 1 if the street pattern changes + Δ mean height ÷ 6 m + Δ wealth index ÷ 0.8. Edges above 1.2 are drawn. Hover any cell to see its family: pattern, height, wealth. Wealth is ≈2.4 km, so it only changes on its own tile edges, not block by block.')}</small></div>`;
   if(d.type==='parking'&&park){const AR={'Historic Center':'التاريخي','Modern Center':'الحديث','Contemporary Center':'المعاصر','port Economic Center':'الميناء'};
    return `<div class="lg"><span>${swatch('#7ad7ff')}${L('على جانب الشارع','street side')}</span><span>${swatch('#e0a400')}${L('ساحة سطحية','surface lot')}</span><span>${swatch('#c58cff')}${L('تحت الأرض / طوابق','underground / multi-storey')}</span><span>${swatch('#9a9a94')}${L('غير مصنّف','unclassified')}</span>
@@ -462,12 +474,13 @@ window.Ex13=(()=>{
   if(k==='histext'&&window.Timeline13)return `<div class="lg">${Timeline13.extents().map(e=>`<span>${swatch(e.c)}${e.name}${e.traced?'':' · '+e.y} · ${fmt(e.km2,1)} km²${e.ghsl?L(' · بيانات أقمار صناعية',' · satellite data'):e.traced?L(' · مرسوم من الخريطة',' · traced from the plan'):L(' · طبقة GIS',' · GIS layer')}</span>`).join('')}<small>${L('GHSL 1975–2020: خلايا 100 م مبنية بنسبة ≥ 15% داخل حدود كازا الحالية (JRC). خريطة 1942 تغطي المركز فقط، فقفزة 1942→1975 جزء منها حدود الخريطة. خط متصل: مرسوم هنا من خريطتي 1918 و1942 (كثافة الحبر، ثم دمج البلوكات). خط متقطع: طبقات GIS،','GHSL 1975–2020: 100 m cells ≥ 15% built inside today\'s boundary (JRC). The 1942 plan covers the centre only, so part of the 1942→1975 jump is the plan\'s edge. Solid: traced here from the 1918 and 1942 plans (ink density, then blocks merged). Dashed: GIS layers,')} والسنة من اسم الطبقة داخل الحزمة وتحتاج تأكيدًا. 1918 تُظهر النواة الكثيفة فقط: بلوكات المدينة الجديدة المرسومة بخط رفيع لا تُلتقط.','Solid: traced here from the 1918 and 1942 plans (ink density, then blocks merged). Dashed: GIS layers, year from the layer name inside each package, to be confirmed. 1918 shows the dense core only: new-city blocks drawn in thin outline are not picked up.')}</small></div>`;
   if(k==='histplan'&&data?.histPlans)return `<div class="lg">${data.histPlans.map(p=>`<span><b>${p.year}</b> · ${fmt(p.meta.scale_m_px,2)} ${L('م/بكسل في المسح الأصلي','m per scan pixel')} · ${L('دوران','rotation')} ${fmt(p.meta.rotation_deg,1)}°</span>`).join('')}<small>${L('تُعرض أحدث خريطة لا تتجاوز سنة المؤشر. ثُبّتت بنقاط معروفة (منارة العنق، ملعب فيليب، ساحة فرنسا، الصخور السوداء)، وتحقّقنا من 4 مبانٍ إضافية: الخطأ أقل من ≈20 م في 1942.','Shows the latest plan not after the cursor year. Fixed with known points (El Hank lighthouse, Stade Philip, Place de France, Roches Noires), checked against 4 further buildings: error under ≈20 m for 1942.')}</small></div>`;
   if(k==='histbuild'&&window.Timeline13)return `<div class="lg">${[['artdeco','آرت ديكو','Art Deco'],['neomoorish','نيو-موريسكي / موريسكي','Neo-Moorish / Moorish'],['modern','حداثة / بروتالية','Modernism / Brutalism']].map(([f,a,e])=>`<span>${swatch(Timeline13.FAM[f])}${L(a,e)}</span>`).join('')}<span>${swatch('#f4f1ea')}${L('مؤرَّخ، طراز غير مسجّل','dated, style not recorded')}</span><span>${swatch('#8d8a82')}${L('غير مؤرَّخ','undated')}</span><small>${data?.history?.items.length||0} ${L('مكانًا من Wikidata؛ المسجّل هناك فقط، وليس جردًا كاملًا للتراث.','places from Wikidata; only what is recorded there, not a full heritage inventory.')}</small></div>`;
+  if(k==='shadow'&&window.City3D?.ready){const S=City3D.opt.sun;return `<div class="lg"><div class="seg">${[[80,'21 مارس','21 Mar'],[172,'21 يونيو','21 Jun'],[355,'21 ديسمبر','21 Dec']].map(([d_,a,e])=>`<button data-sunday="${d_}" class="${sunDay===d_?'on':''}">${L(a,e)}</button>`).join('')}</div><div class="playRow"><button class="act" data-sunplay>${sunPlay?'■':'▶'}</button><input type="range" min="6" max="19.5" step=".25" value="${sunHour}" data-sunhour aria-label="${L('الساعة','Hour')}"><span data-sunhour-label>${Math.floor(sunHour)}:00</span></div><small>${L('ظل كل مبنى في المدينة، محسوبًا من شكله وارتفاعه وموقع الشمس على خط عرض 33.6°. الوقت شمسي. الارتفاع من GlobalBuildingAtlas لكل مبنى، وإلا متوسط GHSL.','The shadow of every building in the city, from its shape, its height and the sun at 33.6° N. Solar time. Heights from GlobalBuildingAtlas per building, else the GHSL mean.')}</small></div>`}
   if(k==='shadow'){const S=SUN[sun];return `<div class="lg"><div class="seg">${Object.entries(SUN).map(([id,x])=>`<button data-sun="${id}" class="${sun===id?'on':''}">${L(...x.t)}</button>`).join('')}</div><span>${swatch(light?'#2a2f55':'#6f7cff')}${L('ظل','shadow')} · ${L('ارتفاع الشمس','sun altitude')} ${S.alt}° · ${L('مبنى 10 م يرمي ظلًا','a 10 m building casts')} ${fmt(10/Math.tan(S.alt*Math.PI/180),0)} ${L('م','m')}</span><small>${L('كل مبنى (OSM) يأخذ متوسط ارتفاع خليته (100 م) من GHS-BUILT-H، فالظل تقريبي: المبنى الأعلى من متوسط حيّه يرمي ظلًا أطول في الواقع. قرّب على الحي لرؤيته. التوقيت شمسي.','Each OSM building takes its 100 m cell\'s average height from GHS-BUILT-H, so shadows are approximate: a building taller than its block average casts longer in reality. Zoom in to a neighbourhood to see it. Solar time.')}</small></div>`}
   if(k==='patterns'&&window.Morph13?.cells){const n={};for(const c of Morph13.cells)n[c.type]=(n[c.type]||0)+1;return `<div class="lg morphLg">${Morph13.RULES.map(([id,,name,c,rule])=>`<span>${swatch(c)}<b>${L(...name)}</b> · ${n[id]||0} ${L('خلية','cells')}<small>${L(...rule)}</small></span>`).join('')}<small>${L('عند التكبير: ○ طريق مسدود · ● برتقالي تقاطع T · ● أزرق تقاطع +','Zoomed in: ○ dead end · orange ● T-junction · blue ● four-way')}</small></div>`}
   if(k==='zones')return `<div class="lg">${ZONES.map(([,c,a,e])=>`<span>${swatch(c)}${L(a,e)}</span>`).join('')}</div>`;
   if(k==='inst'&&data?.layers.institutions){const n={};for(const p of data.layers.institutions.features)n[p.fclass]=(n[p.fclass]||0)+1;return `<div class="lg"><span><em class="circ" style="background:#7ad7ff;border-radius:0;transform:rotate(45deg)"></em>${data.layers.institutions.features.length} ${L('مؤسسة','institutions')}</span><small>${Object.entries(n).sort((a,b)=>b[1]-a[1]).map(([k,v])=>k+' '+v).join(' · ')}</small></div>`}
   if(k==='nightlights'&&data?.layers.night_lights){const m=Math.round(data.nightMax);return `<div class="lg grad"><b style="background:linear-gradient(90deg,${[0,.2,.4,.6,.8,1].map(t=>R.night(t)).join(',')})"></b><div><span>0</span><span>${Math.round(m/2)}</span><span>${m}</span></div><small>${L('إشعاع ليلي','night radiance')} · nW/cm²/sr</small></div>`}
-  if(k==='busflow'&&data?.layers.bus_routes){const n=data.busMax;return `<div class="lg grad"><b style="background:linear-gradient(90deg,${[0,.33,.66,1].map(t=>R.bus(t)).join(',')})"></b><div><span>1</span><span>${Math.round((n+1)/2)}</span><span>${n}</span></div><small>${L('عدد الخطوط على نفس المقطع','lines sharing the same street segment')} · ${data.layers.bus_routes.features.length} ${L('مسارًا','routes')}<br>${L('الساعة على الخريطة','Clock on the map')}: <b data-busclock>${busHour}:00</b> · ${busTrips?busTrips.trips.length.toLocaleString('en-US'):''} ${L('رحلة يوميًا','trips a day')}</small></div>`}
+  if(k==='busflow'&&data?.layers.bus_routes){const n=data.busMax;return `<div class="lg grad"><b style="background:linear-gradient(90deg,${[0,.33,.66,1].map(t=>R.bus(t)).join(',')})"></b><div><span>1</span><span>${Math.round((n+1)/2)}</span><span>${n}</span></div><small>${L('عدد الخطوط على نفس المقطع','lines sharing the same street segment')} · ${data.layers.bus_routes.features.length} ${L('مسارًا','routes')}<br>${L('الساعة على الخريطة','Clock on the map')}: <b data-busclock>${busHour}:00</b> <input type="range" min="5" max="22" step="1" value="${busHour}" data-bushour aria-label="${L('ابدأ من الساعة','Start at hour')}"> · ${busTrips?busTrips.trips.length.toLocaleString('en-US'):''} ${L('رحلة يوميًا','trips a day')}</small></div>`}
   if(k==='busstops'&&data?.layers.bus_stops){const n=data.stopMax;return `<div class="lg">${[1,Math.round(n/2),n].map(v=>`<span><em class="circ" style="width:${Math.round(6*Math.sqrt(v))}px;height:${Math.round(6*Math.sqrt(v))}px;background:${R.bus((v-1)/Math.max(1,n-1))}"></em>${v} ${L('خط','lines')}</span>`).join('')}<span><em class="circ" style="background:none;border:1.5px solid #fff"></em>${L('محطة رئيسية','major hub')} (${data.layers.transport_hubs.features.length})</span><small>${data.layers.bus_stops.features.length} ${L('محطة · مساحة الدائرة ∝ عدد الخطوط','stops · circle area ∝ number of lines')}</small></div>`}
   if(k==='dots')return `<div class="lg"><span>${swatch('#f4f1ea')}${L('محل / سوق','shop / market')}</span><span>${swatch('#ffd166')}${L('مقهى / مطعم','café / restaurant')}</span><small>${data?data.commerce.length:''} ${L('نقطة','places')}</small></div>`;
   if(k==='landuse')return `<div class="lg">${[['residential','سكني','residential'],['commercial','تجاري','commercial'],['industrial','صناعي','industrial'],['park','حدائق','parks'],['farmland','زراعي','farmland']].map(([c,a,e])=>`<span>${swatch(LU[c])}${L(a,e)}</span>`).join('')}</div>`;
@@ -491,7 +504,55 @@ window.Ex13=(()=>{
   el.style.width=w+'px';el.style.height=Math.max(160,wh)+'px';
   const rtl=document.documentElement.dir==='rtl';
   el.style.left=Math.max(12,rtl?innerWidth-w-WIN.edge-i*WIN.dx:WIN.edge+i*WIN.dx)+'px';el.style.top=(top+i*WIN.dy)+'px'}
- function specsFor(T){const s=[['layers',L('الطبقات','LAYERS')+' · '+T.n+' '+L(T.t[0],T.t[1]).toUpperCase()],['legend',L('المفتاح والقراءة','KEY + READING')]];if(T.id==='climate')s.push(['wind',L('الريح · محطة أنفا','WIND · ANFA STATION')]);return s}
+ // No floating windows for a chapter any more: a moment card (sentence + its layers + key, ‹ › to move on)
+ // and an explore drawer (all layers, base, tools, conclusion). Windows remain only for on-demand details.
+ function specsFor(T){return[]}
+ /* ---------- moments: each chapter is read as a sequence; every moment turns on only the layers it needs ---------- */
+ const MOMENTS={
+  density:[{l:['pop'],t:['السكان: أين يسكن الناس فعلًا، خلية 100 م','Population: where people actually live, 100 m cells']},
+   {l:['built'],t:['البناء: كم من الأرض مبني، وليس دائمًا حيث الناس','Built-up: how much ground is built, not always where people are']},
+   {l:['height'],t:['الارتفاع: معظم المدينة منخفضة، نحو 3 طوابق في المتوسط','Height: most of the city is low, about 3 storeys on average']},
+   {l:['shadow'],t:['الظل: من يحجب الشمس عن من؟ قرّبي على حي','Shadow: who blocks whose sun? Zoom into a district']},
+   {l:['distdens'],t:['لكل مقاطعة: من أنفا ≈3.9 ألف/كم² إلى مولاي رشيد ≈34.6 ألف/كم²','Per arrondissement: from Anfa ≈3.9k/km² to Moulay Rachid ≈34.6k/km²']},
+   {l:['rwi'],t:['الثروة النسبية: صورة عامة بمربعات 2.4 كم','Relative wealth: a broad picture in 2.4 km tiles']},{concl:true}],
+  morphology:[{l:['fabric'],t:['أنواع الأنسجة: كل بلوك مصنّف بثلاثة معايير، الشكل والحبّة والارتفاع','Fabric types: every block classed by three criteria, shape, grain and height']},
+   {l:['frict','fabric'],t:['الاحتكاك: الشوارع التي يلتقي عندها نسيجان مختلفان، والأسمك أقوى','Friction: the streets where two different fabrics meet; thicker is stronger']},
+   {l:['patterns'],t:['نمط الشوارع وحده: التقاطعات والاتجاهات','Street pattern alone: junctions and bearings']},
+   {l:['landuse'],t:['استعمالات الأرض: الصناعة والسكك تقطع النسيج','Land use: industry and rail cut the fabric']},{concl:true}],
+  centre:[{l:['zones'],t:['أربعة مراكز، لا مركز واحد','Four centres, not one']},
+   {l:['centres'],t:['أين تتجمع التجارة والخدمات','Where commerce and services gather']},
+   {l:['inst','civic'],t:['المؤسسات: أين تُدار المدينة','Institutions: where the city is run']},
+   {l:['busflow'],t:['حركة الباصات طوال اليوم: 12,712 رحلة','Buses through the day: 12,712 trips']},
+   {l:['busstops'],t:['المحطات: أين تلتقي الخطوط','Stops: where the lines meet']},
+   {l:['parking','zones'],t:['المواقف: أقل من 0.5% من مساحة كل مركز في OSM','Car parks: under 0.5% of each centre in OSM']},{concl:true}],
+  climate:[{l:['heat'],t:['حرارة سطح الأرض في يوم صيفي (17.07.2025)','Surface heat on a summer day (17.07.2025)']},
+   {l:['ndvi'],t:['الأخضر: أين ما زال يبرّد','Green: where it still cools']},
+   {l:['flood','water','buried'],t:['الماء: أرض قابلة للغمر، ووادي بوسكورة المدفون تحت المركز','Water: flood-prone ground and the Bouskoura buried under the centre']},
+   {l:['wind','heat'],t:['الريح السائدة: من البحر نحو المدينة','Prevailing wind: from the sea into the city']},
+   {l:['contours'],t:['الطبوغرافيا: كل 10 م','Topography: every 10 m']},{concl:true}],
+  human:[{l:['dots'],t:['أين يشتري الناس ويلتقون: المحلات والمقاهي','Where people buy and meet: shops and cafés']},
+   {l:['overture'],t:['ما لا يراه OSM: أماكن Overture (Meta، Microsoft)','What OSM misses: Overture places (Meta, Microsoft)']},
+   {l:['markets'],t:['الأسواق، الرسمية وغير الرسمية: جوطية درب غلف أكثر من 4000 تاجر','Markets, formal and informal: Derb Ghallef, 4,000+ traders']},
+   {l:['photos'],t:['المدينة من الشارع، والمركز بلا صور تقريبًا','The city from the street, and the centre almost unphotographed']},
+   {l:['nightlights'],t:['الضوء ليلًا لا يساوي الناس','Light at night is not people']},
+   {l:['reloc'],t:['بعد هدم الصفيح: من أين وإلى أين رُحّل الناس','After the shacks: where people were moved from and to']},
+   {l:['emigration'],t:['إلى أين يهاجر المولودون في المغرب','Where people born in Morocco live abroad']},{concl:true}],
+  history:[{l:['histext'],t:['كيف امتدت المدينة: من النواة إلى الحلقات','How the city spread: from the core to rings']},
+   {l:['histplan','histbuild'],t:['الخرائط الأصلية والمباني المؤرخة','The original plans and the dated buildings']},
+   {l:['histmig'],t:['حركة السكن داخل المدينة','Moves within the city']},{concl:true}]};
+ let mi=0;
+ const moments=()=>MOMENTS[topic?.id]||[];
+ // Layers fade instead of blinking; a quick accent band sweeps across as the content changes.
+ function fadeTo(){let run=false;for(const k in state){const s=state[k],t=s.on?1:0;if(s.fade===undefined)s.fade=t;if(Math.abs(s.fade-t)>.01){s.fade+=(t-s.fade)*.25;run=true}else s.fade=t}render();if(run)requestAnimationFrame(fadeTo)}
+ function wipe(){let w=document.getElementById('wipe13');if(!w){w=document.createElement('div');w.id='wipe13';document.body.append(w)}w.classList.remove('go');void w.offsetWidth;w.classList.add('go')}
+ function setMoment(i){const M=moments();if(!M.length)return;mi=(i+M.length)%M.length;const m=M[mi];
+  if(!m.concl){for(const k of topic.layers)state[k].on=m.l.includes(k);setWind(state.wind.on);setBus(state.busflow.on);const w=state.emigration.on;if(w!==!!window.Ex13World)setWorld(w)}
+  wipe();requestAnimationFrame(fadeTo);fill()}
+ function ui(){let c=document.getElementById('moment13'),d=document.getElementById('drawer13');
+  if(!c){c=document.createElement('section');c.id='moment13';document.body.append(c);bind(c);
+   c.addEventListener('click',e=>{const b=e.target.closest('[data-mnav]');if(b)setMoment(mi+ +b.dataset.mnav);if(e.target.closest('[data-drawer]'))d.classList.toggle('open')})}
+  if(!d){d=document.createElement('aside');d.id='drawer13';document.body.append(d);bind(d);d.addEventListener('click',e=>{if(e.target.closest('[data-drawer-close]'))d.classList.remove('open')})}
+  return{c,d}}
  function makeWin(id,title,width,height,i){const el=document.createElement('section');el.className='win ex13win';el.dataset.ex=id;
   placeWin(el,i);el.style.zIndex=++zTop;
   el.innerHTML=`<div class="winbar"><span class="wintitle"><small>1.3</small>${title}</span><div class="wincontrols"><button data-w="min" title="Minimize">−</button><button data-w="max" title="Maximize / restore">↗</button><button data-w="close" title="Close">×</button></div></div><div class="winbody"></div>`;
@@ -506,7 +567,7 @@ window.Ex13=(()=>{
   bind(el);wins.push(el);return el}
  async function closeWins(list,step=90){for(const el of [...list].reverse()){el.classList.add('leaving');await wait(step);el.remove()}}
  async function closeSiteWindows(){try{const list=[...windows.values()].map(w=>w.el);windows.clear();await closeWins(list,80)}catch{}}
- async function closeAll(){stopPlay();window.Ex13World=false;tilt=false;document.body.classList.remove('tilt13');setWind(false);setBus(false);iso=false;section.pts=[];section.drawing=false;window.Timeline13?.close();const list=wins;wins=[];await closeWins(list);for(const k in state)state[k].on=false;topic=null;fg(false);window.Ex13MSHi=false;const xb=document.getElementById('exp13');if(xb)xb.hidden=true;showBuildings=true;showRoads=true;roadGroups={major:true,local:true,walking:true};render()}
+ async function closeAll(){stopPlay();{const q=document.getElementById('sq13');if(q)q.hidden=true}for(const id of ['moment13','drawer13']){const el=document.getElementById(id);if(el){el.hidden=true;el.classList.remove('open')}}window.Ex13World=false;tilt=false;document.body.classList.remove('tilt13');setWind(false);setBus(false);iso=false;section.pts=[];section.drawing=false;window.Timeline13?.close();const list=wins;wins=[];await closeWins(list);for(const k in state)state[k].on=false;topic=null;fg(false);window.Ex13MSHi=false;const xb=document.getElementById('exp13');if(xb)xb.hidden=true;showBuildings=true;showRoads=true;roadGroups={major:true,local:true,walking:true};render()}
 
  function open(id){if(typeof setMenu==='function')setMenu(false);
   switching=switching.then(async()=>{
@@ -517,12 +578,12 @@ window.Ex13=(()=>{
    // Base lines (rail, districts) draw above the chapter's data; the boundary is drawn last in paint().
    order=['boundary',...[...topic.layers].reverse().filter(k=>k!=='wind'),'districts','rail',...(topic.layers.includes('wind')?['wind']:[])];
    topic.layers.forEach((k,i)=>state[k].on=i===0||(id==='climate'&&k==='wind'));
-   if(id==='climate')state.heat.op=.85;if(id==='history'){state.histplan.on=true;state.histplan.op=.75;state.histbuild.on=true}if(id==='morphology')state.patterns.on=true;
+   if(id==='climate')state.heat.op=.85;if(id==='history'){state.histplan.on=true;state.histplan.op=.75;state.histbuild.on=true}
    try{if(window.Atlas)Atlas.mode='footprints'}catch{}
    setBase(id);applyBase();await load();
    const T=topic,specs=specsFor(T);
       for(let i=0;i<specs.length;i++){if(topic!==T)return;makeWin(specs[i][0],specs[i][1],0,0,i);await wait(140)}
-   fill();setWind(state.wind.on);setBus(state.busflow.on);
+   for(const k in state)state[k].fade=state[k].on?1:0;setMoment(0);
    if(id==='history'&&window.Timeline13){Timeline13.attach(data,render);Timeline13.open()}render()})}
  function setBase(id){fg(id==='morphology');showBuildings=id==='morphology'||id==='human';roadGroups={major:true,local:id==='human',walking:false};render()}
  function fg(on){window.Ex13FG=on;document.body.classList.toggle('fgMode',on)}
@@ -549,28 +610,37 @@ window.Ex13=(()=>{
 
  function bind(el){
   el.addEventListener('input',e=>{const k=e.target.dataset.op;if(k){state[k].op=+e.target.value;render()}
-   if(e.target.dataset.bushour!==undefined)setBusHour(+e.target.value);
+   if(e.target.dataset.bushour!==undefined)setBusHour(+e.target.value);if(e.target.dataset.sunhour!==undefined){sunHour=+e.target.value;setSun()}
    if(e.target.id==='concl13'&&topic){try{localStorage.setItem('casa13-concl-'+topic.id,e.target.value)}catch{}}});
-  el.addEventListener('change',e=>{const k=e.target.dataset.on;if(k){state[k].on=e.target.checked;if(k==='wind')setWind(e.target.checked);if(k==='busflow')setBus(e.target.checked);if(k==='emigration')setWorld(e.target.checked);fill();render()}
+  el.addEventListener('change',e=>{const k=e.target.dataset.on;if(k){state[k].on=e.target.checked;if(k==='wind')setWind(e.target.checked);if(k==='busflow')setBus(e.target.checked);if(k==='emigration')setWorld(e.target.checked);wipe();requestAnimationFrame(fadeTo);fill();render()}
    if(e.target.id==='clipF'){clipFrame=e.target.checked;render()}if(e.target.id==='maskF'){maskOut=e.target.checked;render()}
    const bk=e.target.dataset.base;if(bk){base[bk]=e.target.checked;applyBase()}
    if(e.target.id==='iso13'){setIso(e.target.checked);fill()}if(e.target.id==='tilt13'){setTilt(e.target.checked);fill()}});
   el.addEventListener('click',e=>{const b=e.target.closest('button');if(!b||b.dataset.w)return;
    if(b.dataset.up||b.dataset.down){const k=b.dataset.up||b.dataset.down,i=order.indexOf(k),j=i+(b.dataset.up?1:-1);if(j>=0&&j<order.length){[order[i],order[j]]=[order[j],order[i]];fill();render()}}
    if(b.dataset.season){windSeason=b.dataset.season;particles=[];fill()}
-   if(b.dataset.sun){sun=b.dataset.sun;fill();render()}
+   if(b.dataset.sun){sun=b.dataset.sun;fill();render()}if(b.dataset.sunday){sunDay=+b.dataset.sunday;setSun();fill()}if(b.dataset.sunplay!==undefined){if(sunPlay){clearInterval(sunPlay);sunPlay=null}else sunPlay=setInterval(()=>{sunHour=sunHour>=19.5?6:sunHour+.25;document.querySelectorAll('[data-sunhour]').forEach(i=>i.value=sunHour);setSun()},120);b.textContent=sunPlay?'■':'▶'}
    if(b.dataset.speed){speed=+b.dataset.speed;if(playTimer){stopPlay();play()}fill()}
    if(b.id==='play13')playTimer?stopPlay():play();
    if(b.dataset.busplay!==undefined){if(busPlay){clearInterval(busPlay);busPlay=null}else busPlay=setInterval(()=>setBusHour(busHour>=22?5:busHour+1),900);b.textContent=busPlay?'■':'▶'}
    if(b.dataset.export)exportSVG(b.dataset.export);if(b.dataset.pdf)exportSVG(b.dataset.pdf,'pdf');
    if(b.dataset.section!==undefined){if(iso){iso=false;setIso(false)}section.drawing=true;section.pts=[];canvas.style.cursor='crosshair';toast(L('اضغط نقطتين على الخريطة: A ثم B.','Click two points on the map: A, then B.'));fill();render()}
    if(b.dataset.conclReset&&topic){try{localStorage.removeItem('casa13-concl-'+topic.id)}catch{}fill()}})}
- const body=id=>wins.find(w=>w.dataset.ex===id)?.querySelector('.winbody');
- function fill(){if(!topic)return;const T=topic;
+ const body=id=>id==='layers'?document.querySelector('#drawer13 .dLayers'):id==='legend'?document.querySelector('#drawer13 .dTools'):wins.find(w=>w.dataset.ex===id)?.querySelector('.winbody');
+ function fillMoment(){const T=topic,{c,d}=ui(),M=moments(),m=M[mi]||{l:[]};c.hidden=d.hidden=false;
+  const on=[...order].reverse().filter(k=>state[k].on&&!BASEK.has(k));
+  c.innerHTML=`<div class="mHead"><span class="mNo">${T.n}</span><span class="mTitle">${L(T.t[0],T.t[1])}</span><span class="mCount">${mi+1} / ${M.length}</span></div>
+   <p class="mText">${m.concl?esc(conclusion(T)):L(m.t[0],m.t[1])}</p>
+   ${m.concl?`<p class="mSub">${L('الخلاصة · عدّليها في «استكشاف»','Conclusion · edit it in “Explore”')}</p>`:`<div class="mChips">${m.l.map(k=>`<label class="chip ${state[k].on?'on':''}"><input type="checkbox" data-on="${k}" ${state[k].on?'checked':''}>${L(...LAYERS[k].t)}</label>`).join('')}</div>
+   <div class="mKey ex13">${on.map(k=>`<div class="kRow">${legend(k)}<small class="src">${LAYERS[k].src}</small></div>`).join('')}</div>`}
+   <div class="mNav"><button data-mnav="-1" aria-label="${L('السابق','Previous')}">‹</button><span class="mDots">${M.map((_,i)=>`<i class="${i===mi?'on':''}"></i>`).join('')}</span><button data-mnav="1" aria-label="${L('التالي','Next')}">›</button><button class="mExplore" data-drawer>${L('استكشاف','Explore')}</button></div>`;
+  if(!d.querySelector('.dLayers'))d.innerHTML=`<div class="dHead"><b>${L('استكشاف','Explore')}</b><button data-drawer-close aria-label="${L('إغلاق','Close')}">×</button></div><div class="dLayers"></div><div class="dTools"></div>`;
+  d.querySelector('.dHead b').textContent=L('استكشاف','Explore')+' · '+T.n+' '+L(T.t[0],T.t[1])}
+ function fill(){if(!topic)return;const T=topic;fillMoment();
   const lay=body('layers');if(lay)lay.innerHTML=`<div class="ex13">${T.play?`<div class="playRow"><button id="play13" class="act">${playTimer?'■ '+L('إيقاف','Stop'):'▶ '+L('تشغيل متتابع','Play sequence')}</button><span class="seg"><button data-speed="1000" class="${speed===1000?'on':''}">1 ${L('ث','s')}</button><button data-speed="2000" class="${speed===2000?'on':''}">2 ${L('ث','s')}</button></span></div>`:''}${baseHTML()}${[...order].reverse().filter(k=>!BASEK.has(k)).map(k=>{const d=LAYERS[k],s=state[k];return `<div class="row ${s.on?'on':''}"><label><input type="checkbox" data-on="${k}" ${s.on?'checked':''}> ${L(d.t[0],d.t[1])}</label><span class="ord"><button data-up="${k}" title="up">▲</button><button data-down="${k}" title="down">▼</button></span>${s.on&&k!=='wind'?`<input type="range" min="0" max="1" step=".05" value="${s.op}" data-op="${k}">`:''}${k==='bustime'&&s.on?`<div class="playRow"><button class="act" data-busplay>${busPlay?'■':'▶'}</button><input type="range" min="5" max="22" step="1" value="${busHour}" data-bushour aria-label="${L('الساعة','Hour')}"><span data-bushour-label>${busHour}:00</span></div>`:''}</div>`}).join('')}</div>`;
   const lg=body('legend');if(lg)lg.innerHTML=`<div class="ex13"><p class="q">${L(T.q[0],T.q[1])}</p><p class="form">${L('شكل التمثيل','Representation')}: ${L(T.form[0],T.form[1])}</p>${[...order].reverse().filter(k=>state[k].on&&k!=='wind'&&!BASEK.has(k)).map(k=>`<div class="row on"><b>${L(LAYERS[k].t[0],LAYERS[k].t[1])}</b>${legend(k)}<small class="src">${LAYERS[k].src}</small>${NOTES[k]?`<small class="note">${L(...NOTES[k])}</small>`:''}</div>`).join('')}</div>`;
   // Reading tools sit under the key: 3D view, section, and the conclusion printed under the exported map.
-  const ex=lg?.querySelector('.ex13');if(ex)ex.insertAdjacentHTML('beforeend',`<div class="tools13"><label class="clip"><input type="checkbox" id="tilt13" ${tilt?'checked':''}> ${L('منظر 3D · المباني ترتفع بارتفاعها الحقيقي عند التقريب، وكل الطبقات تميل معها','3D view · buildings rise to their real height when zoomed in; all layers tilt with them')}</label>${T.layers.some(k=>LAYERS[k].type==='grid'||LAYERS[k].type==='value')?`<label class="clip"><input type="checkbox" id="iso13" ${iso?'checked':''}> ${L('3D أيزومتريك · ارتفاع العمود = قيمة أعلى طبقة خلايا ظاهرة','3D isometric · column height = value of the top visible cell layer')}</label>`:''}<button class="action" data-section>${section.drawing?L('اضغط نقطتين على الخريطة…','Click two points on the map…'):L('رسم مقطع ✕','Draw a section ✕')}</button><label class="fieldLabel">${L('الاستنتاج · يُطبع تحت الخريطة، عدّله كما تريد','Conclusion · printed under the map, edit freely')}<textarea id="concl13" rows="7">${esc(conclusion(T))}</textarea></label><button class="textAction" data-concl-reset>${L('استرجاع المسودة','Restore draft')} ↺</button></div>`);
+  const ex=lg?.querySelector('.ex13');if(ex)ex.insertAdjacentHTML('beforeend',`<div class="tools13"><label class="clip"><input type="checkbox" id="tilt13" ${tilt?'checked':''}> ${L('منظر 3D · المباني ترتفع بارتفاعها الحقيقي عند التقريب، وكل الطبقات تميل معها','3D view · buildings rise to their real height when zoomed in; all layers tilt with them')}</label><button class="action" data-section>${section.drawing?L('اضغط نقطتين على الخريطة…','Click two points on the map…'):L('رسم مقطع ✕','Draw a section ✕')}</button><label class="fieldLabel">${L('الاستنتاج · يُطبع تحت الخريطة، عدّله كما تريد','Conclusion · printed under the map, edit freely')}<textarea id="concl13" rows="7">${esc(conclusion(T))}</textarea></label><button class="textAction" data-concl-reset>${L('استرجاع المسودة','Restore draft')} ↺</button></div>`);
   exportBtn()
   const wd=body('wind');if(wd)wd.innerHTML=`<div class="ex13">${legend('wind')}</div>`}
  function play(){const seq=topic.play;let i=0;const step=()=>{seq.forEach(k=>state[k].on=false);state[seq[i%seq.length]].on=true;state.boundary.on=base.boundary;i++;fill();render()};step();playTimer=setInterval(step,speed);fill()}
@@ -774,12 +844,17 @@ window.Ex13=(()=>{
  function paintSquares(ctx){const S_=squares();if(!S_||window.Ex13World)return;sqHit.length=0;
   ctx.save();ctx.setTransform(1,0,0,1,0,0);const dpr=Math.min(devicePixelRatio||1,1.5);ctx.setTransform(dpr,0,0,dpr,0,0);
   for(const sq of S_){const b=sq.f.b,[x0,y0]=screen(b[0],b[3]),[x1,y1]=screen(b[2],b[1]),P=x1-x0;let X,Y,Z;
+   if(true){ctx.strokeStyle='#ff4d24';ctx.lineWidth=1.5;ctx.strokeRect(x0,y0,Math.max(P,6),Math.max(P,6));ctx.font='600 10px "Readex Pro",sans-serif';ctx.fillStyle='#ff866a';ctx.textAlign='left';ctx.direction='ltr';ctx.fillText(sq.q[1],x0,y0-4);sqHit.push([x0-4,y0-14,Math.max(P,10)+8,Math.max(P,10)+18,sq]);continue}
    if(P>=120&&tilt){ctx.strokeStyle='#ff4d24';ctx.lineWidth=2;ctx.strokeRect(x0,y0,P,P);sqHit.push([x0,y0,P,P,sq]);continue}if(P>=120){X=x0;Y=y0;Z=P}else{Z=128;X=Math.min(Math.max(8,(x0+x1)/2+sq.q[4][0]-Z/2),innerWidth-Z-8);Y=Math.min(Math.max(X<300?190:40,(y0+y1)/2+sq.q[4][1]-Z/2),innerHeight-Z-50);
     ctx.strokeStyle='#ff4d24';ctx.lineWidth=1;ctx.beginPath();ctx.moveTo((x0+x1)/2,(y0+y1)/2);ctx.lineTo(X+Z/2,Y+Z/2);ctx.stroke();ctx.strokeRect(x0,y0,P,P)}
    ctx.drawImage(planCanvas(sq,Z>300?840:420),X,Y,Z,Z);ctx.strokeStyle='#ff4d24';ctx.lineWidth=1.5;ctx.strokeRect(X,Y,Z,Z);
    ctx.font='600 11px "Readex Pro","Noto Kufi Arabic",sans-serif';ctx.textAlign='left';ctx.direction='ltr';const t=`${sq.q[1]} — ${L(sq.q[2],sq.q[3])}`,w=ctx.measureText(t).width+10;ctx.fillStyle='#0e0e0e';ctx.fillRect(X,Y-17,w,17);ctx.fillStyle='#fff';ctx.fillText(t,X+5,Y-5);
    sqHit.push([X,Y-17,Z,Z+17,sq])}
   ctx.restore()}
+ // The four plans live in a small card strip (closable), not on top of the analysis.
+ function sqCards(){if(!topic)return;const S_=squares();if(!S_)return;let el=document.getElementById('sq13');if(!el){el=document.createElement('div');el.id='sq13';document.body.append(el);
+   el.addEventListener('click',e=>{if(e.target.closest('[data-sqx]')){el.classList.toggle('closed');return}const b=e.target.closest('[data-sq]');if(b){const sq=S_.find(x=>x.q[0]===b.dataset.sq);if(sq){openSquare(sq);const f=sq.f.b;flyTo([f[0]-300,f[1]-300,f[2]+300,f[3]+300],900)}}})}
+  el.hidden=false;if(el.dataset.ready)return;el.dataset.ready=1;el.innerHTML=`<button class="sqX" data-sqx title="${L('إخفاء / إظهار المربعات','Hide / show the squares')}">□ 4</button>`+S_.map(sq=>`<button class="sqC" data-sq="${sq.q[0]}"><img src="${planCanvas(sq,240).toDataURL()}" alt=""><span>${sq.q[1]} ${L(sq.q[2],sq.q[3])}</span></button>`).join('')}
  function sqStats(sq){const b=sq.f.b,A=(b[2]-b[0])*(b[3]-b[1]),B=sqBuildings(b);let fp=0,hs=0,hn=0;const st=[0,0,0];
   for(const bd of B){let a=0;for(const r of bd.r){let s=0;for(let i=0;i<r.length-1;i++)s+=r[i][0]*r[i+1][1]-r[i+1][0]*r[i][1];a+=s/2}a=Math.abs(a);fp+=a;const h=heightOf(bd);if(h){hs+=h*a;hn+=a;st[STOREY.findIndex(s=>h<s[0])]++}}
   const cx=(b[0]+b[2])/2,cy=(b[1]+b[3])/2,cell=window.Morph13?.cells?.find(c=>cx>=c.box[0]&&cx<c.box[2]&&cy>=c.box[1]&&cy<c.box[3]),R_=cell&&Morph13.RULES.find(r=>r[0]===cell.type);
@@ -827,6 +902,8 @@ window.Ex13=(()=>{
    if(k==='distdens'||k==='districts'){for(const q of distD?.districts||[]){const b=q.b||(q.b=bbox(q.r));if(x<b[0]||x>b[2]||y<b[1]||y>b[3])continue;if(inRings(x,y,q.r))return `${L(q.ar||q.fr,q.fr)} · ${q.dens?fmt(q.dens,0)+' '+L('نسمة/كم² (2024)','people/km² (2024)'):L('لا رقم سكان منشور','no published population')}`}}
    if(k==='rwi')for(const [x0,y0,x1,y1,v] of distD?.rwi||[])if(x>=x0&&x<=x1&&y>=y0&&y<=y1)return `${name}: ${v.toFixed(2)} · ${L(v<0?'أفقر من متوسط المغرب':'أغنى من متوسط المغرب',v<0?'poorer than the Moroccan average':'richer than the Moroccan average')}`;
    if(k==='placegap'&&ovP){const h=ovP.cell/2;for(const [cx,cy,a,o] of ovP.grid)if(Math.abs(x-cx)<=h&&Math.abs(y-cy)<=h)return `${L('خلية 500 م','500 m cell')}: ${a} ${L('محل ومقهى في Overture مقابل','shops + cafés in Overture vs')} ${o} ${L('في OSM','in OSM')}`}
+   if(k==='fabric'&&blk){for(const q of blk.list){const bb=q.b;if(x<bb[0]||x>bb[2]||y<bb[1]||y>bb[3])continue;if(inRings(x,y,q.r)){const R_=blk.raw.rules.find(r=>r[0]===q.t);return `<b>${L(R_[1],R_[2])}</b> · (1) ${fmt(q.a/1e4,2)} ha, ${L('انتظام','regularity')} ${q.rect} · (2) ${L('بناء','cover')} ${q.c}%, ${L('مبنى','building')} ≈${q.gr} m² · (3) ${q.h!=null?q.h+' m':'—'}`}}}
+   if(k==='frict'&&blk){let best=null,bd=1e9;for(const f of blk.raw.friction){const mx=(f[0]+f[2])/2,my=(f[1]+f[3])/2,d2=Math.hypot(mx-x,my-y);if(d2<bd){bd=d2;best=f}}if(best&&bd<30/view.s+20){const n=id=>{const R_=blk.raw.rules.find(r=>r[0]===id);return R_?L(R_[1],R_[2]):id};return `${L('هنا يلتقي','Here')} <b>${n(best[5])}</b> ${L('بـ','meets')} <b>${n(best[6])}</b> · ${L('قوة','strength')} ${best[4]}`}}
    if((k==='patterns'||k==='friction')&&window.Morph13?.cells){const c=Morph13.cells.find(c=>x>=c.box[0]&&x<c.box[2]&&y>=c.box[1]&&y<c.box[3]);if(c){cellInd(c);const R_=Morph13.RULES.find(r=>r[0]===c.type);
     return `${R_?L(...R_[2]):c.type} · ${L('ارتفاع','height')} ${c.h!=null?fmt(c.h,1)+' m':'—'} · ${L('ثروة نسبية','wealth')} ${c.w!=null?c.w.toFixed(2):'—'} · ${L('مبني','built')} ${fmt(c.built,0)}%`}}
    if(k==='zones')for(const [key,,a,e] of ZONES){const f=data.layers[key]?.features[0];if(f&&inRings(x,y,f.r))return L(a,e)}
