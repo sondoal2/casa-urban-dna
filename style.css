@@ -191,3 +191,4 @@ body.tlOpen #moment13{top:auto!important;bottom:170px!important;max-height:calc(
 #moment13:not(.keyOpen) .mKey{display:none}
 #tlYear .grow,#tlYear .km{display:block;font-size:11px;color:#bdbab0;margin-top:4px}#tlYear .km{color:#f4f2ec;font-size:13px}#tlYear .gNew,#tlYear .gOld{display:inline-block;width:10px;height:10px;vertical-align:-1px;margin:0 4px}#tlYear .gNew{background:#ff4d2466;border:1px solid #ff4d24}#tlYear .gOld{border:1px solid #aaa8a0}
 #tlYear .era{display:inline-flex}#tlYear .grow,#tlYear .km{display:block;line-height:1.7;background:#0b0b0bb3;padding:0 8px;width:max-content;margin:3px auto 0}
+body.tlOpen #moment13{top:150px!important;bottom:auto!important;max-height:calc(100vh - 170px - var(--tlh,260px))!important;overflow:auto}
