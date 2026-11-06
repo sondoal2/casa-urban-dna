@@ -5,7 +5,7 @@ window.ObservedLoss=(()=>{
  const rings=data.rings,box=ChangeGeometry.bounds(rings),area=data.area_m2||rings.reduce((sum,ring)=>sum+ChangeGeometry.area([ring]),0);
  // One control only: which year of the Esri Wayback archive is under the outline.
  const YEARS=[2014,2016,2019,2026];
- let visible=true,year=2014;
+ let visible=false,year=2014;
  const releaseFor=y=>{const r=Imagery.sources.filter(s=>s.release&&+s.release.slice(0,4)<=y).sort((a,b)=>a.release<b.release?-1:1);return r[r.length-1]||null};
  async function showYear(y){year=y;if(Imagery.catalogStatus!=='ready'&&!Imagery.sources.some(s=>s.release))await Imagery.loadCatalog();
   const s=releaseFor(y);if(s){Imagery.state.enabled=true;Imagery.state.swipe=false;Imagery.state.left=s;Imagery.state.right=s;Imagery.sync?.()}
@@ -38,11 +38,24 @@ window.ObservedLoss=(()=>{
 })();
 // Threatened places (data/threatened.json, press-sourced): a halo that pulses on its own light canvas, so the
 // map itself is not redrawn. Shown from the first view, with the demolished settlement outlined.
-window.Threats=(()=>{let T=null,cv=null,cx=null,on=true;fetch('data/threatened.json?v=1').then(r=>r.ok?r.json():null).then(d=>{T=d;start()}).catch(()=>{});
+window.Threats=(()=>{let T=null,cv=null,cx=null,on=true;fetch('data/threatened.json?v=2').then(r=>r.ok?r.json():null).then(d=>{T=d;start()}).catch(()=>{});
  function start(){if(cv||!T)return;cv=document.createElement('canvas');cv.id='threatLayer';document.body.appendChild(cv);cx=cv.getContext('2d');const fitC=()=>{cv.width=innerWidth;cv.height=innerHeight};fitC();addEventListener('resize',fitC);requestAnimationFrame(loop)}
+ const near=(x,y,R)=>x>-R*3&&y>-R*3&&x<cv.width+R*3&&y<cv.height+R*3;
  function loop(t){requestAnimationFrame(loop);if(!cx)return;cx.clearRect(0,0,cv.width,cv.height);if(!on||!T||window.Ex13World||typeof screen!=='function'||typeof view==='undefined')return;
-  for(const s of T.sites){const [x,y]=screen(s.x,s.y),R=Math.max(10,s.r*view.s);if(x<-R*3||y<-R*3||x>cv.width+R*3||y>cv.height+R*3)continue;
-   for(let k=0;k<2;k++){const ph=(((t/2400)+k/2+Math.abs(s.x%7)/7)%1+1)%1,rr=R*(.6+ph*1.4);cx.strokeStyle=`rgba(255,77,36,${(1-ph)*.7})`;cx.lineWidth=1.5;cx.setLineDash(s.approx?[4,4]:[]);cx.beginPath();cx.arc(x,y,rr,0,7);cx.stroke()}
-   cx.setLineDash([]);cx.fillStyle='rgba(255,77,36,.85)';cx.beginPath();cx.arc(x,y,3,0,7);cx.fill()}}
- function hit(px,py){if(!T)return null;for(const s of T.sites){const [x,y]=screen(s.x,s.y),R=Math.max(10,s.r*view.s);if(Math.hypot(px-x,py-y)<R)return s}return null}
- return{hit,get sites(){return T?.sites||[]},set visible(v){on=v}}})();
+  // demolished: gold — traced outline where we have one, else a dashed circle at the documented place
+  for(const s of T.demolished){cx.strokeStyle='#d4a73a';cx.fillStyle='rgba(212,167,58,.28)';cx.lineWidth=1.4;
+   if(s.rings){cx.beginPath();for(const r of s.rings)r.forEach((p,i)=>{const [x,y]=screen(p[0],p[1]);i?cx.lineTo(x,y):cx.moveTo(x,y)});cx.closePath();cx.fill('evenodd');cx.stroke()}
+   else{const [x,y]=screen(s.x,s.y),R=Math.max(7,s.r*view.s);if(!near(x,y,R))continue;cx.setLineDash([4,3]);cx.beginPath();cx.arc(x,y,R,0,7);cx.fill();cx.stroke();cx.setLineDash([])}}
+  // threatened: red, pulsing
+  for(const s of T.threatened){const [x,y]=screen(s.x,s.y),R=Math.max(10,s.r*view.s);if(!near(x,y,R))continue;
+   for(let k=0;k<2;k++){const ph=(((t/2400)+k/2+Math.abs(s.x%7)/7)%1+1)%1,rr=R*(.6+ph*1.4);cx.strokeStyle=`rgba(255,77,36,${(1-ph)*.75})`;cx.lineWidth=1.5;cx.setLineDash(s.approx?[4,4]:[]);cx.beginPath();cx.arc(x,y,rr,0,7);cx.stroke()}
+   cx.setLineDash([]);cx.fillStyle='#ff4d24';cx.beginPath();cx.arc(x,y,3,0,7);cx.fill()}
+  // incidents: a small triangle (filled = collapse, outline = controversy)
+  for(const s of T.incidents){const [x,y]=screen(s.x,s.y);if(!near(x,y,10))continue;cx.beginPath();cx.moveTo(x,y-8);cx.lineTo(x+7,y+5);cx.lineTo(x-7,y+5);cx.closePath();
+   if(s.kind==='controversy'){cx.strokeStyle='#f4f2ec';cx.lineWidth=1.4;cx.stroke()}else{cx.fillStyle='#f4f2ec';cx.fill();cx.strokeStyle='#0e0e0e';cx.lineWidth=1;cx.stroke()}}}
+ function hit(px,py){if(!T||!on||window.Ex13World)return null;
+  for(const s of T.incidents){const [x,y]=screen(s.x,s.y);if(Math.hypot(px-x,py-y)<10)return s}
+  for(const s of T.threatened){const [x,y]=screen(s.x,s.y);if(Math.hypot(px-x,py-y)<Math.max(10,s.r*view.s))return s}
+  for(const s of T.demolished){if(s.rings){const [wx,wy]=world(px,py);let c=false;for(const r of s.rings)for(let i=0,j=r.length-1;i<r.length;j=i++){const a=r[i],b=r[j];if((a[1]>wy)!==(b[1]>wy)&&wx<(b[0]-a[0])*(wy-a[1])/(b[1]-a[1])+a[0])c=!c}if(c)return s}else{const [x,y]=screen(s.x,s.y);if(Math.hypot(px-x,py-y)<Math.max(7,s.r*view.s))return s}}
+  return null}
+ return{hit,set visible(v){on=v}}})();

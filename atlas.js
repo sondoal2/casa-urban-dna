@@ -54,7 +54,8 @@ window.Atlas=(()=>{
  async function welcome(){
   const token=++introToken,cover=$('#welcome'),image=$('#montageImage'),caption=$('#montageCaption');
   cover.classList.remove('gone','settled');cover.removeAttribute('aria-hidden');localize();
-  const frames=[['reference-2.png','Anfa Supérieur / authors’ mapping'],['reference-4.png','Old Medina / authors’ mapping'],['reference-8.png','Habous / authors’ mapping'],['reference-11.png','Ain Chock / authors’ mapping'],['aerial-supplied.png','User-supplied aerial / date unverified']];
+  // Frames captured from the atlas itself (prep/welcome_frames.py): each one is a finding, not a photo.
+  const ar=Locale.language==='ar',frames=[['welcome-2.jpg',ar?'12,712 رحلة باص في يوم واحد':'12,712 bus trips in one day'],['welcome-1.jpg',ar?'كل مبنى في المدينة بارتفاعه، والمستكمَل بالأحمر':'every building at its height; the completed ones in red'],['welcome-3.jpg',ar?'17,512 بلوك: ثمانية أنسجة':'17,512 blocks: eight fabrics'],['welcome-5.jpg',ar?'يوم صيفي: حرارة السطح والريح من البحر':'a summer day: surface heat and the sea wind'],['welcome-4.jpg',ar?'إلى أين يهاجر المولودون في المغرب':'where people born in Morocco live abroad']];
   const show=([file,text])=>{image.src='assets/'+file;caption.textContent=text};
   const final=frames[4];
   if(matchMedia('(prefers-reduced-motion: reduce)').matches){show(final);cover.classList.add('settled');return}

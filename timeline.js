@@ -52,32 +52,34 @@ window.Timeline13=(()=>{
 
  /* ---------- the chart ---------- */
  function x(y,w){return 118+(y-Y0)/(Y1-Y0)*(w-130)}
- function svg(w){const rowH=22,top=26;let g='',y=top;
+ function svg(w){const rowH=16,top=24;let g='',y=top;
   // Bars that would overlap (span or label) drop to the next lane of their stream.
   // The extent stream is drawn first, right under the years, so it is never hidden below the panel's scroll.
   const rows=STREAMS.map(([name,bars],i)=>{if(i===4)return{name,lanes:2,items:[],ext:true};const ends=[],items=bars.map(bar=>{const [a,b,ar,en]=bar,x0=x(a,w),x1=Math.max(x(b,w),x0+L(ar,en).length*5.6+10);let lane=ends.findIndex(e=>e<=x0+3);if(lane<0){lane=ends.length;ends.push(0)}ends[lane]=x1;return{bar,lane}});return{name,lanes:Math.max(1,ends.length),items}});
   rows.unshift(...rows.splice(4,1));
   const total=rows.reduce((s,r)=>s+r.lanes*rowH,0);
-  ERAS.forEach(([a,b,c])=>{g+=`<rect x="${x(a,w)}" y="0" width="${x(b+1,w)-x(a,w)}" height="${top+total+6}" fill="${c}" opacity="${eraOf(year)[0]===a?.28:.1}"/>`});
+  ERAS.forEach(([a,b,c])=>{g+=`<rect x="${x(a,w)}" y="0" width="${x(b+1,w)-x(a,w)}" height="${top+total+6}" fill="#ffffff" opacity="${eraOf(year)[0]===a?.05:0}"/>`});
   for(let yy=1880;yy<=2020;yy+=10)g+=`<line x1="${x(yy,w)}" x2="${x(yy,w)}" y1="${top-4}" y2="${top+total}" class="tk"/><text x="${x(yy,w)}" y="${top-8}" class="ty">${yy}</text>`;
   rows.forEach((row,i)=>{g+=`<text x="110" y="${y+14}" class="tl">${L(...row.name)}${row.ext?' · km²':''}</text>`;
    // Extent circles on one line; labels alternate between a top and a bottom line so neighbours never collide.
-   if(row.ext){extents().forEach((e,j)=>{const r=Math.max(3,Math.min(13,Math.sqrt(e.km2)*1.1)),cy=y+rowH,ly=j%2?y+rowH*2-2:y+9;g+=`<circle cx="${x(e.y,w)}" cy="${cy}" r="${r}" fill="${e.c}" fill-opacity=".8"/><line x1="${x(e.y,w)}" x2="${x(e.y,w)}" y1="${j%2?cy+r:cy-r}" y2="${j%2?ly-8:ly+2}" stroke="${e.c}"/><text x="${x(e.y,w)+3}" y="${ly}" class="tv">${e.y} · ${fmt(e.km2,e.km2<10?1:0)}</text>`})}
-   else row.items.forEach(({bar:[a,b,ar,en,fam],lane})=>{const on=year>=a&&year<=b,sel=fam&&family===fam,yy=y+lane*rowH;g+=`<g class="bar${fam?' fam':''}" data-fam="${fam||''}" data-y="${a}"><rect x="${x(a,w)}" y="${yy+3}" width="${Math.max(4,x(b,w)-x(a,w))}" height="${rowH-7}" rx="2" fill="${sel?'#fff':on?eraOf(year)[2]:'#3a3a37'}" stroke="${fam?FAM[fam]:'none'}"/><text x="${x(a,w)+5}" y="${yy+15}" class="tb${sel?' dark':''}">${L(ar,en)}</text></g>`});
+   if(row.ext){extents().forEach((e,j)=>{const r=Math.max(3,Math.min(13,Math.sqrt(e.km2)*1.1)),cy=y+rowH,ly=j%2?y+rowH*2-2:y+9;g+=`<circle cx="${x(e.y,w)}" cy="${cy}" r="${r}" fill="none" stroke="${e.y<=year?'#f4f2ec':'#4a4a46'}" stroke-width="1"/><line x1="${x(e.y,w)}" x2="${x(e.y,w)}" y1="${j%2?cy+r:cy-r}" y2="${j%2?ly-8:ly+2}" stroke="#4a4a46"/><text x="${x(e.y,w)+3}" y="${ly}" class="tv">${e.y} · ${fmt(e.km2,e.km2<10?1:0)}</text>`})}
+   else row.items.forEach(({bar:[a,b,ar,en,fam],lane})=>{const on=year>=a&&year<=b,sel=fam&&family===fam,yy=y+lane*rowH;g+=`<g class="bar${fam?' fam':''}" data-fam="${fam||''}" data-y="${a}"><rect x="${x(a,w)}" y="${yy+11}" width="${Math.max(4,x(b,w)-x(a,w))}" height="${sel?3:2}" fill="${sel?'#ff4d24':on?'#f4f2ec':'#3a3a37'}"/><rect x="${x(a,w)}" y="${yy}" width="${Math.max(4,x(b,w)-x(a,w))}" height="${rowH}" fill="transparent"/><text x="${x(a,w)+1}" y="${yy+9}" class="tb" fill="${on?'#f4f2ec':'#6e6d69'}" style="fill:${on?'#f4f2ec':'#6e6d69'}">${L(ar,en)}</text></g>`});
    y+=row.lanes*rowH});
   const cx=x(year,w);g+=`<line x1="${cx}" x2="${cx}" y1="4" y2="${top+total+4}" class="cur"/><rect x="${cx-22}" y="2" width="44" height="16" rx="3" class="curb"/><text x="${cx}" y="14" class="cury">${year}</text>`;
   return `<svg class="chrono" viewBox="0 0 ${w} ${top+total+8}" width="100%" data-w="${w}" direction="ltr" style="direction:ltr">${g}</svg>`}
  function card(){const e=eraOf(year),items=(data?.history?.items||[]).filter(b=>b.year!=null&&b.year>=e[0]&&b.year<=e[1]&&(!family||b.family===family));
   return `<div class="tlCard"><b style="color:${e[2]}" dir="ltr">${e[0]}–${e[1]}</b><p>${L(...e[3])}</p><small>${L('من بحث الميرو','From the studio\'s Miro research')}${e[0]===1956?L(' · حقبة أضفناها لتكتمل السلسلة',' · era added to complete the series'):''}</small></div>
   <div class="tlStrip">${items.length?items.map(b=>`<a class="tlItem" ${b.file?`href="${b.file}" target="_blank" rel="noopener"`:''} data-goto="${b.c.join(',')}">${b.img?`<img src="${b.img}" alt="" loading="lazy">`:'<span class="noimg"></span>'}<span>${esc(Locale.language==='ar'&&b.ar?b.ar:b.name)}<small>${b.year}${b.arch?' · '+esc(b.arch.join(', ')):''}${b.style?' · '+esc(b.style.join(', ')):''}</small></span></a>`).join(''):`<p class="tiny">${L('لا مبانٍ مؤرَّخة في Wikidata لهذه الحقبة.','No dated buildings in Wikidata for this era.')}</p>`}</div>`}
- function render(){if(!panel)return;const w=Math.max(520,panel.clientWidth-26);panel.querySelector('.tlChart').innerHTML=svg(w);panel.querySelector('.tlBody').innerHTML=card()}
+ function render(){if(!panel)return;const w=Math.max(520,panel.clientWidth-26);panel.querySelector('.tlChart').innerHTML=svg(w);panel.querySelector('.tlBody').innerHTML=card();bigYear()}
+ // The year, large and quiet over the map (as in the reference): the number, and one line for its era.
+ function bigYear(){let el=document.getElementById('tlYear');if(!el){el=document.createElement('div');el.id='tlYear';document.body.appendChild(el)}const e=eraOf(year);el.innerHTML=`<span class="y">${year}</span><span class="era"><i style="background:${e[2]}"></i>${e[0]}–${e[1]} · ${L(...e[3]).split(/[.،,]/)[0]}</span>`}
  function setYear(y){year=Math.max(Y0,Math.min(Y1,Math.round(y)));render();onChange()}
  // The city's growth plays on its own from 1900 to today, looping, until the visitor stops it or drags the axis.
  let playTimer=null;
  function stopPlay(){clearInterval(playTimer);playTimer=null;const b=panel?.querySelector('[data-tlplay]');if(b)b.textContent='▶ '+L('تشغيل','Play')}
  function startPlay(){stopPlay();if(year>=Y1)year=1900;playTimer=setInterval(()=>setYear(year>=Y1?1900:year+2),220);const b=panel?.querySelector('[data-tlplay]');if(b)b.textContent='■ '+L('إيقاف','Stop')}
- function open(){if(panel)return;panel=document.createElement('section');panel.id='timeline13';panel.innerHTML=`<div class="tlHead"><button class="act" data-tlplay>■ ${L('إيقاف','Stop')}</button><b>${L('مخطط الزمن · 1880–2026','Chart of time · 1880–2026')}</b><span class="tiny">${L('اسحب على الخط لتغيير السنة · اضغط مسار العمارة لتصفية المباني','Drag along the axis to change the year · click an architecture stream to filter buildings')}</span></div><div class="tlChart"></div><div class="tlBody"></div>`;
-  document.body.appendChild(panel);panel.querySelector('[data-tlplay]').onclick=()=>playTimer?stopPlay():startPlay();year=1900;startPlay();
+ function open(){if(panel)return;panel=document.createElement('section');panel.id='timeline13';panel.innerHTML=`<div class="tlHead"><button class="act" data-tlplay>■ ${L('إيقاف','Stop')}</button><b>${L('مخطط الزمن · 1880–2026','Chart of time · 1880–2026')}</b><span class="tiny">${L('اسحب على الخط لتغيير السنة · اضغط مسار العمارة لتصفية المباني','Drag along the axis to change the year · click an architecture stream to filter buildings')}</span></div><div class="tlChart"></div><button class="tlMore" data-tlmore>${L('المباني المؤرّخة في هذه الحقبة ▴','Dated buildings of this era ▴')}</button><div class="tlBody"></div>`;
+  document.body.appendChild(panel);document.body.classList.add('tlOpen');panel.querySelector('[data-tlmore]').onclick=()=>panel.classList.toggle('more');panel.querySelector('[data-tlplay]').onclick=()=>playTimer?stopPlay():startPlay();year=1900;startPlay();
   const chart=panel.querySelector('.tlChart'),toYear=e=>{const svgEl=chart.querySelector('svg'),b=svgEl.getBoundingClientRect(),w=+svgEl.dataset.w,px=(e.clientX-b.left)/b.width*w;return Y0+(px-118)/(w-130)*(Y1-Y0)};
   chart.addEventListener('pointerdown',e=>{stopPlay();const fam=e.target.closest('.fam');if(fam){family=family===fam.dataset.fam?null:fam.dataset.fam;setYear(+fam.dataset.y+5);return}drag=true;e.preventDefault();chart.setPointerCapture(e.pointerId);setYear(toYear(e))});
   chart.addEventListener('pointermove',e=>{if(drag)setYear(toYear(e))});chart.addEventListener('pointerup',()=>drag=false);
@@ -85,6 +87,6 @@ window.Timeline13=(()=>{
   addEventListener('resize',render);render()}
  let hoverAt=null;
  function paintHover(ctx,s){if(!hoverAt)return;ctx.beginPath();ctx.arc(hoverAt[0],-hoverAt[1],Math.max(60,14/s),0,7);ctx.strokeStyle='#fff';ctx.lineWidth=3/s;ctx.stroke()}
- function close(){stopPlay();panel?.remove();panel=null;family=null;hoverAt=null}
+ function close(){stopPlay();panel?.remove();panel=null;family=null;hoverAt=null;document.getElementById('tlYear')?.remove();document.body.classList.remove('tlOpen')}
  return{attach,open,close,render,setYear,paintPlan,paintExtents,paintBuildings,paintHover,extents,get year(){return year},get family(){return family},FAM,ERAS};
 })();

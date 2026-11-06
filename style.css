@@ -149,3 +149,36 @@ html[dir=rtl] #sq13{left:auto;right:22px}
 #moment13 .mKey{max-height:20vh}#moment13 .mKey .morphLg span small{display:none}#moment13 .mKey .morphLg span:hover small{display:block}
 #threatLayer{position:fixed;inset:0;pointer-events:none;z-index:7}
 body.tilt13 #map,body.tilt13 #windLayer,body.tilt13 #busLayer{transform:none!important}#gl3d{position:fixed;inset:0;width:100vw;height:100vh;pointer-events:none;z-index:3;display:none}
+#base13{position:fixed;right:16px;bottom:62px;z-index:30;display:flex;flex-direction:column;align-items:flex-end;gap:6px}
+html[dir=rtl] #base13{right:auto;left:16px;align-items:flex-start}
+#base13[hidden]{display:none}
+#base13 .baseIcon{width:36px;height:36px;border-radius:50%;background:#0f0f0e;color:#f3f3ed;border:1px solid #3a3a37;font-size:16px;cursor:pointer}
+#base13 .baseIcon:hover{border-color:#ff4d24}
+#base13 .baseMenu{display:none;order:-1;background:#0b0b0bf5;border:1px solid #262624;border-top:2px solid #ff4d24;padding:10px 12px;color:#ccc;font-size:12px;width:260px}
+#base13.open .baseMenu{display:block}
+#base13 .baseMenu b{display:block;color:#ff866a;font-size:11px;margin:4px 0 6px;letter-spacing:.04em}
+#base13 .baseMenu label{display:block;margin:4px 0;cursor:pointer}
+#base13 .mk{display:flex;align-items:center;gap:8px;margin:5px 0}
+#base13 .mk i{width:14px;height:14px;display:inline-block;flex:none}
+#base13 .mkGold{background:#d4a73a55;border:1.5px solid #d4a73a}
+#base13 .mkPulse{border:1.5px solid #ff4d24;border-radius:50%;box-shadow:0 0 0 3px #ff4d2433}
+#base13 .mkTri{width:0!important;height:0!important;border-left:7px solid transparent;border-right:7px solid transparent;border-bottom:12px solid #f4f2ec}
+#base13 small{display:block;color:#777;margin-top:6px}
+#drawer13{top:84px!important}
+#map{z-index:1}
+/* timeline, after the reference: a slim strip with no box, the year large over the map */
+#timeline13{left:0!important;right:0!important;bottom:0!important;max-height:none!important;background:linear-gradient(0deg,#0b0b0bf2 70%,#0b0b0b00)!important;border:0!important;border-top:1px solid #262624!important;padding:6px 18px 8px!important}
+#timeline13 .tlHead .tiny{display:none}
+#timeline13 .tlHead b{font-weight:500;color:#8a8983;font-size:11px;letter-spacing:.06em}
+#timeline13 .tlBody{display:none}
+#timeline13.more .tlBody{display:grid;max-height:32vh;overflow:auto}
+#timeline13 .tlMore{background:none;border:0;color:#8a8983;font-size:11px;cursor:pointer;padding:2px 0}
+#timeline13 .tlMore:hover{color:#ff866a}
+#tlYear{position:fixed;top:92px;left:50%;transform:translateX(-50%);z-index:9;pointer-events:none;text-align:center;color:#f4f2ec}
+#tlYear .y{display:block;font:200 88px/1 'Readex Pro',sans-serif;letter-spacing:-.02em}
+#tlYear .era{display:inline-flex;gap:8px;align-items:center;font-size:12px;color:#bdbab0;background:#0b0b0bb3;padding:3px 10px;margin-top:4px}
+#tlYear .era i{width:9px;height:9px;display:inline-block}
+body.tlOpen #moment13{bottom:auto!important;top:96px}
+body.tlOpen #base13,body.tlOpen #exp13{bottom:200px}
+body.tlOpen #moment13{top:auto!important;bottom:170px!important;max-height:calc(100vh - 300px);overflow:auto}
+#timeline13 .chrono .tb{font-size:8.5px}#timeline13 .chrono .tl{font-weight:400;fill:#8a8983;font-size:9px}#timeline13 .chrono .tk{stroke:#ffffff0d}
