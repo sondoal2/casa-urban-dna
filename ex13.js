@@ -393,7 +393,7 @@ window.Ex13=(()=>{
    ctx.strokeStyle=C_RED;ctx.lineWidth=1.6/s;for(const p of L_.transport_hubs.features){ctx.beginPath();ctx.arc(p.c[0],-p.c[1],u*Math.sqrt(p.n||1)+3/s,0,7);ctx.stroke()}},
   dots(ctx,k,def,b,s){const r=Math.max(10,1.4/s);for(const p of data.commerce){ctx.fillStyle=FOOD.has(p.fclass)?'#ffd76a':C_AMB;ctx.beginPath();ctx.arc(p.c[0],-p.c[1],r,0,7);ctx.fill()}},
   // Thin blue streamlines of the season's prevailing direction; brighter where Global Wind Atlas is faster.
-  wind(ctx,k,def,b,s){const L_=windLines();if(!L_)return;ctx.lineCap='round';for(const l of L_){ctx.strokeStyle=`rgba(95,180,255,${(.18+.5*l.f).toFixed(2)})`;ctx.lineWidth=(.6+.8*l.f)/s;ctx.beginPath();l.p.forEach((p,i)=>i?ctx.lineTo(p[0],-p[1]):ctx.moveTo(p[0],-p[1]));ctx.stroke()}}
+  wind(ctx,k,def,b,s){return;const L_=windLines();if(!L_)return;ctx.lineCap='round';for(const l of L_){ctx.strokeStyle=`rgba(95,180,255,${(.18+.5*l.f).toFixed(2)})`;ctx.lineWidth=(.6+.8*l.f)/s;ctx.beginPath();l.p.forEach((p,i)=>i?ctx.lineTo(p[0],-p[1]):ctx.moveTo(p[0],-p[1]));ctx.stroke()}}
  };
  const LU={residential:'#4a3f35',commercial:'#a5673a',retail:'#c07a3e',industrial:'#5b5f73',park:'#3f7a43',grass:'#58864a',forest:'#2f5e35',cemetery:'#6a6a5a',farmland:'#7d7748',meadow:'#6d8a4f',recreation_ground:'#4f8f5a',military:'#704848',scrub:'#5e6b45',_:'#3d3d3a'};
 
@@ -414,12 +414,15 @@ window.Ex13=(()=>{
   return wLines}
  let tick=0;
  function windLoop(){windRaf=requestAnimationFrame(windLoop);if(!windOn||!state.wind.on){octx.clearRect(0,0,overlay.width,overlay.height);return}
-  // Continuous threads, not drops: long white dashes flow along every streamline; faster lines (GWA) flow faster.
-  octx.clearRect(0,0,overlay.width,overlay.height);const L_=windLines();if(!L_)return;tick+=1;octx.lineCap='round';
-  // Each thread is always drawn whole (it never switches off); a long soft glow slides along it, faster where GWA is faster.
-  for(const l of L_){octx.beginPath();l.p.forEach((p,i)=>{const [x,y]=screen(p[0],p[1]);i?octx.lineTo(x,y):octx.moveTo(x,y)});
-   octx.setLineDash([]);octx.lineWidth=.6+.9*l.f;octx.strokeStyle='rgba(255,255,255,.3)';octx.stroke();
-   octx.setLineDash([180,260]);octx.lineDashOffset=-(tick*(.4+1.2*l.f)+l.p.length*37)%440;octx.lineWidth=1+1.4*l.f;octx.strokeStyle='rgba(255,255,255,.5)';octx.stroke()}octx.setLineDash([])}
+  // A quiet vector field: one small arrow every 56 px, pointing where the wind goes, longer where it is faster
+  // (Global Wind Atlas); a soft band of light travels through the field downwind, so it reads as moving air.
+  octx.clearRect(0,0,overlay.width,overlay.height);if(!wind)return;tick+=1;const M=mean(),G=56,K=window.TiltK||1;octx.lineCap='round';
+  for(let sx=G/2;sx<overlay.width;sx+=G)for(let sy=G/2;sy<overlay.height;sy+=G){const [wx,wy]=world(sx,sy);if(!inF([wx,wy]))continue;
+   const a=windAng(wx,wy,M,0),f=Math.max(0,Math.min(1,(gwaAt(wx,wy)-1)/3.3)),ux=Math.sin(a),uy=-Math.cos(a)*K,len=9+17*f;
+   const ph=(((wx*Math.sin(a)+wy*Math.cos(a))/2200-tick/240)%1+1)%1,glow=Math.pow(Math.max(0,Math.cos(ph*Math.PI*2)),6);
+   const x0=sx-ux*len/2,y0=sy-uy*len/2,x1=sx+ux*len/2,y1=sy+uy*len/2;
+   octx.strokeStyle=`rgba(244,242,236,${(.22+.6*glow).toFixed(2)})`;octx.lineWidth=.8+.8*glow;octx.beginPath();octx.moveTo(x0,y0);octx.lineTo(x1,y1);
+   const h=4,ca=Math.atan2(uy,ux);octx.moveTo(x1,y1);octx.lineTo(x1-h*Math.cos(ca-.5),y1-h*Math.sin(ca-.5));octx.moveTo(x1,y1);octx.lineTo(x1-h*Math.cos(ca+.5),y1-h*Math.sin(ca+.5));octx.stroke()}}
  function setWind(on){windOn=on;if(on){ensureOverlay();if(!windRaf)windLoop()}else if(octx)octx.clearRect(0,0,overlay.width,overlay.height)}
 
  /* ---------- buses: illustrative pulse along the studio's bus routes (no timetable) ----------
@@ -567,7 +570,7 @@ window.Ex13=(()=>{
   wipe();requestAnimationFrame(fadeTo);fill()}
  function ui(){let c=document.getElementById('moment13'),d=document.getElementById('drawer13');
   if(!c){c=document.createElement('section');c.id='moment13';document.body.append(c);bind(c);
-   c.addEventListener('click',e=>{const b=e.target.closest('[data-mnav]');if(b)setMoment(mi+ +b.dataset.mnav);if(e.target.closest('[data-drawer]'))d.classList.toggle('open')})}
+   c.addEventListener('click',e=>{if(e.target.closest('[data-keyt]')){c.classList.toggle('keyOpen');fill();return}const b=e.target.closest('[data-mnav]');if(b)setMoment(mi+ +b.dataset.mnav);if(e.target.closest('[data-drawer]'))d.classList.toggle('open')})}
   if(!d){d=document.createElement('aside');d.id='drawer13';document.body.append(d);bind(d);d.addEventListener('click',e=>{if(e.target.closest('[data-drawer-close]'))d.classList.remove('open')})}
   return{c,d}}
  function makeWin(id,title,width,height,i){const el=document.createElement('section');el.className='win ex13win';el.dataset.ex=id;
@@ -648,11 +651,11 @@ window.Ex13=(()=>{
    if(b.dataset.conclReset&&topic){try{localStorage.removeItem('casa13-concl-'+topic.id)}catch{}fill()}})}
  const body=id=>id==='layers'?document.querySelector('#drawer13 .dLayers'):id==='legend'?document.querySelector('#drawer13 .dTools'):wins.find(w=>w.dataset.ex===id)?.querySelector('.winbody');
  function fillMoment(){const T=topic,{c,d}=ui(),M=moments(),m=M[mi]||{l:[]};c.hidden=d.hidden=false;
-  const on=[...order].reverse().filter(k=>state[k].on&&!BASEK.has(k));
+  const on=[...order].reverse().filter(k=>state[k].on&&!BASEK.has(k));if(c.dataset.topic!==T.id){c.dataset.topic=T.id;c.classList.toggle('keyOpen',T.id!=='history')}
   c.innerHTML=`<div class="mHead"><span class="mNo">${T.n}</span><span class="mTitle">${L(T.t[0],T.t[1])}</span><span class="mCount">${mi+1} / ${M.length}</span></div>
    <p class="mText">${m.concl?esc(conclusion(T)):L(m.t[0],m.t[1])}</p>
    ${m.concl?`<p class="mSub">${L('الخلاصة · عدّليها في «استكشاف»','Conclusion · edit it in “Explore”')}</p>`:`<div class="mChips">${m.tilt?`<span class="seg exag">${[1,3,6].map(e=>`<button data-exag="${e}" class="${(window.City3D?.opt.exag||3)===e?'on':''}">×${e}</button>`).join('')}</span><small class="mSub">${L('الارتفاع مُبالغ فيه للعرض؛ مرّري على مبنى لطوله الحقيقي','height exaggerated for display; hover a building for its real height')}</small>`:''}${m.l.map(k=>`<label class="chip ${state[k].on?'on':''}"><input type="checkbox" data-on="${k}" ${state[k].on?'checked':''}>${L(...LAYERS[k].t)}</label>`).join('')}</div>
-   <div class="mKey ex13">${on.map(k=>`<div class="kRow">${legend(k)}<small class="src">${LAYERS[k].src}</small></div>`).join('')}</div>`}
+   <button class="mKeyT" data-keyt>${L('المفتاح','Key')} ${c.classList.contains('keyOpen')?'▾':'▸'}</button><div class="mKey ex13">${on.map(k=>`<div class="kRow">${legend(k)}<small class="src">${LAYERS[k].src}</small></div>`).join('')}</div>`}
    <div class="mNav"><button data-mnav="-1" aria-label="${L('السابق','Previous')}">‹</button><span class="mDots">${M.map((_,i)=>`<i class="${i===mi?'on':''}"></i>`).join('')}</span><button data-mnav="1" aria-label="${L('التالي','Next')}">›</button><button class="mExplore" data-drawer>${L('استكشاف','Explore')}</button></div>`;
   if(!d.querySelector('.dLayers'))d.innerHTML=`<div class="dHead"><b>${L('استكشاف','Explore')}</b><button data-drawer-close aria-label="${L('إغلاق','Close')}">×</button></div><div class="dLayers"></div><div class="dTools"></div>`;
   d.querySelector('.dHead b').textContent=L('استكشاف','Explore')+' · '+T.n+' '+L(T.t[0],T.t[1])}
@@ -865,7 +868,7 @@ window.Ex13=(()=>{
  function paintSquares(ctx){const S_=squares();if(!S_||window.Ex13World)return;sqHit.length=0;
   ctx.save();ctx.setTransform(1,0,0,1,0,0);const dpr=Math.min(devicePixelRatio||1,1.5);ctx.setTransform(dpr,0,0,dpr,0,0);
   for(const sq of S_){const b=sq.f.b,[x0,y0]=screen(b[0],b[3]),[x1,y1]=screen(b[2],b[1]),P=x1-x0;let X,Y,Z;
-   if(true){ctx.strokeStyle='#ff4d24';ctx.lineWidth=1.5;ctx.strokeRect(x0,y0,Math.max(P,6),Math.max(P,6));ctx.font='600 10px "Readex Pro",sans-serif';ctx.fillStyle='#ff866a';ctx.textAlign='left';ctx.direction='ltr';ctx.fillText(sq.q[1],x0,y0-4);sqHit.push([x0-4,y0-14,Math.max(P,10)+8,Math.max(P,10)+18,sq]);continue}
+   if(true){const hist=topic?.id==='history';ctx.globalAlpha=hist?.6:1;ctx.strokeStyle=hist?'#8a8983':'#ff4d24';ctx.lineWidth=hist?1:1.5;ctx.strokeRect(x0,y0,Math.max(P,6),Math.max(P,6));ctx.font='600 10px "Readex Pro",sans-serif';ctx.fillStyle=hist?'#8a8983':'#ff866a';ctx.textAlign='left';ctx.direction='ltr';ctx.fillText(sq.q[1],x0,y0-4);ctx.globalAlpha=1;sqHit.push([x0-4,y0-14,Math.max(P,10)+8,Math.max(P,10)+18,sq]);continue}
    if(P>=120&&tilt){ctx.strokeStyle='#ff4d24';ctx.lineWidth=2;ctx.strokeRect(x0,y0,P,P);sqHit.push([x0,y0,P,P,sq]);continue}if(P>=120){X=x0;Y=y0;Z=P}else{Z=128;X=Math.min(Math.max(8,(x0+x1)/2+sq.q[4][0]-Z/2),innerWidth-Z-8);Y=Math.min(Math.max(X<300?190:40,(y0+y1)/2+sq.q[4][1]-Z/2),innerHeight-Z-50);
     ctx.strokeStyle='#ff4d24';ctx.lineWidth=1;ctx.beginPath();ctx.moveTo((x0+x1)/2,(y0+y1)/2);ctx.lineTo(X+Z/2,Y+Z/2);ctx.stroke();ctx.strokeRect(x0,y0,P,P)}
    ctx.drawImage(planCanvas(sq,Z>300?840:420),X,Y,Z,Z);ctx.strokeStyle='#ff4d24';ctx.lineWidth=1.5;ctx.strokeRect(X,Y,Z,Z);
@@ -875,7 +878,7 @@ window.Ex13=(()=>{
  // The four plans live in a small card strip (closable), not on top of the analysis.
  function sqCards(){if(!topic)return;const S_=squares();if(!S_)return;let el=document.getElementById('sq13');if(!el){el=document.createElement('div');el.id='sq13';document.body.append(el);
    el.addEventListener('click',e=>{if(e.target.closest('[data-sqx]')){el.classList.toggle('closed');return}const b=e.target.closest('[data-sq]');if(b){const sq=S_.find(x=>x.q[0]===b.dataset.sq);if(sq){openSquare(sq);const f=sq.f.b;flyTo([f[0]-300,f[1]-300,f[2]+300,f[3]+300],900)}}})}
-  el.hidden=false;if(el.dataset.ready)return;el.dataset.ready=1;el.innerHTML=`<button class="sqX" data-sqx title="${L('إخفاء / إظهار المربعات','Hide / show the squares')}">□ 4</button>`+S_.map(sq=>`<button class="sqC" data-sq="${sq.q[0]}"><img src="${planCanvas(sq,240).toDataURL()}" alt=""><span>${sq.q[1]} ${L(sq.q[2],sq.q[3])}</span></button>`).join('')}
+  el.hidden=false;if(el.dataset.ready)return;el.dataset.ready=1;el.innerHTML=`<span class="sqLbl">${L('المربعات الأربعة','The four squares')}</span>`+S_.map(sq=>`<button class="sqC" data-sq="${sq.q[0]}"><b>${sq.q[1]}</b> ${L(sq.q[2],sq.q[3])}</button>`).join('')}
  function sqStats(sq){const b=sq.f.b,A=(b[2]-b[0])*(b[3]-b[1]),B=sqBuildings(b);let fp=0,hs=0,hn=0;const st=[0,0,0];
   for(const bd of B){let a=0;for(const r of bd.r){let s=0;for(let i=0;i<r.length-1;i++)s+=r[i][0]*r[i+1][1]-r[i+1][0]*r[i][1];a+=s/2}a=Math.abs(a);fp+=a;const h=heightOf(bd);if(h){hs+=h*a;hn+=a;st[STOREY.findIndex(s=>h<s[0])]++}}
   const cx=(b[0]+b[2])/2,cy=(b[1]+b[3])/2,cell=window.Morph13?.cells?.find(c=>cx>=c.box[0]&&cx<c.box[2]&&cy>=c.box[1]&&cy<c.box[3]),R_=cell&&Morph13.RULES.find(r=>r[0]===cell.type);
@@ -884,7 +887,7 @@ window.Ex13=(()=>{
   return{n:B.length,ms:B.filter(x=>x.ms).length,cover:fp/A*100,h:hn?hs/hn:null,st,type:R_?L(...R_[2]):null,w,pop,A}}
  function openSquare(sq){const s=sqStats(sq),q=sq.q;let el=wins.find(w=>w.dataset.ex==='square');if(!el)el=makeWin('square',L('المربع','SQUARE')+' '+q[1],0,0,wins.length);el.querySelector('.wintitle').innerHTML=`<small>1.3</small>${L('المربع','SQUARE')} ${q[1]} · ${L(q[2],q[3])}`;
   el.querySelector('.winbody').innerHTML=`<div class="ex13 sqCard"><img class="sqPlan" src="${planCanvas(sq,840).toDataURL()}" alt="">
-   +'')}<span>${swatch('#8a5a2b')}${L('شارع رئيسي / محلي','primary / local street')}</span></div>
+   <div class="lg"><span>${swatch('#f4f2ec')}${L('مبنى','building')}</span><span>${L('الطوابق','storeys')}: ${STOREY.map((x,i)=>`${L(...x[2])} ${s.st[i]}`).join(' · ')}</span></div>
    <table class="sqStats"><tr><td>${L('مبانٍ','buildings')}</td><td>${fmt(s.n)}${s.ms?` <small>(${s.ms} ${L('مستكملة من Microsoft','completed from Microsoft')})</small>`:''}</td></tr>
    <tr><td>${L('نسبة البناء','built cover')}</td><td>${fmt(s.cover,0)}%</td></tr><tr><td>${L('متوسط الارتفاع','mean height')}</td><td>${s.h?fmt(s.h,1)+' m ≈ '+Math.max(1,Math.round(s.h/3))+' '+L('طوابق','storeys'):'—'}</td></tr>
    <tr><td>${L('السكان (GHS-POP)','people (GHS-POP)')}</td><td>${s.pop?'≈'+fmt(Math.round(s.pop/100)*100):'—'}</td></tr><tr><td>${L('نمط الشوارع','street pattern')}</td><td>${s.type||'—'}</td></tr><tr><td>${L('الثروة النسبية','relative wealth')}</td><td>${s.w!=null?s.w.toFixed(2)+' <small>('+L('مربع ≈2.4 كم حوله','≈2.4 km tile around it')+')</small>':'—'}</td></tr></table>

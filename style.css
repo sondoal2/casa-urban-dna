@@ -182,3 +182,12 @@ body.tlOpen #moment13{bottom:auto!important;top:96px}
 body.tlOpen #base13,body.tlOpen #exp13{bottom:200px}
 body.tlOpen #moment13{top:auto!important;bottom:170px!important;max-height:calc(100vh - 300px);overflow:auto}
 #timeline13 .chrono .tb{font-size:8.5px}#timeline13 .chrono .tl{font-weight:400;fill:#8a8983;font-size:9px}#timeline13 .chrono .tk{stroke:#ffffff0d}
+#sq13{top:88px!important;gap:0!important;align-items:center!important;background:#0b0b0bd9;border:1px solid #262624;padding:2px}
+#sq13 .sqLbl{color:#8a8983;font-size:10px;padding:0 8px;letter-spacing:.04em}
+#sq13 .sqC{width:auto!important;border:0!important;border-inline-start:1px solid #262624!important;padding:5px 10px!important;font-size:11px!important;background:none!important;white-space:nowrap}
+#sq13 .sqC b{color:#ff866a;font-weight:600}
+#sq13 .sqC:hover{background:#ff4d2422!important;transform:none!important}
+#moment13 .mKeyT{background:none;border:0;color:#8a8983;font-size:11px;cursor:pointer;padding:2px 0 4px}
+#moment13:not(.keyOpen) .mKey{display:none}
+#tlYear .grow,#tlYear .km{display:block;font-size:11px;color:#bdbab0;margin-top:4px}#tlYear .km{color:#f4f2ec;font-size:13px}#tlYear .gNew,#tlYear .gOld{display:inline-block;width:10px;height:10px;vertical-align:-1px;margin:0 4px}#tlYear .gNew{background:#ff4d2466;border:1px solid #ff4d24}#tlYear .gOld{border:1px solid #aaa8a0}
+#tlYear .era{display:inline-flex}#tlYear .grow,#tlYear .km{display:block;line-height:1.7;background:#0b0b0bb3;padding:0 8px;width:max-content;margin:3px auto 0}

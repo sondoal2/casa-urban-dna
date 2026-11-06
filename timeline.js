@@ -41,8 +41,13 @@ window.Timeline13=(()=>{
   if(!im.complete||!im.naturalWidth)return p;const b=p.meta.box;ctx.save();ctx.globalAlpha=op;ctx.imageSmoothingEnabled=true;ctx.drawImage(im,b[0],-b[3],b[2]-b[0],b[3]-b[1]);ctx.restore();return p}
 
  /* ---------- map ---------- */
- function paintExtents(ctx,s){for(const e of extents()){if(e.y>year)continue;const p=e.f.p||(e.f.p=pathFromRings(e.f.r)),latest=extents().filter(x=>x.y<=year).at(-1)===e;
-   ctx.fillStyle=e.c+(latest?'55':'1f');ctx.fill(p,'evenodd');ctx.strokeStyle=e.c;ctx.lineWidth=(latest?2.2:1)/s;ctx.setLineDash(e.traced?[]:[7/s,4/s]);ctx.stroke(p);ctx.setLineDash([])}}
+ // One reading for anyone: the city as it is in the chosen year is a light area with a white edge; what it gained since the
+ // previous record is red; every older edge stays as a thin grey line, fainter the older it is.
+ function paintExtents(ctx,s){const E=extents().filter(e=>e.y<=year);if(!E.length)return;const cur=E.at(-1),prev=E.at(-2),P=e=>e.f.p||(e.f.p=pathFromRings(e.f.r));
+  E.slice(0,-1).forEach((e,i)=>{ctx.strokeStyle=`rgba(170,168,160,${(.15+.45*(i+1)/E.length).toFixed(2)})`;ctx.lineWidth=.9/s;ctx.setLineDash(e.traced?[]:[5/s,4/s]);ctx.stroke(P(e))});ctx.setLineDash([]);
+  ctx.fillStyle='rgba(244,242,236,.08)';ctx.fill(P(cur),'evenodd');
+  if(prev){ctx.save();ctx.clip(P(cur),'evenodd');const pp=new Path2D();pp.rect(-1e6,-1e6,2e6,2e6);pp.addPath(P(prev));ctx.fillStyle='rgba(255,77,36,.34)';ctx.fill(pp,'evenodd');ctx.restore()}
+  ctx.strokeStyle='#f4f2ec';ctx.lineWidth=1.6/s;ctx.stroke(P(cur))}
  function pathFromRings(rings){const p=new Path2D();for(const r of rings)r.forEach((v,i)=>i?p.lineTo(v[0],-v[1]):p.moveTo(v[0],-v[1]));return p}
  const FAM={artdeco:'#ffd166',neomoorish:'#ff8a5b',modern:'#7ad7ff'};
  function paintBuildings(ctx,s){const items=data?.history?.items||[],r=Math.max(18,4.5/s);
@@ -72,7 +77,8 @@ window.Timeline13=(()=>{
   <div class="tlStrip">${items.length?items.map(b=>`<a class="tlItem" ${b.file?`href="${b.file}" target="_blank" rel="noopener"`:''} data-goto="${b.c.join(',')}">${b.img?`<img src="${b.img}" alt="" loading="lazy">`:'<span class="noimg"></span>'}<span>${esc(Locale.language==='ar'&&b.ar?b.ar:b.name)}<small>${b.year}${b.arch?' · '+esc(b.arch.join(', ')):''}${b.style?' · '+esc(b.style.join(', ')):''}</small></span></a>`).join(''):`<p class="tiny">${L('لا مبانٍ مؤرَّخة في Wikidata لهذه الحقبة.','No dated buildings in Wikidata for this era.')}</p>`}</div>`}
  function render(){if(!panel)return;const w=Math.max(520,panel.clientWidth-26);panel.querySelector('.tlChart').innerHTML=svg(w);panel.querySelector('.tlBody').innerHTML=card();bigYear()}
  // The year, large and quiet over the map (as in the reference): the number, and one line for its era.
- function bigYear(){let el=document.getElementById('tlYear');if(!el){el=document.createElement('div');el.id='tlYear';document.body.appendChild(el)}const e=eraOf(year);el.innerHTML=`<span class="y">${year}</span><span class="era"><i style="background:${e[2]}"></i>${e[0]}–${e[1]} · ${L(...e[3]).split(/[.،,]/)[0]}</span>`}
+ function bigYear(){let el=document.getElementById('tlYear');if(!el){el=document.createElement('div');el.id='tlYear';document.body.appendChild(el)}const e=eraOf(year),E=extents().filter(x=>x.y<=year),cur=E.at(-1),first=E[0];const grow=cur?(cur!==first?L(`المدينة المبنية ≈${fmt(cur.km2,0)} كم² · ${(cur.km2/first.km2).toFixed(0)}× ما كانت في ${first.y}`,`built city ≈${fmt(cur.km2,0)} km² · ${(cur.km2/first.km2).toFixed(0)}× what it was in ${first.y}`):L(`المدينة المبنية ≈${fmt(cur.km2,1)} كم²`,`built city ≈${fmt(cur.km2,1)} km²`)):'';
+  el.innerHTML=`<span class="y">${year}</span><span class="era">${e[0]}–${e[1]} · ${L(...e[3]).split(/[.،,]/)[0]}</span>${grow?`<span class="grow"><i class="gNew"></i>${L('أحمر: ما أُضيف منذ السجل السابق','red: added since the previous record')} · <i class="gOld"></i>${L('رمادي: الحدود الأقدم','grey: older edges')}</span><span class="km">${grow}</span>`:''}`}
  function setYear(y){year=Math.max(Y0,Math.min(Y1,Math.round(y)));render();onChange()}
  // The city's growth plays on its own from 1900 to today, looping, until the visitor stops it or drags the axis.
  let playTimer=null;
