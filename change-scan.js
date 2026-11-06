@@ -361,7 +361,7 @@ window.ChangeScan=(()=>{
   ${pair.length?`<p dir="ltr">${pair.map(p=>p.release).join(' ↔ ')}</p>`:''}
   ${DEV?`<button class="action" data-scan-study ${running?'disabled':''}>${L('مسح إطار الدراسة كاملًا','Scan full study area')}</button>
   <button class="action" data-scan-start ${running?'disabled':''}>${L('مسح المنطقة حول مركز الخريطة','Scan around the map centre')}</button>`:''}
-  ${running?`<button class="action" data-scan-stop>${L('إيقاف','Stop')}</button>`:''}
+  ${DEV&&window.PreciseScan?`<button class="action" data-ps-open>${L('رصد دقيق بالحدود الحقيقية (≈1 م) + مراجعة + عصا سحرية','Precise mapping with real outlines (≈1 m) + review + magic wand')} ↗</button>`:''}${running?`<button class="action" data-scan-stop>${L('إيقاف','Stop')}</button>`:''}
   <p role="status" data-scan-progress>${esc(message)}</p>
   <p class="tiny">${L('المضلعات مناطق تغيّر مرشّحة للمراجعة البصرية. التواريخ تخص نشر الصور.','Polygons are change candidates for visual review. Dates refer to imagery releases.')}</p>
   <p class="tiny">${L('يُستبعد الشاطئ (200 م من خط الصفر) إلا إذا كان فيه مبنى مرسوم. التغيّر يُحتسب فقط حيث توجد بصمة مبنى (OSM أو Microsoft) أو نسيج سقوف كثيف في الصورة الأقدم، وككتلة لا تقل عن 2,000 م² تقريبًا.','Beaches (200 m from the 0 m contour) are excluded unless a footprint is mapped there. Change counts only where a footprint (OSM or Microsoft) or dense roof texture exists in the earlier image, as a mass of about 2,000 m² or more.')}</p>
@@ -372,6 +372,7 @@ window.ChangeScan=(()=>{
   const scanStudy=body.querySelector('[data-scan-study]'),scanStart=body.querySelector('[data-scan-start]');
   if(scanStudy)scanStudy.onclick=()=>start(null,true);
   if(scanStart)scanStart.onclick=()=>start();
+  const ps=body.querySelector('[data-ps-open]');if(ps)ps.onclick=()=>PreciseScan.open();
   const stop=body.querySelector('[data-scan-stop]');
   if(stop)stop.onclick=()=>{cancelled=true;controller.abort()};
   if(chosen){
