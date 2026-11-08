@@ -68,6 +68,7 @@ window.Ex13=(()=>{
   nightlights:{t:['الإضاءة الليلية · VIIRS 2025','Night lights · VIIRS 2025'],type:'glow',unit:['nW/cm²/sr','nW/cm²/sr'],src:'NOAA/EOG VIIRS VNL v2 2025, ≈460 m cells',frame:true},
   busflow:{t:['خطوط الباص · التداخل والنبض','Bus lines · overlap + pulse'],type:'busflow',src:'Studio GIS layers: Bus_Routes_Colored, Bus_Street_Overlap (Casabus, OSM)',frame:true},
   reloc:{t:['الترحيل بعد هدم الصفيح (حالات موثقة)','Rehousing after slum clearance (documented cases)'],type:'reloc',src:'Le Matin 2007; Toutain 2016 (Springer); Jeune Afrique 2008; "Losing or Gaining Home?" (2020) · positions OSM',frame:false},
+  renewal:{t:['التجديد الحضري · مواقع ومشاريع','Urban renewal · sites and projects'],type:'renewal',src:'Studio GIS packages per arrondissement (Boundary + Renewal sites / Intervention zones, File GDB) · arrondissements OSM admin_level 10 · prep/renewal_layer.py',frame:false},
   markets:{t:['الأسواق المعروفة (رسمية وغير رسمية)','Known markets (formal and informal)'],type:'markets',src:'Overture places (market names) · OSM · Derb Ghallef: CESEM/Economia 2008, CGEM, Wikipedia — locations approximate, hence the halo',frame:true},
   parking:{t:['المواقف · وحصّتها من كل مركز','Car parks · and their share of each centre'],type:'parking',src:'Studio GIS packages parking.lpkx (OSM amenity=parking, 336 polygons) + Centers_And_Parking_Final.lpkx (parking area per centre)',frame:true},
   photos:{t:['صور الشارع · Mapillary (اضغط نقطة)','Street photos · Mapillary (click a dot)'],type:'photos',src:'Mapillary contributors, CC BY-SA 4.0 · shown in the Mapillary viewer, not copied',frame:true},
@@ -95,7 +96,8 @@ window.Ex13=(()=>{
   {id:'centre',n:'03',t:['مركز المدينة','City centre'],q:['أين القلب — وهل هو واحد؟','Where is the heart — and is there only one?'],layers:['zones','centres','inst','parking','busstops','busflow'],form:['دوائر متناسبة','Proportional circles']},
   {id:'climate',n:'04',t:['المناخ','Climate'],q:['أين الحرّ وأين أقل — وبكم درجة؟','Where is it hot, where less — and by how much?'],layers:['heat','ndvi','flood','water','buried','contours','wind'],form:['حقل متصل + خطوط تساوٍ','Continuous field + isolines'],play:['heat','ndvi','flood','contours']},
   {id:'human',n:'05',t:['البعد الإنساني','Human dimension'],q:['أين الناس فعلًا — أين يشترون ويلتقون؟','Where are people actually — buying, meeting?'],layers:['dots','overture','markets','photos','nightlights','busflow','busstops','rwi','reloc','emigration'],form:['كثافة نقاط','Dot density']},
-  {id:'history',n:'06',t:['التطور التاريخي','Historical development'],q:['كيف نمت المدينة، ومن خطّطها، وبأي لغة معمارية؟','How did the city grow, who planned it, and in which architectural language?'],layers:['histext','histmig','histbuild','histplan'],form:['مخطط زمني بمسارات متوازية + امتدادات','Chart of time in parallel streams + extents']}
+  {id:'history',n:'06',t:['التطور التاريخي','Historical development'],q:['كيف نمت المدينة، ومن خطّطها، وبأي لغة معمارية؟','How did the city grow, who planned it, and in which architectural language?'],layers:['histext','histmig','histbuild','histplan'],form:['مخطط زمني بمسارات متوازية + امتدادات','Chart of time in parallel streams + extents']},
+  {id:'renewal',n:'07',t:['التجديد الحضري','Urban renewal'],q:['أين تُعاد كتابة المدينة اليوم، ومن يقرر، ولمن؟','Where is the city being rewritten today, who decides, and for whom?'],layers:['renewal','reloc'],form:['مواقع مخططة + حدود المقاطعات','Hatched sites + arrondissement edges']}
  ];
  const state={};Object.keys(LAYERS).forEach(k=>state[k]={on:false,op:1});
  let order=[];
@@ -121,7 +123,8 @@ window.Ex13=(()=>{
  // Migration arrows of the 1918/1938/1955 Schéma directeur maps (prep/kasmi_arrows.py); the timeline year picks the map.
  let kArrows=null;
  // Documented rehousing moves after slum clearance (prep/relocations.py): curved arrows origin → reception site.
- let reloc=null;const MIG_COL={european:'#7ad7ff',muslim:'#ffb347',slum:'#ff4d24'};const EMIG_C=[-2226,15519],CASA_LL=[-7.6,33.57];
+ // Urban renewal (prep/renewal_layer.py): arrondissement outlines + renewal sites / intervention zones from the studio packages.
+ let renew=null;let reloc=null;const MIG_COL={european:'#7ad7ff',muslim:'#ffb347',slum:'#ff4d24'};const EMIG_C=[-2226,15519],CASA_LL=[-7.6,33.57];
  let ovP=null;const OV_COL=['#e0a400','#ff7a59','#7ad7ff','#8ce0a0','#9a9a94'];
  const heightOf=bd=>gbaH?.osm[bd.id]??data.hIndex?.get(Math.floor((bd.b[0]+bd.b[2])/200)+','+Math.floor((bd.b[1]+bd.b[3])/200));
  const BUS_CLASSES=[1,6,12,24,48,96],B62='0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ';
@@ -153,6 +156,7 @@ window.Ex13=(()=>{
     // The centre table repeats its totals on every piece of a centre: sum the pieces' areas once per name.
     const c={};for(const x of g.centres){const o=c[x.name]||(c[x.name]={name:x.name,n:x.n,km2:x.km2,area:0});o.area+=x.area_km2}park.sum=Object.values(c)}).catch(()=>null),
    fetch('data/morph_pre.json?v=1').then(r=>r.ok?r.json():null).then(g=>{morphPre=g}).catch(()=>null),
+   fetch('data/renewal.json?v=1').then(r=>r.ok?r.json():null).then(g=>{if(!g)return;for(const o of [...g.districts,...g.sites]){o.p=pathOf(o.r);o.b=bbox(o.r)}renew=g}).catch(()=>null),
    fetch('data/relocations.json?v=2').then(r=>r.ok?r.json():null).then(g=>{reloc=g}).catch(()=>null),
    fetch('data/kasmi_arrows.json?v=1').then(r=>r.ok?r.json():null).then(g=>{kArrows=g}).catch(()=>null),
    fetch('data/wind_gwa.json?v=1').then(r=>r.ok?r.json():null).then(g=>{gwa=g;if(g){const v=g.v.filter(x=>x>0).sort((a,b)=>a-b);gwaMed=v[v.length>>1]/10||2.6}}).catch(()=>null),
@@ -315,6 +319,12 @@ window.Ex13=(()=>{
     q.forEach((v,i)=>i?fp.lineTo(v[0],-v[1]):fp.moveTo(v[0],-v[1]));fp.closePath()}
    ctx.fillStyle=light?'#2a2f55':'#6f7cff';ctx.fill(p,'nonzero');ctx.fillStyle=light?'#9a9a94':'#d8d6cf';ctx.fill(fp,'nonzero')},
   histplan(ctx,k,def,b,s){window.Timeline13?.paintPlan(ctx,state[k].op)},
+  renewal(ctx,k,def,b,s){if(!renew)return;
+   // arrondissement: thin dashed white edge · site: red hatch + solid edge (Sidi Belyout intervention zones: dashed)
+   for(const a of renew.districts){ctx.strokeStyle='rgba(255,255,255,.55)';ctx.lineWidth=1.1/s;ctx.setLineDash([6/s,4/s]);ctx.stroke(a.p);ctx.setLineDash([])}
+   for(const z of renew.sites){ctx.fillStyle='rgba(255,77,36,.16)';ctx.fill(z.p,'evenodd');ctx.fillStyle=hatch(ctx,C_RED,7,45,1);ctx.fill(z.p,'evenodd');
+    ctx.strokeStyle=C_RED;ctx.lineWidth=1.8/s;ctx.setLineDash(z.kind==='zone'?[5/s,3/s]:[]);ctx.stroke(z.p);ctx.setLineDash([])}
+   for(const z of renew.sites){const bb=z.b;vtag(ctx,(bb[0]+bb[2])/2,bb[3],z.name+' · '+z.ha+' ha')}},
   reloc(ctx,k,def,b,s){if(!reloc)return;const P=reloc.places;ctx.lineCap='round';
    // Demolished site: red outline (traced, exact). Reception site: white frame of the documented area, dashed = approximate.
    for(const [key,a] of Object.entries(reloc.areas||{})){const p=a.p||(a.p=pathOf(a.rings)),red=a.kind==='demolished';ctx.fillStyle=red?'rgba(255,77,36,.28)':'rgba(255,255,255,.14)';ctx.fill(p,'evenodd');
@@ -466,6 +476,7 @@ window.Ex13=(()=>{
   if(d.type==='value'){const n=8,ticks=[...Array(n+1)].map((_,i)=>d.min+(d.max-d.min)*i/n);return `<div class="lg grad"><b style="background:linear-gradient(90deg,${ticks.map((v,i)=>R[d.ramp](i/n)).join(',')})"></b><div>${ticks.filter((_,i)=>i%2===0).map(v=>`<span>${k==='ndvi'?v.toFixed(2):Math.round(v)}</span>`).join('')}</div><small>${u}${k==='heat'?L(' · القيم الأصلية 21–57؛ التدرّج يبدأ من 30 لإظهار الفروق',' · source values 21–57; the ramp starts at 30 to show the differences'):''}</small></div>`}
   if(d.type==='rwi'&&distD){rwiClass(0);const lab=[L('الأفقر نسبيًا','poorest')+' 20%','','','',L('الأغنى نسبيًا','richest')+' 20%'];return `<div class="lg">${[0,1,2,3,4].map(i=>`<span><em class="circ" style="border-radius:0;background:rgba(217,215,207,${.03+i*.09});outline:1px solid #555"></em>${L('فئة','class')} ${i+1}${lab[i]?' · '+lab[i]:''}</span>`).join('')}<small>${u} · ${L('خمس فئات متساوية العدد داخل الإطار، والتهشير يكثف مع الثروة. دقة ≈2.4 كم.','five equal-count classes inside the frame; hatching gets denser with wealth. ≈2.4 km.')}</small></div>`}
   if(d.type==='rwi'){const n=6;return `<div class="lg grad"><b style="background:linear-gradient(90deg,${[...Array(n+1)].map((_,i)=>R.rwi(i/n)).join(',')})"></b><div><span>${L('أفقر نسبيًا','relatively poorer')}</span><span>${L('أغنى نسبيًا','relatively richer')}</span></div><small>${u} · ${L('دقته ≈2.4 كم: صورة عامة بين الأحياء، لا بلوكًا ببلوك','≈2.4 km: a broad picture between districts, not block by block')}</small></div>`}
+  if(d.type==='renewal'&&renew)return `<div class="lg"><span>${swatch(C_RED)}${L('موقع تجديد / مشروع','renewal site / project')}</span><span><em class="circ" style="border-radius:0;height:0;width:22px;border-top:2px dashed ${C_RED}"></em>${L('منطقة تدخّل (سيدي بليوط، رموز الحزمة)','intervention zone (Sidi Belyout, package codes)')}</span><span><em class="circ" style="border-radius:0;height:0;width:22px;border-top:1px dashed #fff"></em>${L('حدود المقاطعة','arrondissement')}</span><small>${renew.sites.length} ${L('موقعًا','sites')} · ${renew.sites.reduce((a,z)=>a+z.ha,0).toFixed(0)} ${L('هكتار','ha')}</small></div>`;
   if(d.type==='reloc'&&reloc)return `<div class="lg">${reloc.moves.map(m=>`<span>${swatch('#ff4d24')}${L(m.ar,m.en)}<br><small>${m.src}</small></span>`).join('')}${reloc.sites.map(st=>`<span>${swatch('rgba(255,77,36,.5)')}${L(st.ar,st.en)}<br><small>${st.src}</small></span>`).join('')}<small>${L('حالات موثقة فقط، ليست سجلًا كاملًا. الدراسات تصف مواقع الاستقبال بأنها بعيدة عن المدينة وهشّة. الجنترفكيشن والتنقل اليومي للعمال بلا بيانات منشورة.','Documented cases only, not a full record. Studies describe the reception sites as far from the city and precarious. Gentrification and daily commuting have no published data.')}</small></div>`;
   if(d.type==='histmig')return `<div class="lg"><span>${swatch(MIG_COL.european)}${L('هجرة الأوروبيين','European moves')}</span><span>${swatch(MIG_COL.muslim)}${L('هجرة / انتقال السكن المسلم (متقطع)','Muslim moves / rehousing (dashed)')}</span><span>${swatch(MIG_COL.slum)}${L('ترحيل أحياء الصفيح','Shantytowns displaced')}</span><small>${L('كل سهم = مجموعة سكانية غيّرت مكان سكنها: النقطة حيث كانوا، والرأس حيث انتقلوا. الأسهم منقولة من خرائط المخطط المديري 1975 (عن قاسمي 1994) لسنوات 1918 و1938 و1955، وتتبدّل مع سنة التايملاين. تُظهر الاتجاه والوجهة لا المسار ولا العدد، والمواقع ±300 م.','Each arrow = a group of residents who changed where they lived: the dot is where they were, the head where they went. Read from the 1975 Schéma directeur maps (in Kasmi 1994) for 1918, 1938 and 1955, switching with the timeline year. Direction and destination only, not route or numbers; positions ±300 m.')}</small></div>`;
   if(d.type==='blocks'&&blk){const n={};for(const q of blk.list)n[q.t]=(n[q.t]||0)+1;return `<div class="lg morphLg">${blk.raw.rules.map(([id,a,e,c,ra,re])=>`<span>${swatch(c)}<b>${L(a,e)}</b> · ${n[id]||0}<small>${L(ra,re)}</small></span>`).join('')}<small>${L('ثلاثة معايير لكل بلوك: (1) الشكل: المساحة ومدى انتظامه، (2) الحبّة: نسبة البناء ومتوسط حجم المبنى، (3) الارتفاع. يُطبّق أول شرط ينطبق. مرّري على أي بلوك لترين أرقامه.','Three criteria per block: (1) shape: area and regularity, (2) grain: built cover and mean building size, (3) height. The first rule that fits applies. Hover any block for its numbers.')}</small></div>`}
@@ -556,7 +567,9 @@ window.Ex13=(()=>{
    {l:['emigration'],t:['إلى أين يهاجر المولودون في المغرب','Where people born in Morocco live abroad']},{concl:true}],
   history:[{l:['histext'],t:['كيف امتدت المدينة: من النواة إلى الحلقات','How the city spread: from the core to rings']},
    {l:['histplan','histbuild'],t:['الخرائط الأصلية والمباني المؤرخة','The original plans and the dated buildings']},
-   {l:['histmig'],t:['حركة السكن داخل المدينة','Moves within the city']},{concl:true}]};
+   {l:['histmig'],t:['حركة السكن داخل المدينة','Moves within the city']},{concl:true}],
+  renewal:[{l:['renewal'],t:['11 موقعًا في 6 مقاطعات: ترميم، إخلاء، وتنمية كبيرة','11 sites in 6 arrondissements: restoration, clearance, large development']},
+   {l:['renewal','reloc'],t:['حين يعني التجديد هدمًا: إلى أين رُحّل الناس','When renewal means demolition: where people were moved']},{concl:true}]};
  let mi=0;
  const moments=()=>MOMENTS[topic?.id]||[];
  // Layers fade instead of blinking; a quick accent band sweeps across as the content changes.
@@ -685,6 +698,7 @@ window.Ex13=(()=>{
   centre:['مسودة: للمدينة أربعة مراكز لا مركز واحد. خطوط الباص تتداخل أكثر شيء (حتى 11 خطًا على شارع واحد) في البولفارات المركزية، بينما تبقى الأطراف معتمدة على خط أو خطين.','Draft: the city has four centres, not one. Bus lines overlap most (up to 11 on one street) on the central boulevards, while the edges rely on one or two lines.'],
   climate:['الحزام الأوسط، على بعد 1.5–4 كم من البحر، هو حيث تتجمع المياه (34% قابلة للغمر) وحيث ما زال الأخضر يبرّد (−1.3°C). تدخّل أخضر واحد هنا يمكن أن يجيب عن الفصلين.','The middle belt, 1.5–4 km from the sea, is where water gathers (34% flood-prone) and green still cools (−1.3°C). One green intervention here could answer both seasons.'],
   history:['مسودة: نمت المدينة من نواة مسوّرة إلى حلقات متتالية رسمتها مخططات من خارجها: بروست للأوروبيين، وإيكوشار لأول مرة للمغاربة. كل حقبة تركت لغة معمارية تُقرأ حتى اليوم في نسيج الشارع.','Draft: the city grew from a walled core into successive rings drawn by plans from outside: Prost for Europeans, then Écochard, for the first time, for Moroccans. Each era left an architectural language still legible in the street fabric.'],
+  renewal:['مسودة: التجديد في كازابلانكا ثلاثة أنواع بمنطق مختلف. ترميم للسكان الموجودين (عين الشق، الحي المحمدي، بوسبير) في مواقع صغيرة من 2 إلى 32 هكتارًا. إخلاء لمشروع عام (المحج الملكي) مع تهجير موثّق. وتنمية كبيرة على أرض فارغة أو على الواجهة البحرية (كازا أنفا 470 هكتارًا، والكورنيش 153 هكتارًا). أغلب المساحة تذهب للنوع الثالث، فالسؤال: لمن؟ والقرار لا يأتي من جهة واحدة: البلدية وCasa Patrimoine وCDG وCasablanca Aménagement.','Draft: renewal in Casablanca comes in three kinds, each with its own logic. Restoration for the people already there (Aïn Chock, Hay Mohammadi, Bousbir), on small sites of 2 to 32 ha. Clearance for a public project (Avenue Royale), with documented displacement. Large development on empty land or on the waterfront (Casa Anfa 470 ha, the Corniche 153 ha). Most of the area goes to the third kind, so the question is: for whom? And no single body decides: the city, Casa Patrimoine, CDG and Casablanca Aménagement.'],
   human:['مسودة: الضوء لا يساوي الناس. الميناء أسطع مكان في الليل، والمدينة القديمة، رغم ازدحامها، أقل إضاءة. المحلات والمقاهي تقل نحو الأطراف، جزئيًا لأن OSM ناقص هناك.','Draft: light is not people. The port is the brightest place at night, while the old medina, far more crowded, is dimmer. Shops and cafés thin out towards the edges, partly because OSM is incomplete there.']};
  function conclusion(T){let v=null;try{v=localStorage.getItem('casa13-concl-'+T.id)}catch{}return v??L(...(DRAFTS[T.id]||['','']))}
  // Wrap for SVG text: split on spaces into lines of at most n characters, keeping the student's line breaks.
@@ -931,6 +945,9 @@ window.Ex13=(()=>{
    if((k==='patterns'||k==='friction')&&window.Morph13?.cells){const c=Morph13.cells.find(c=>x>=c.box[0]&&x<c.box[2]&&y>=c.box[1]&&y<c.box[3]);if(c){cellInd(c);const R_=Morph13.RULES.find(r=>r[0]===c.type);
     return `${R_?L(...R_[2]):c.type} · ${L('ارتفاع','height')} ${c.h!=null?fmt(c.h,1)+' m':'—'} · ${L('ثروة نسبية','wealth')} ${c.w!=null?c.w.toFixed(2):'—'} · ${L('مبني','built')} ${fmt(c.built,0)}%`}}
    if(k==='zones')for(const [key,,a,e] of ZONES){const f=data.layers[key]?.features[0];if(f&&inRings(x,y,f.r))return L(a,e)}
+   if(k==='renewal'&&renew){const DN={Sidi_Belyout:['سيدي بليوط','Sidi Belyout'],Ain_Chock:['عين الشق','Aïn Chock'],Hay_Mohammadi:['الحي المحمدي','Hay Mohammadi'],Mers_Sultan:['مرس السلطان','Mers Sultan'],Casa_Anfa:['أنفا','Anfa'],Ain_Sebaa:['عين السبع','Aïn Sebaâ']};
+    for(const z of renew.sites){const b=z.b;if(x<b[0]||x>b[2]||y<b[1]||y>b[3])continue;if(inRings(x,y,z.r))return `<b>${z.name}</b> · ${z.ha} ${L('هكتار','ha')} · ${L(...(DN[z.d]||[z.d,z.d]))}`}
+    for(const a of renew.districts){const b=a.b;if(x<b[0]||x>b[2]||y<b[1]||y>b[3])continue;if(inRings(x,y,a.r))return `${L(a.ar,a.en)} · ${a.ha} ${L('هكتار','ha')}`}}
    if(k==='parking'&&park)for(const l of park.lots){const b=l.b;if(x<b[0]||x>b[2]||y<b[1]||y>b[3])continue;if(inRings(x,y,l.r))return `${L('موقف','Car park')} · ${l.kind||L('غير مصنّف','unclassified')}${l.name?' · '+l.name:''}`}}
   return null}
  return{paint,probe,heightOf:bd=>heightOf(bd),get friction(){return frictionEdges()},open,close:closeAll,exportSVG,get active(){return !!topic},get state(){return state},get data(){return data}};
