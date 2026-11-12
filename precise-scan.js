@@ -355,5 +355,5 @@ window.PreciseScan=(()=>{
   if(pen&&draft.length){const pts=hoverPt?[...draft,hoverPt]:draft;ctx.beginPath();pts.forEach((q,j)=>j?ctx.lineTo(q[0],-q[1]):ctx.moveTo(q[0],-q[1]));ctx.strokeStyle='#ffd36a';ctx.lineWidth=1.6/view.s;ctx.stroke();
    for(const [j,q] of draft.entries()){ctx.beginPath();ctx.arc(q[0],-q[1],(j?2.6:4.5)/view.s,0,7);ctx.fillStyle=j?'#ffd36a':'#fff';ctx.fill()}}}
  function open(){openWindow('preciseScan');fromFile().then(ensurePair).then(()=>refresh('preciseScan')).catch(()=>{})}
- return{open,content,bind,paint,scan,refine,setJudge:f=>{judge=f},samCut,shape,shapeAll,builtB:s=>builtB(s),openA:s=>openA(s),setRules:(b,o)=>{if(b)builtB=b;if(o)openA=o},get candidates(){return cands},get running(){return running},get message(){return message}};
+ return{lib:{sam,mosaicZ,layersOf,outline,ringArea,bboxOf,boxMax,closeMask,fillHoles,RZ,DS,TS},open,content,bind,paint,scan,refine,setJudge:f=>{judge=f},samCut,shape,shapeAll,builtB:s=>builtB(s),openA:s=>openA(s),setRules:(b,o)=>{if(b)builtB=b;if(o)openA=o},get candidates(){return cands},get running(){return running},get message(){return message}};
 })();

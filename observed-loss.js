@@ -38,21 +38,24 @@ window.ObservedLoss=(()=>{
 })();
 // Threatened places (data/threatened.json, press-sourced): a halo that pulses on its own light canvas, so the
 // map itself is not redrawn. Shown from the first view, with the demolished settlement outlined.
-window.Threats=(()=>{let T=null,cv=null,cx=null,on=true,DM=null;fetch('data/threatened.json?v=2').then(r=>r.ok?r.json():null).then(d=>{T=d;start()}).catch(()=>{});
- // the reviewed scan (data/demolition.json): confirmed demolitions 2014–2026 as gold outlines, undecided dashed, from the first view
- // the precise scan (data/demolition_v3.json, reviewed by eye) is added on top when it exists
- Promise.all(['data/demolition.json?v=1','data/demolition_v3.json?v='+Date.now().toString().slice(0,7)].map(u=>fetch(u).then(r=>r.ok?r.json():null).catch(()=>null))).then(([d1,d3])=>{const d=d1||d3;if(!d)return;if(d1&&d3)d.groups=[...d1.groups,...d3.groups];const sm=r=>{let p=r.slice(0,-1);for(let k=0;k<2;k++){const q=[];for(let i=0;i<p.length;i++){const a=p[i],b=p[(i+1)%p.length];q.push([a[0]*.75+b[0]*.25,a[1]*.75+b[1]*.25],[a[0]*.25+b[0]*.75,a[1]*.25+b[1]*.75])}p=q}return[...p,p[0]]};
-  DM={meta:d,g:d.groups.filter(g=>g.status==='confirmed'||g.status==='unsure').map(g=>{const rings=g.rings.map(sm);let a=0;for(const r of g.rings){let s=0;for(let i=0;i<r.length-1;i++)s+=r[i][0]*r[i+1][1]-r[i+1][0]*r[i][1];a+=Math.abs(s/2)}const xs=rings.flat();return{rings,st:g.status,ha:a/1e4,b:[Math.min(...xs.map(p=>p[0])),Math.min(...xs.map(p=>p[1])),Math.max(...xs.map(p=>p[0])),Math.max(...xs.map(p=>p[1]))]}})}}).catch(()=>{});
+window.Threats=(()=>{let T=null,cv=null,cx=null,on=true,DM=null,upTo=9999,showDM=true;fetch('data/threatened.json?v=2').then(r=>r.ok?r.json():null).then(d=>{T=d;start()}).catch(()=>{});
+ // reviewed demolition (data/demolition_v4.json, WORKFLOW_رصد_الهدم.md): only sites checked by eye, coloured by the phase
+ // in which they disappeared — 2015–2021 slow · 2021–2023 first acceleration · 2024–2026 World Cup wave. Automatic
+ // detections and the older mixed files (demolition.json, demolition_v3.json) are never shown to the public.
+ const PH=[{to:2021,col:'#ff4d24',ar:'2015–2021 · تباطؤ',en:'2015–2021 · slow'},{to:2023,col:'#ff4d24',ar:'2021–2023 · التسارع الأول',en:'2021–2023 · first acceleration'},{to:9999,col:'#ff4d24',ar:'2024–2026 · موجة المونديال',en:'2024–2026 · World Cup wave'}];
+ const TY={slum:['تفكيك صفيح','slum clearance'],project:['إخلاء لمشروع','clearance for a project'],collapse:['انهيار','collapse'],rebuild:['هدم وإعادة بناء','demolished and rebuilt']};
+ fetch('data/demolition_v4.json?v='+Date.now().toString().slice(0,7)).then(r=>r.ok?r.json():null).catch(()=>null).then(d=>{if(!d?.sites?.length)return;
+  DM={meta:d,PH,g:d.sites.filter(s=>(s.status||'gone')!=='standing').map(s=>{const ph=PH.findIndex(p=>s.gone<=p.to),rings=[s.ring,...(s.holes||[])],xs=s.ring.map(p=>p[0]),ys=s.ring.map(p=>p[1]);return{...s,ph,rings,ha:s.area/1e4,b:[Math.min(...xs),Math.min(...ys),Math.max(...xs),Math.max(...ys)]}})};if(typeof windows!=='undefined'&&windows.has('changeScan'))refresh('changeScan')}).catch(()=>{});
  function start(){if(cv||!T)return;cv=document.createElement('canvas');cv.id='threatLayer';document.body.appendChild(cv);cx=cv.getContext('2d');const fitC=()=>{cv.width=innerWidth;cv.height=innerHeight};fitC();addEventListener('resize',fitC);requestAnimationFrame(loop)}
  const near=(x,y,R)=>x>-R*3&&y>-R*3&&x<cv.width+R*3&&y<cv.height+R*3;
  function loop(t){requestAnimationFrame(loop);if(!cx)return;cx.clearRect(0,0,cv.width,cv.height);if(!on||!T||window.Ex13World||typeof screen!=='function'||typeof view==='undefined')return;
   // demolished: gold — traced outline where we have one, else a dashed circle at the documented place
-  for(const s of T.demolished){cx.strokeStyle='#d4a73a';cx.fillStyle='rgba(212,167,58,.28)';cx.lineWidth=1.4;
+  for(const s of T.demolished){cx.strokeStyle='rgba(244,242,236,.85)';cx.fillStyle='rgba(244,242,236,.06)';cx.lineWidth=1.1;
    if(s.rings){cx.beginPath();for(const r of s.rings)r.forEach((p,i)=>{const [x,y]=screen(p[0],p[1]);i?cx.lineTo(x,y):cx.moveTo(x,y)});cx.closePath();cx.fill('evenodd');cx.stroke()}
    else{const [x,y]=screen(s.x,s.y),R=Math.max(7,s.r*view.s);if(!near(x,y,R))continue;cx.setLineDash([4,3]);cx.beginPath();cx.arc(x,y,R,0,7);cx.fill();cx.stroke();cx.setLineDash([])}}
-  if(DM)for(const g of DM.g){cx.beginPath();for(const r of g.rings)r.forEach((p,i)=>{const [x,y]=screen(p[0],p[1]);i?cx.lineTo(x,y):cx.moveTo(x,y)});cx.closePath();const ok=g.st==='confirmed';cx.fillStyle=ok?'rgba(212,167,58,.42)':'rgba(212,167,58,.12)';cx.fill('evenodd');cx.strokeStyle='#d4a73a';cx.lineWidth=ok?1.4:1;cx.setLineDash(ok?[]:[3,3]);cx.stroke();cx.setLineDash([]);
+  if(DM&&showDM)for(const g of DM.g){if(g.status!=='threatened'&&g.gone>upTo)continue;cx.beginPath();for(const r of g.rings){r.forEach((p,i)=>{const [x,y]=screen(p[0],p[1]);i?cx.lineTo(x,y):cx.moveTo(x,y)});cx.closePath()}if(g.status==='threatened'){cx.setLineDash([5,4]);cx.strokeStyle='rgba(255,77,36,'+(0.55+0.45*Math.sin(t/300))+')';cx.lineWidth=1.6;cx.stroke();cx.setLineDash([]);continue}const col=PH[g.ph]?.col||'#ff4d24';cx.fillStyle=col+'b0';cx.fill('evenodd');cx.strokeStyle=col;cx.lineWidth=1.4;cx.stroke();
    // tiny cities: keep a visible mark when the polygon is under a few pixels
-   const [x0,y0]=screen(g.b[0],g.b[3]),[x1,y1]=screen(g.b[2],g.b[1]);if(x1-x0<5){cx.fillStyle='#d4a73a';cx.beginPath();cx.arc((x0+x1)/2,(y0+y1)/2,2.2,0,7);cx.fill()}}
+   const [x0,y0]=screen(g.b[0],g.b[3]),[x1,y1]=screen(g.b[2],g.b[1]);if(x1-x0<5){cx.fillStyle=PH[g.ph]?.col||'#ff4d24';cx.beginPath();cx.arc((x0+x1)/2,(y0+y1)/2,2.2,0,7);cx.fill()}}
   // threatened: red, pulsing
   for(const s of T.threatened){const [x,y]=screen(s.x,s.y),R=Math.max(10,s.r*view.s);if(!near(x,y,R))continue;
    for(let k=0;k<2;k++){const ph=(((t/2400)+k/2+Math.abs(s.x%7)/7)%1+1)%1,rr=R*(.6+ph*1.4);cx.strokeStyle=`rgba(255,77,36,${(1-ph)*.75})`;cx.lineWidth=1.5;cx.setLineDash(s.approx?[4,4]:[]);cx.beginPath();cx.arc(x,y,rr,0,7);cx.stroke()}
@@ -63,9 +66,9 @@ window.Threats=(()=>{let T=null,cv=null,cx=null,on=true,DM=null;fetch('data/thre
  function hit(px,py){if(!T||!on||window.Ex13World)return null;
   for(const s of T.incidents){const [x,y]=screen(s.x,s.y);if(Math.hypot(px-x,py-y)<10)return s}
   for(const s of T.threatened){const [x,y]=screen(s.x,s.y);if(Math.hypot(px-x,py-y)<Math.max(10,s.r*view.s))return s}
-  if(DM){const [wx,wy]=world(px,py);for(const g of DM.g){const [x0,y0]=screen(g.b[0],g.b[3]),[x1,y1]=screen(g.b[2],g.b[1]);if(px>=x0-4&&px<=x1+4&&py>=y0-4&&py<=y1+4){const ar=Locale.language==='ar';return{ar:(g.st==='confirmed'?'هدم مؤكَّد':'تغيّر غير محسوم')+' بين 2014 و2026 · '+g.ha.toFixed(2)+' هكتار',en:(g.st==='confirmed'?'Confirmed demolition':'Undecided change')+' 2014–2026 · '+g.ha.toFixed(2)+' ha',src:'Scan of Esri Wayback '+DM.meta.pair.map(p=>p.release||p.id).join(' vs ')+', reviewed by hand'}}}}
+  if(DM&&showDM){const [wx,wy]=world(px,py);for(const g of DM.g){if(g.status!=='threatened'&&g.gone>upTo)continue;const [x0,y0]=screen(g.b[0],g.b[3]),[x1,y1]=screen(g.b[2],g.b[1]);if(px>=x0-4&&px<=x1+4&&py>=y0-4&&py<=y1+4){const ar=Locale.language==='ar',ty=TY[g.type]||TY.slum,ph=PH[g.ph]||PH[2];if(g.status==='threatened')return{ar:`مهدد بالهدم · ${g.ha.toFixed(2)} هكتار`,en:`Threatened with demolition · ${g.ha.toFixed(2)} ha`,src:(g.source?g.source+' · ':'')+'Esri Wayback '+(DM.meta.releases?.[2026]||'2026')};return{ar:`هُدم بين ${g.before} و${g.gone} · ${ty[0]} · ${g.ha.toFixed(2)} هكتار · ${ph.ar}`,en:`Demolished between ${g.before} and ${g.gone} · ${ty[1]} · ${g.ha.toFixed(2)} ha · ${ph.en}`,src:(g.source?g.source+' · ':'')+'Esri Wayback '+(DM.meta.releases?.[g.before]||g.before)+' vs '+(DM.meta.releases?.[g.gone]||g.gone)+' · checked by eye'}}}}
   for(const s of T.demolished){if(s.rings){const [wx,wy]=world(px,py);let c=false;for(const r of s.rings)for(let i=0,j=r.length-1;i<r.length;j=i++){const a=r[i],b=r[j];if((a[1]>wy)!==(b[1]>wy)&&wx<(b[0]-a[0])*(wy-a[1])/(b[1]-a[1])+a[0])c=!c}if(c)return s}else{const [x,y]=screen(s.x,s.y);if(Math.hypot(px-x,py-y)<Math.max(7,s.r*view.s))return s}}
   return null}
  // the demolition gets its own entry in the menu: the scan with its reviewed results
  document.addEventListener('click',e=>{if(!e.target.closest('[data-demolition]'))return;e.preventDefault();e.stopPropagation();if(typeof setMenu==='function')setMenu(false);if(window.Ex13?.active)Ex13.close();window.ChangeScan?.openStudy()},true);
- return{hit,set visible(v){on=v},get demolitions(){return DM}}})();
+ return{hit,set visible(v){on=v},get demolitions(){return DM},get upTo(){return upTo},set upTo(y){upTo=y},get showDemolition(){return showDM},set showDemolition(v){showDM=v}}})();

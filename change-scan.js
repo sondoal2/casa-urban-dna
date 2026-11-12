@@ -343,10 +343,33 @@ window.ChangeScan=(()=>{
    Transform.setPair(...pair);fit(scannedExtent);refreshPanel();render();return true;
   }catch{return false}
  }
+ // public summary of the reviewed sites (data/demolition_v4.json): hectares per phase + a year slider
+ function v4Summary(){const D=window.Threats?.demolitions;if(!D)return`<p class="tiny">${L('يحمّل مواقع الهدم…','Loading demolition sites…')}</p>`;
+  const gone=D.g.filter(g=>g.status!=='threatened'),thr=D.g.filter(g=>g.status==='threatened'),yrs=[...new Set(gone.map(g=>g.gone))].sort(),up=Math.min(Threats.upTo,yrs[yrs.length-1]),
+   ha=D.PH.map((p,k)=>gone.filter(g=>g.ph===k).reduce((a,g)=>a+g.ha,0)),tot=ha.reduce((a,b)=>a+b,0),shown=gone.filter(g=>g.gone<=up),shHa=shown.reduce((a,g)=>a+g.ha,0),
+   y0=D.meta.years?.[0]||2015;
+  return`<button class="action" data-v4-toggle aria-pressed="${Threats.showDemolition}">${Threats.showDemolition?'● '+L('طبقة الهدم ظاهرة · إخفاء','Demolition layer on · hide'):'○ '+L('طبقة الهدم مخفية · إظهار','Demolition layer off · show')}</button><div class="card"><p class="lead" style="margin:0">${fmt(tot,1)} ${L('هكتار هُدمت','hectares demolished')}</p>
+  <p class="tiny">${gone.length} ${L('موقع','sites')} · ${y0}–${yrs[yrs.length-1]}</p>
+  ${(()=>{const yh=yrs.map(y=>gone.filter(g=>g.gone===y).reduce((a,g)=>a+g.ha,0)),mx=Math.max(...yh);return`<div style="display:flex;align-items:flex-end;gap:6px;height:110px;margin:10px 0 4px;direction:ltr">${yrs.map((y,i)=>{const c=D.PH[D.PH.findIndex(p=>y<=p.to)].col;return`<div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;height:100%;opacity:${y<=up?1:.25}"><small style="font-size:10px;white-space:nowrap">${fmt(yh[i],1)}</small><span style="display:block;width:100%;height:${Math.max(2,yh[i]/mx*80)}px;background:${c}"></span><small style="font-size:10px">${y}</small><small style="font-size:9px;opacity:.7">${gone.filter(g=>g.gone===y).length} ${L('موقع','sites')}</small></div>`}).join('')}</div><p class="tiny" style="margin:0 0 6px">${L('هكتار حسب أول سنة اختفت فيها البيوت','Hectares by the first year the houses are gone')}</p>`})()}
+  ${D.PH.map((p,k)=>`<p class="tiny" style="margin:2px 0"><span style="color:${p.col}">■</span> ${L(p.ar,p.en)} · <b>${fmt(ha[k],1)} ha</b> · ${Math.round(ha[k]/tot*100)}% · ${fmt(ha[k]/[6,2,3][k],1)} ${L('هكتار/سنة','ha/yr')}</p>`).join('')}
+  ${(()=>{const a=gone.map(g=>g.ha).sort((x,y)=>x-y),med=a[a.length>>1],big=gone.reduce((m,g)=>g.ha>m.ha?g:m,gone[0]),TYN={slum:L('تفكيك صفيح','slum clearance'),project:L('إخلاء لمشروع','clearance for a project'),rebuild:L('هدم وإعادة بناء','demolished and rebuilt'),collapse:L('انهيار','collapse')},ty={};for(const g of gone){ty[g.type]=ty[g.type]||[0,0];ty[g.type][0]++;ty[g.type][1]+=g.ha}
+   const row=(k,v)=>`<tr><td style="padding:3px 0;opacity:.75">${k}</td><td style="padding:3px 0;text-align:end"><b>${v}</b></td></tr>`;
+   return`<table class="tiny" style="width:100%;border-collapse:collapse;margin-top:10px;border-top:1px solid rgba(128,128,128,.3)">
+   ${row(L('عدد المواقع','Sites'),gone.length)}${row(L('متوسط الهدم في السنة (2015–2026)','Average per year (2015–2026)'),fmt(tot/11,1)+' ha')}
+   ${row(L('حجم الموقع الوسيط','Median site size'),fmt(med,2)+' ha')}${row(L('أكبر موقع','Largest site'),fmt(big.ha,1)+' ha · '+big.gone)}
+   ${row(L('أسرع فترة','Fastest phase'),L(D.PH[[0,1,2].sort((x,y)=>ha[y]/[6,2,3][y]-ha[x]/[6,2,3][x])[0]].ar,D.PH[[0,1,2].sort((x,y)=>ha[y]/[6,2,3][y]-ha[x]/[6,2,3][x])[0]].en))}
+   ${Object.entries(ty).sort((x,y)=>y[1][1]-x[1][1]).map(([k,v])=>row(TYN[k]||k,v[0]+' · '+fmt(v[1],1)+' ha')).join('')}</table>`})()}
+  <p class="tiny" style="margin-top:10px">${L('حتى سنة','Up to')} <b>${up}</b> · ${shown.length} ${L('موقع','sites')} · <b>${fmt(shHa,1)} ha</b></p>
+  <input type="range" data-v4-year min="0" max="${yrs.length-1}" step="1" value="${yrs.indexOf(up)}" style="width:100%;direction:ltr">
+  <p class="tiny" dir="ltr" style="display:flex;justify-content:space-between;margin:0">${yrs.map(y=>`<span>${y}</span>`).join('')}</p>
+  ${thr.length?`<p class="tiny" style="margin-top:8px"><span style="color:#ff4d24">┅</span> ${L('خط أحمر ينبض: مهدد بالهدم','Pulsing red outline: threatened with demolition')} · ${thr.length}</p>`:''}</div>
+  <p class="tiny">${L('رُسمت كل المواقع باليد على أرشيف Esri Wayback، مربعًا مربعًا (شبكة 1 كم). السنة = أول نسخة أرشيف تختفي فيها البيوت، فالهدم حصل بينها وبين النسخة اللي قبلها. التواريخ تواريخ نشر الأرشيف لا تواريخ الالتقاط. أحياء الصفيح القائمة رُصدت أيضًا لكنها غير معروضة ولا محسوبة.','Every site was traced by hand on the Esri Wayback archive, cell by cell (1 km grid). The year is the first archive release in which the houses are gone, so the demolition happened between it and the release before. Dates are archive releases, not capture dates. Standing slums were also mapped but are neither shown nor counted.')}</p>`}
+ function fitV4(){const D=window.Threats?.demolitions;if(!D?.g.length)return false;const b=D.g.reduce((a,g)=>[Math.min(a[0],g.b[0]),Math.min(a[1],g.b[1]),Math.max(a[2],g.b[2]),Math.max(a[3],g.b[3])],[1e9,1e9,-1e9,-1e9]);fit(b);return true}
  function openStudy(){
   open();
   if(studyOpened||running)return;
   studyOpened=true;
+  if(!DEV){fitV4()||setTimeout(fitV4,1500);return}
   loadReviewed().then(ok=>{if(!ok&&!restoreStudy()&&DEV)void start(null,true)});
  }
  function choose(index){
@@ -356,12 +379,13 @@ window.ChangeScan=(()=>{
   refreshPanel();render();
  }
  function content(){
-  return `<p class="lead">${L('أين اختفى النسيج؟','Where did the fabric disappear?')}</p>
+  if(!DEV)return `<p class="lead">${L('أين اختفى النسيج؟','Where did the fabric disappear?')}</p>${v4Summary()}`;
+  return `<p class="lead">${L('أين اختفى النسيج؟','Where did the fabric disappear?')}</p>${v4Summary()}
   ${DEV?`<p>${L('تظهر المضلّعات أثناء فحص الصور داخل حدود الدار البيضاء وإطار الدراسة. يمكنك أيضًا فحص مساحة أصغر حول مركز الخريطة.','Polygons appear as images are checked within Casablanca and the study frame. You can also scan a smaller area around the map centre.')}</p>`:`<p>${L('مواقع هدم حدّدناها بمقارنة صورتين جويتين وراجعناها بصريًا واحدة واحدة.','Demolition sites found by comparing two aerial images and reviewed one by one.')}</p>`}
   ${pair.length?`<p dir="ltr">${pair.map(p=>p.release).join(' ↔ ')}</p>`:''}
   ${DEV?`<button class="action" data-scan-study ${running?'disabled':''}>${L('مسح إطار الدراسة كاملًا','Scan full study area')}</button>
   <button class="action" data-scan-start ${running?'disabled':''}>${L('مسح المنطقة حول مركز الخريطة','Scan around the map centre')}</button>`:''}
-  ${DEV&&window.PreciseScan?`<button class="action" data-ps-open>${L('رصد دقيق بالحدود الحقيقية (≈1 م) + مراجعة + عصا سحرية','Precise mapping with real outlines (≈1 m) + review + magic wand')} ↗</button>`:''}${running?`<button class="action" data-scan-stop>${L('إيقاف','Stop')}</button>`:''}
+  ${DEV&&window.DemoReview?`<button class="action" data-dr-open>● ${L('رصد الهدم · مربع مربع (الورك فلو الجديد)','Demolition review · cell by cell (new workflow)')}</button>`:''}${DEV&&window.PreciseScan?`<button class="action" data-ps-open>${L('رصد دقيق بالحدود الحقيقية (≈1 م) + مراجعة + عصا سحرية','Precise mapping with real outlines (≈1 m) + review + magic wand')} ↗</button>`:''}${running?`<button class="action" data-scan-stop>${L('إيقاف','Stop')}</button>`:''}
   <p role="status" data-scan-progress>${esc(message)}</p>
   <p class="tiny">${L('المضلعات مناطق تغيّر مرشّحة للمراجعة البصرية. التواريخ تخص نشر الصور.','Polygons are change candidates for visual review. Dates refer to imagery releases.')}</p>
   <p class="tiny">${L('يُستبعد الشاطئ (200 م من خط الصفر) إلا إذا كان فيه مبنى مرسوم. التغيّر يُحتسب فقط حيث توجد بصمة مبنى (OSM أو Microsoft) أو نسيج سقوف كثيف في الصورة الأقدم، وككتلة لا تقل عن 2,000 م² تقريبًا.','Beaches (200 m from the 0 m contour) are excluded unless a footprint is mapped there. Change counts only where a footprint (OSM or Microsoft) or dense roof texture exists in the earlier image, as a mass of about 2,000 m² or more.')}</p>
@@ -369,10 +393,12 @@ window.ChangeScan=(()=>{
   ${groups.slice(0,80).map((g,i)=>`<button class="similarRow" data-scan-result="${i}">${L('موقع مرشّح','Candidate')} ${i+1} · ${fmt(g.area/10000,2)} ha${reviews[gid(g)]?' · '+reviewLabel(reviews[gid(g)]):''} ↗</button>`).join('')}`;
  }
  function bind(body){
+  const tg=body.querySelector('[data-v4-toggle]');if(tg)tg.onclick=()=>{Threats.showDemolition=!Threats.showDemolition;refresh('changeScan')};
+  const v4=body.querySelector('[data-v4-year]');if(v4)v4.oninput=()=>{const D=Threats.demolitions,yrs=[...new Set(D.g.filter(g=>g.status!=='threatened').map(g=>g.gone))].sort();Threats.upTo=yrs[+v4.value];const keep=v4.value;refresh('changeScan');const n=document.querySelector('[data-v4-year]');if(n){n.value=keep;n.focus()}};
   const scanStudy=body.querySelector('[data-scan-study]'),scanStart=body.querySelector('[data-scan-start]');
   if(scanStudy)scanStudy.onclick=()=>start(null,true);
   if(scanStart)scanStart.onclick=()=>start();
-  const ps=body.querySelector('[data-ps-open]');if(ps)ps.onclick=()=>PreciseScan.open();
+  const ps=body.querySelector('[data-ps-open]');if(ps)ps.onclick=()=>PreciseScan.open();const dr=body.querySelector('[data-dr-open]');if(dr)dr.onclick=()=>DemoReview.open();
   const stop=body.querySelector('[data-scan-stop]');
   if(stop)stop.onclick=()=>{cancelled=true;controller.abort()};
   if(chosen){
