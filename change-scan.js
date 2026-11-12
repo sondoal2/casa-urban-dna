@@ -343,6 +343,19 @@ window.ChangeScan=(()=>{
    Transform.setPair(...pair);fit(scannedExtent);refreshPanel();render();return true;
   }catch{return false}
  }
+ // one site, clicked on the map: its numbers and the before / after crops from the archive
+ let v4Pick=null,aerial=false;
+ const relSrc=y=>{const rel=window.Threats?.demolitions?.meta.releases?.[y];return Imagery.sources.find(s=>s.release===rel)||null};
+ function v4Site(){const g=v4Pick;if(!g)return`<p class="tiny" style="opacity:.75">${L('اضغطي على أي موقع أحمر في الخريطة لتظهر معلوماته وصورة المقارنة.','Click any red site on the map to see its details and the before / after images.')}</p>`;
+  const thr=g.status==='threatened',ty={slum:L('تفكيك صفيح','slum clearance'),project:L('إخلاء لمشروع','clearance for a project'),rebuild:L('هدم وإعادة بناء','demolished and rebuilt'),collapse:L('انهيار','collapse')}[g.type]||g.type,
+   yrs=thr?[2015,2026]:[g.before,g.gone];
+  return`<div class="card"><p class="tiny"><b>${g.id}</b> · ${thr?L('مهدد بالهدم','threatened'):ty} · <b>${fmt(g.ha,2)} ha</b>${thr?'':` · ${L('هُدم بين','demolished between')} ${g.before} ${L('و','and')} ${g.gone}`} <button class="action" data-v4-close style="min-width:0;padding:0 6px;float:inline-end">×</button></p>
+  <div class="evidencePair">${yrs.map((y,i)=>`<figure><figcaption>${y} · ${window.Threats.demolitions.meta.releases?.[y]||''}</figcaption><canvas data-v4-proof="${i}" data-y="${y}" width="400" height="400"></canvas><small data-v4-proof-status="${i}"></small></figure>`).join('')}</div>
+  ${g.source?`<p class="tiny">${L('مصدر','Source')}: ${esc(g.source)}</p>`:''}<p class="tiny" style="opacity:.7">Esri Wayback · ${L('تواريخ نشر الأرشيف','archive release dates')}</p></div>`}
+ function setAerial(on){aerial=on;const S=Imagery.state;if(on){const go=()=>{const s=relSrc(2026)||Imagery.sources.filter(x=>x.release).slice(-1)[0];if(s){S.enabled=true;S.swipe=false;S.left=s;S.right=s}Imagery.sync?.();render()};Imagery.sources.some(x=>x.release)?go():Imagery.loadCatalog().then(go)}else{S.enabled=false;S.swipe=false;Imagery.sync?.();render()}}
+ {let d0=null;addEventListener('pointerdown',e=>{d0=e.target.id==='map'?[e.clientX,e.clientY]:null},true);
+  addEventListener('click',e=>{if(!d0||e.target.id!=='map'||Math.hypot(e.clientX-d0[0],e.clientY-d0[1])>5||windows.has('demoReview'))return;const g=window.Threats?.hitSite?.(e.clientX,e.clientY);if(!g)return;v4Pick=g;if(!windows.has('changeScan'))open();else refresh('changeScan')})}
+
  // public summary of the reviewed sites (data/demolition_v4.json): hectares per phase + a year slider
  function v4Summary(){const D=window.Threats?.demolitions;if(!D)return`<p class="tiny">${L('يحمّل مواقع الهدم…','Loading demolition sites…')}</p>`;
   const gone=D.g.filter(g=>g.status!=='threatened'),thr=D.g.filter(g=>g.status==='threatened'),yrs=[...new Set(gone.map(g=>g.gone))].sort(),up=Math.min(Threats.upTo,yrs[yrs.length-1]),
@@ -369,7 +382,7 @@ window.ChangeScan=(()=>{
   open();
   if(studyOpened||running)return;
   studyOpened=true;
-  if(!DEV){fitV4()||setTimeout(fitV4,1500);return}
+  fitV4()||setTimeout(fitV4,1500);return;
   loadReviewed().then(ok=>{if(!ok&&!restoreStudy()&&DEV)void start(null,true)});
  }
  function choose(index){
@@ -379,7 +392,7 @@ window.ChangeScan=(()=>{
   refreshPanel();render();
  }
  function content(){
-  if(!DEV)return `<p class="lead">${L('أين اختفى النسيج؟','Where did the fabric disappear?')}</p>${v4Summary()}`;
+  return `<p class="lead">${L('أين اختفى النسيج؟','Where did the fabric disappear?')}</p><div class="menuGrid"><button class="action" data-v4-aerial aria-pressed="${aerial}">${aerial?'● ':'○ '}${L('التصوير الجوي','Aerial imagery')}</button></div>${v4Site()}${v4Summary()}`;
   return `<p class="lead">${L('أين اختفى النسيج؟','Where did the fabric disappear?')}</p>${v4Summary()}
   ${DEV?`<p>${L('تظهر المضلّعات أثناء فحص الصور داخل حدود الدار البيضاء وإطار الدراسة. يمكنك أيضًا فحص مساحة أصغر حول مركز الخريطة.','Polygons appear as images are checked within Casablanca and the study frame. You can also scan a smaller area around the map centre.')}</p>`:`<p>${L('مواقع هدم حدّدناها بمقارنة صورتين جويتين وراجعناها بصريًا واحدة واحدة.','Demolition sites found by comparing two aerial images and reviewed one by one.')}</p>`}
   ${pair.length?`<p dir="ltr">${pair.map(p=>p.release).join(' ↔ ')}</p>`:''}
@@ -393,6 +406,8 @@ window.ChangeScan=(()=>{
   ${groups.slice(0,80).map((g,i)=>`<button class="similarRow" data-scan-result="${i}">${L('موقع مرشّح','Candidate')} ${i+1} · ${fmt(g.area/10000,2)} ha${reviews[gid(g)]?' · '+reviewLabel(reviews[gid(g)]):''} ↗</button>`).join('')}`;
  }
  function bind(body){
+  const ae=body.querySelector('[data-v4-aerial]');if(ae)ae.onclick=()=>{setAerial(!aerial);refresh('changeScan')};const vc=body.querySelector('[data-v4-close]');if(vc)vc.onclick=()=>{v4Pick=null;refresh('changeScan')};
+  if(v4Pick){const box=ChangeGeometry.evidenceBox(v4Pick.b);body.querySelectorAll('[data-v4-proof]').forEach(async cv=>{const st=body.querySelector('[data-v4-proof-status="'+cv.dataset.v4Proof+'"]');try{if(!Imagery.sources.some(x=>x.release))await Imagery.loadCatalog().catch(()=>{});for(let k=0;k<40&&!relSrc(+cv.dataset.y);k++)await new Promise(r=>setTimeout(r,250));const src=relSrc(+cv.dataset.y);if(!src){st.textContent=L('النسخة غير متاحة','Release unavailable');return}const r=await Imagery.renderEvidence(cv,src,box,v4Pick.rings,'#ff4d24');st.textContent=r.ok?'':L('الصورة غير مكتملة','Incomplete image')}catch{st.textContent=L('تعذّر عرض الصورة','Image unavailable')}})}
   const tg=body.querySelector('[data-v4-toggle]');if(tg)tg.onclick=()=>{Threats.showDemolition=!Threats.showDemolition;refresh('changeScan')};
   const v4=body.querySelector('[data-v4-year]');if(v4)v4.oninput=()=>{const D=Threats.demolitions,yrs=[...new Set(D.g.filter(g=>g.status!=='threatened').map(g=>g.gone))].sort();Threats.upTo=yrs[+v4.value];const keep=v4.value;refresh('changeScan');const n=document.querySelector('[data-v4-year]');if(n){n.value=keep;n.focus()}};
   const scanStudy=body.querySelector('[data-scan-study]'),scanStart=body.querySelector('[data-scan-start]');
