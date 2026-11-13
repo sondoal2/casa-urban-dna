@@ -392,7 +392,7 @@ window.ChangeScan=(()=>{
   refreshPanel();render();
  }
  function content(){
-  return `<p class="lead">${L('أين اختفى النسيج؟','Where did the fabric disappear?')}</p><div class="menuGrid"><button class="action" data-v4-aerial aria-pressed="${aerial}">${aerial?'● ':'○ '}${L('التصوير الجوي','Aerial imagery')}</button></div>${v4Site()}${v4Summary()}`;
+  return `<p class="lead">${L('أين اختفى النسيج؟','Where did the fabric disappear?')}</p><div class="menuGrid"><button class="action" data-v4-aerial aria-pressed="${aerial}">${aerial?'● ':'○ '}${L('التصوير الجوي','Aerial imagery')}</button><button class="action" data-yearcompare>⇆ ${L('مقارنة السنين','Compare years')}</button></div>${v4Site()}${v4Summary()}`;
   return `<p class="lead">${L('أين اختفى النسيج؟','Where did the fabric disappear?')}</p>${v4Summary()}
   ${DEV?`<p>${L('تظهر المضلّعات أثناء فحص الصور داخل حدود الدار البيضاء وإطار الدراسة. يمكنك أيضًا فحص مساحة أصغر حول مركز الخريطة.','Polygons appear as images are checked within Casablanca and the study frame. You can also scan a smaller area around the map centre.')}</p>`:`<p>${L('مواقع هدم حدّدناها بمقارنة صورتين جويتين وراجعناها بصريًا واحدة واحدة.','Demolition sites found by comparing two aerial images and reviewed one by one.')}</p>`}
   ${pair.length?`<p dir="ltr">${pair.map(p=>p.release).join(' ↔ ')}</p>`:''}
