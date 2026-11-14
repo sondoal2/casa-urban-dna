@@ -38,7 +38,7 @@ window.ObservedLoss=(()=>{
 })();
 // Threatened places (data/threatened.json, press-sourced): a halo that pulses on its own light canvas, so the
 // map itself is not redrawn. Shown from the first view, with the demolished settlement outlined.
-window.Threats=(()=>{let T=null,cv=null,cx=null,on=true,DM=null,upTo=9999,showDM=true;fetch('data/threatened.json?v=2').then(r=>r.ok?r.json():null).then(d=>{T=d;start()}).catch(()=>{});
+window.Threats=(()=>{let T=null,cv=null,cx=null,on=true,DM=null,upTo=9999,showDM=true;let WS=null;fetch('data/wadi_study.json?v=1').then(r=>r.ok?r.json():null).then(d=>{WS=d}).catch(()=>{});fetch('data/threatened.json?v=2').then(r=>r.ok?r.json():null).then(d=>{T=d;start()}).catch(()=>{});
  // reviewed demolition (data/demolition_v4.json, WORKFLOW_رصد_الهدم.md): only sites checked by eye, coloured by the phase
  // in which they disappeared — 2015–2021 slow · 2021–2023 first acceleration · 2024–2026 World Cup wave. Automatic
  // detections and the older mixed files (demolition.json, demolition_v3.json) are never shown to the public.
@@ -53,16 +53,27 @@ window.Threats=(()=>{let T=null,cv=null,cx=null,on=true,DM=null,upTo=9999,showDM
   for(const s of T.demolished){cx.strokeStyle='rgba(244,242,236,.85)';cx.fillStyle='rgba(244,242,236,.06)';cx.lineWidth=1.1;
    if(s.rings){cx.beginPath();for(const r of s.rings)r.forEach((p,i)=>{const [x,y]=screen(p[0],p[1]);i?cx.lineTo(x,y):cx.moveTo(x,y)});cx.closePath();cx.fill('evenodd');cx.stroke()}
    else{const [x,y]=screen(s.x,s.y),R=Math.max(7,s.r*view.s);if(!near(x,y,R))continue;cx.setLineDash([4,3]);cx.beginPath();cx.arc(x,y,R,0,7);cx.fill();cx.stroke();cx.setLineDash([])}}
+  // team wadi study (data/wadi_study.json): flood-affected areas by impact level, approximate flood extent,
+  // the bed still visible (solid) and no longer visible (dashed), buildings damaged in the 2010 flood
+  if(WS&&showDM){const ring=r=>{r.forEach((p,i)=>{const [x,y]=screen(p[0],p[1]);i?cx.lineTo(x,y):cx.moveTo(x,y)});cx.closePath()};
+   const A={low:.10,medium:.18,high:.30};
+   for(const a of WS.affected){cx.fillStyle='rgba(90,169,255,'+(A[a.level]||.12)+')';cx.beginPath();for(const pg of a.polys)for(const r of pg)ring(r);cx.fill('evenodd')}
+   cx.strokeStyle='rgba(90,169,255,.55)';cx.lineWidth=1;cx.beginPath();for(const pg of WS.flood_extent)for(const r of pg)ring(r);cx.stroke();
+   const ln=(rs,dash,w)=>{cx.setLineDash(dash);cx.lineWidth=w;cx.strokeStyle='#5aa9ff';cx.beginPath();for(const r of rs)r.forEach((p,i)=>{const [x,y]=screen(p[0],p[1]);i?cx.lineTo(x,y):cx.moveTo(x,y)});cx.stroke();cx.setLineDash([])};
+   ln(WS.hidden,[7,5],2);ln(WS.visible,[],3);
+   for(const d of WS.damaged_2010){const [x,y]=screen(d.p[0],d.p[1]);if(!near(x,y,8))continue;cx.fillStyle='#5aa9ff';cx.strokeStyle='#0e0e0e';cx.lineWidth=1;cx.beginPath();cx.moveTo(x,y-6);cx.lineTo(x+6,y);cx.lineTo(x,y+6);cx.lineTo(x-6,y);cx.closePath();cx.fill();cx.stroke()}}
   if(DM&&showDM)for(const g of DM.g){if(g.status!=='threatened'&&g.gone>upTo)continue;cx.beginPath();for(const r of g.rings){r.forEach((p,i)=>{const [x,y]=screen(p[0],p[1]);i?cx.lineTo(x,y):cx.moveTo(x,y)});cx.closePath()}if(g.status==='threatened'){cx.setLineDash([5,4]);cx.strokeStyle='rgba(255,77,36,'+(0.55+0.45*Math.sin(t/300))+')';cx.lineWidth=1.6;cx.stroke();cx.setLineDash([]);continue}const col=PH[g.ph]?.col||'#ff4d24';cx.fillStyle=col+'b0';cx.fill('evenodd');cx.strokeStyle=col;cx.lineWidth=1.4;cx.stroke();
    // tiny cities: keep a visible mark when the polygon is under a few pixels
    const [x0,y0]=screen(g.b[0],g.b[3]),[x1,y1]=screen(g.b[2],g.b[1]);if(x1-x0<5){cx.fillStyle=PH[g.ph]?.col||'#ff4d24';cx.beginPath();cx.arc((x0+x1)/2,(y0+y1)/2,2.2,0,7);cx.fill()}}
-  // 1:500 candidates for exercise 2.1 (scored from demolition_v4: recent wave, size, water, standing slum nearby); 200 m squares
-  if(DM&&showDM){const C=[['D0241','1','وادي بوسكورة · 2025','Bouskoura bank · 2025'],['D0209','2','شرق · 2025','east · 2025'],['D0176','3','غرب · 2026','west · 2026']];
-   const sq=(cxw,cyw,lab)=>{const [x0,y0]=screen(cxw-100,cyw+100),[x1,y1]=screen(cxw+100,cyw-100);if(!near((x0+x1)/2,(y0+y1)/2,x1-x0))return;
+  // 1:500 frame proposed for exercise 2.1: the four sites cleared 2023-2026 beside the still-visible stretch of the wadi
+  // (D0230, D0234, D0231, D0232); 420 x 297 m = one A1 sheet at 1:500. Carrieres Centrales kept as a reference square.
+  if(DM&&showDM){const ar=Locale.language==='ar',ids=['D0230','D0234','D0231','D0232'],gs=ids.map(i=>DM.g.find(z=>z.id===i)).filter(Boolean);
+   const box=(cxw,cyw,hw,hh,lab)=>{const [x0,y0]=screen(cxw-hw,cyw+hh),[x1,y1]=screen(cxw+hw,cyw-hh);if(!near((x0+x1)/2,(y0+y1)/2,x1-x0))return;
     cx.strokeStyle='#f4f2ec';cx.lineWidth=1.6;cx.setLineDash([6,4]);cx.strokeRect(x0,y0,x1-x0,y1-y0);cx.setLineDash([]);
     cx.font='600 12px system-ui,sans-serif';cx.fillStyle='#f4f2ec';cx.textBaseline='bottom';cx.fillText(lab,x0,y0-4)};
-   for(const [id,n,ar,en] of C){const g=DM.g.find(z=>z.id===id);if(g)sq((g.b[0]+g.b[2])/2,(g.b[1]+g.b[3])/2,'1:500 · '+n+' · '+(Locale.language==='ar'?ar:en))}
-   sq(3495,17598,'1:500 · '+(Locale.language==='ar'?'مرجع: كاريان سنطرال':'ref: Carrières Centrales'))}
+   if(gs.length){const mx=gs.reduce((a,g)=>a+(g.b[0]+g.b[2])/2,0)/gs.length,my=gs.reduce((a,g)=>a+(g.b[1]+g.b[3])/2,0)/gs.length;
+    box(mx,my,210,148.5,'1:500 · A1 · '+(ar?'ضفة الوادي الظاهر · 2023–2026':'bank of the visible wadi · 2023–2026'))}
+   box(3495,17598,100,100,'1:500 · '+(ar?'مرجع: كاريان سنطرال':'ref: Carrières Centrales'))}
   // threatened: red, pulsing
   for(const s of T.threatened){const [x,y]=screen(s.x,s.y),R=Math.max(10,s.r*view.s);if(!near(x,y,R))continue;
    for(let k=0;k<2;k++){const ph=(((t/2400)+k/2+Math.abs(s.x%7)/7)%1+1)%1,rr=R*(.6+ph*1.4);cx.strokeStyle=`rgba(255,77,36,${(1-ph)*.75})`;cx.lineWidth=1.5;cx.setLineDash(s.approx?[4,4]:[]);cx.beginPath();cx.arc(x,y,rr,0,7);cx.stroke()}
@@ -71,6 +82,7 @@ window.Threats=(()=>{let T=null,cv=null,cx=null,on=true,DM=null,upTo=9999,showDM
   for(const s of T.incidents){const [x,y]=screen(s.x,s.y);if(!near(x,y,10))continue;cx.beginPath();cx.moveTo(x,y-8);cx.lineTo(x+7,y+5);cx.lineTo(x-7,y+5);cx.closePath();
    if(s.kind==='controversy'){cx.strokeStyle='#f4f2ec';cx.lineWidth=1.4;cx.stroke()}else{cx.fillStyle='#f4f2ec';cx.fill();cx.strokeStyle='#0e0e0e';cx.lineWidth=1;cx.stroke()}}}
  function hit(px,py){if(!T||!on||window.Ex13World)return null;
+  if(WS&&showDM)for(const d of WS.damaged_2010){const [x,y]=screen(d.p[0],d.p[1]);if(Math.hypot(px-x,py-y)<9){const all=WS.damaged_2010.filter(q=>q.p[0]===d.p[0]&&q.p[1]===d.p[1]);return{ar:'تضرّر في فيضان 30 نوفمبر 2010 · '+all.map(q=>q.name_ar).join(' · '),en:'Damaged in the flood of 30 Nov 2010 · '+all.map(q=>q.name_fr).join(' · '),src:d.source+' · '+d.precision}}}
   for(const s of T.incidents){const [x,y]=screen(s.x,s.y);if(Math.hypot(px-x,py-y)<10)return s}
   for(const s of T.threatened){const [x,y]=screen(s.x,s.y);if(Math.hypot(px-x,py-y)<Math.max(10,s.r*view.s))return s}
   if(DM&&showDM){const [wx,wy]=world(px,py);for(const g of DM.g){if(g.status!=='threatened'&&g.gone>upTo)continue;const [x0,y0]=screen(g.b[0],g.b[3]),[x1,y1]=screen(g.b[2],g.b[1]);if(px>=x0-4&&px<=x1+4&&py>=y0-4&&py<=y1+4){const ar=Locale.language==='ar',ty=TY[g.type]||TY.slum,ph=PH[g.ph]||PH[2];if(g.status==='threatened')return{ar:`مهدد بالهدم · ${g.ha.toFixed(2)} هكتار`,en:`Threatened with demolition · ${g.ha.toFixed(2)} ha`,src:(g.source?g.source+' · ':'')+'Esri Wayback '+(DM.meta.releases?.[2026]||'2026')};return{ar:`هُدم بين ${g.before} و${g.gone} · ${ty[0]} · ${g.ha.toFixed(2)} هكتار · ${ph.ar}`,en:`Demolished between ${g.before} and ${g.gone} · ${ty[1]} · ${g.ha.toFixed(2)} ha · ${ph.en}`,src:(g.source?g.source+' · ':'')+'Esri Wayback '+(DM.meta.releases?.[g.before]||g.before)+' vs '+(DM.meta.releases?.[g.gone]||g.gone)+' · checked by eye'}}}}
