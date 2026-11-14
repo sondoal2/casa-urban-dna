@@ -56,6 +56,13 @@ window.Threats=(()=>{let T=null,cv=null,cx=null,on=true,DM=null,upTo=9999,showDM
   if(DM&&showDM)for(const g of DM.g){if(g.status!=='threatened'&&g.gone>upTo)continue;cx.beginPath();for(const r of g.rings){r.forEach((p,i)=>{const [x,y]=screen(p[0],p[1]);i?cx.lineTo(x,y):cx.moveTo(x,y)});cx.closePath()}if(g.status==='threatened'){cx.setLineDash([5,4]);cx.strokeStyle='rgba(255,77,36,'+(0.55+0.45*Math.sin(t/300))+')';cx.lineWidth=1.6;cx.stroke();cx.setLineDash([]);continue}const col=PH[g.ph]?.col||'#ff4d24';cx.fillStyle=col+'b0';cx.fill('evenodd');cx.strokeStyle=col;cx.lineWidth=1.4;cx.stroke();
    // tiny cities: keep a visible mark when the polygon is under a few pixels
    const [x0,y0]=screen(g.b[0],g.b[3]),[x1,y1]=screen(g.b[2],g.b[1]);if(x1-x0<5){cx.fillStyle=PH[g.ph]?.col||'#ff4d24';cx.beginPath();cx.arc((x0+x1)/2,(y0+y1)/2,2.2,0,7);cx.fill()}}
+  // 1:500 candidates for exercise 2.1 (scored from demolition_v4: recent wave, size, water, standing slum nearby); 200 m squares
+  if(DM&&showDM){const C=[['D0241','1','وادي بوسكورة · 2025','Bouskoura bank · 2025'],['D0209','2','شرق · 2025','east · 2025'],['D0176','3','غرب · 2026','west · 2026']];
+   const sq=(cxw,cyw,lab)=>{const [x0,y0]=screen(cxw-100,cyw+100),[x1,y1]=screen(cxw+100,cyw-100);if(!near((x0+x1)/2,(y0+y1)/2,x1-x0))return;
+    cx.strokeStyle='#f4f2ec';cx.lineWidth=1.6;cx.setLineDash([6,4]);cx.strokeRect(x0,y0,x1-x0,y1-y0);cx.setLineDash([]);
+    cx.font='600 12px system-ui,sans-serif';cx.fillStyle='#f4f2ec';cx.textBaseline='bottom';cx.fillText(lab,x0,y0-4)};
+   for(const [id,n,ar,en] of C){const g=DM.g.find(z=>z.id===id);if(g)sq((g.b[0]+g.b[2])/2,(g.b[1]+g.b[3])/2,'1:500 · '+n+' · '+(Locale.language==='ar'?ar:en))}
+   sq(3495,17598,'1:500 · '+(Locale.language==='ar'?'مرجع: كاريان سنطرال':'ref: Carrières Centrales'))}
   // threatened: red, pulsing
   for(const s of T.threatened){const [x,y]=screen(s.x,s.y),R=Math.max(10,s.r*view.s);if(!near(x,y,R))continue;
    for(let k=0;k<2;k++){const ph=(((t/2400)+k/2+Math.abs(s.x%7)/7)%1+1)%1,rr=R*(.6+ph*1.4);cx.strokeStyle=`rgba(255,77,36,${(1-ph)*.75})`;cx.lineWidth=1.5;cx.setLineDash(s.approx?[4,4]:[]);cx.beginPath();cx.arc(x,y,rr,0,7);cx.stroke()}
