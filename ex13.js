@@ -149,7 +149,7 @@ window.Ex13=(()=>{
    fetch('data/emigration_un.json?v=1').then(r=>r.ok?r.json():null).then(g=>{emig=g}).catch(()=>null),
    fetch('data/study.json?v=1').then(r=>r.ok?r.json():null).then(g=>{sqStudy=g}).catch(()=>null),
    fetch('data/world_emig.json?v=1').then(r=>r.ok?r.json():null).then(g=>{worldMap=g}).catch(()=>null),
-   fetch('data/bouskoura_buried.json?v=2').then(r=>r.ok?r.json():null).then(g=>{bousk=g}).catch(()=>null),
+   fetch('data/bouskoura_buried.json?v=3').then(r=>r.ok?r.json():null).then(g=>{bousk=g}).catch(()=>null),
    fetch('data/markets.json?v=1').then(r=>r.ok?r.json():null).then(g=>{mkts=g}).catch(()=>null),
    void fetch('data/blocks.json?v=3').then(r=>r.ok?r.json():null).then(g=>{if(!g)return;const col={industrial:'#55534e',medina:'#c98a2a',villa:'#4f6b4a',slab:'#6a5a86',colonial:'#3f6f9a',rowhousing:'#a24a33',midrise:'#3e7a72',open:'#1c1c1b',mixed:'#363532'};for(const r of g.rules){if(!col[r[0]])col[r[0]]=r[3];r[3]=col[r[0]]}blk={raw:g,col,list:g.blocks.map(([t,c,gr,h,a,rect,f])=>{const r=[];for(let i=0;i<f.length;i+=2)r.push([f[i],f[i+1]]);return{t,c,gr,h,a,rect,r:[r],p:pathOf([r]),b:bbox([r])}})}}).catch(()=>null),
    fetch('data/parking.json?v=1').then(r=>r.ok?r.json():null).then(g=>{if(!g)return;park=g;for(const l of g.lots){l.p=pathOf(l.r);l.b=bbox(l.r)}
