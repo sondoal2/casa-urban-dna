@@ -58,7 +58,7 @@ window.Threats=(()=>{let T=null,cv=null,cx=null,on=true,DM=null,upTo=9999,showDM
   if(WS&&showDM){const ring=r=>{r.forEach((p,i)=>{const [x,y]=screen(p[0],p[1]);i?cx.lineTo(x,y):cx.moveTo(x,y)});cx.closePath()};
    const A={low:.10,medium:.18,high:.30};
    for(const a of WS.affected){cx.fillStyle='rgba(90,169,255,'+(A[a.level]||.12)+')';cx.beginPath();for(const pg of a.polys)for(const r of pg)ring(r);cx.fill('evenodd')}
-   cx.strokeStyle='rgba(90,169,255,.55)';cx.lineWidth=1;cx.beginPath();for(const pg of WS.flood_extent)for(const r of pg)ring(r);cx.stroke();
+   cx.beginPath();for(const pg of WS.flood_extent)for(const r of pg)ring(r);cx.fillStyle='rgba(90,169,255,.22)';cx.fill('evenodd');cx.strokeStyle='rgba(150,200,255,.95)';cx.lineWidth=1.4;cx.stroke();
    const ln=(rs,dash,w)=>{cx.lineCap='round';cx.lineJoin='round';const tr=()=>{cx.beginPath();for(const r of rs)r.forEach((p,i)=>{const [x,y]=screen(p[0],p[1]);i?cx.lineTo(x,y):cx.moveTo(x,y)})};cx.setLineDash([]);tr();cx.strokeStyle='rgba(90,169,255,.28)';cx.lineWidth=w+10;cx.stroke();tr();cx.strokeStyle='rgba(90,169,255,.5)';cx.lineWidth=w+4;cx.stroke();cx.setLineDash(dash);tr();cx.strokeStyle='#f4f2ec';cx.lineWidth=w;cx.stroke();cx.setLineDash([])};
    ln(WS.hidden,[7,6],2);ln(WS.visible,[],3.2);
    for(const d of WS.damaged_2010){const [x,y]=screen(d.p[0],d.p[1]);if(!near(x,y,8))continue;cx.fillStyle='#f4f2ec';cx.strokeStyle='#5aa9ff';cx.lineWidth=2.5;cx.beginPath();cx.moveTo(x,y-6);cx.lineTo(x+6,y);cx.lineTo(x,y+6);cx.lineTo(x-6,y);cx.closePath();cx.fill();cx.stroke()}}
@@ -99,7 +99,7 @@ window.Threats=(()=>{let T=null,cv=null,cx=null,on=true,DM=null,upTo=9999,showDM
     if(Math.abs(wx-mx)<210&&Math.abs(wy-my)<148.5)return{ar:'الإطار المقترح لمقياس 1:500 · 420 × 297 م (ورقة A1) · أربعة أحياء صفيح هُدمت بين 2023 و2026 بجوار آخر جزء ظاهر من الوادي، على بعد أقل من كيلومتر من كازا أنفا',en:'Proposed 1:500 frame · 420 × 297 m (one A1 sheet) · four slum districts cleared 2023–2026 beside the last visible stretch of the wadi, under a kilometre from Casa Anfa',src:'hand survey on Esri Wayback · team wadi study'}}
    const LV={high:['تأثر عالٍ','high impact'],medium:['تأثر متوسط','medium impact'],low:['تأثر منخفض','low impact']};
    for(const k of ['high','medium','low']){const a=WS.affected.find(z=>z.level===k);if(a&&inPolys(a.polys))return{ar:`منطقة متأثرة بفيضان وادي بوسكورة · ${LV[k][0]} · ${a.ha} هكتار`,en:`Area affected by Oued Bouskoura floods · ${LV[k][1]} · ${a.ha} ha`,src:SRC}}
-   if(inPolys(WS.flood_extent))return{ar:'الامتداد التقريبي لفيضان وادي بوسكورة',en:'Approximate flood extent of Oued Bouskoura',src:SRC}}
+   if(inPolys(WS.flood_extent)||nearLine(WS.flood_extent.flat()))return{ar:'أين يخرج الماء حين يفيض وادي بوسكورة (امتداد تقريبي) · في فيضان 30 نوفمبر 2010 تضرّرت على ضفته مختبرات LPEE والمدرسة الحسنية للأشغال العمومية ومقر OCP',en:'Where the water goes when Oued Bouskoura overflows (approximate extent) · in the flood of 30 Nov 2010 the LPEE laboratories, the Hassania School of Public Works and the OCP headquarters were damaged along its bank',src:SRC+' · Ennajem & Loudyi 2017, JOWSET · La Vie Éco 2010'}}
   return null}
  // the demolition gets its own entry in the menu: the scan with its reviewed results
  document.addEventListener('click',e=>{if(!e.target.closest('[data-demolition]'))return;e.preventDefault();e.stopPropagation();if(typeof setMenu==='function')setMenu(false);if(window.Ex13?.active)Ex13.close();window.ChangeScan?.openStudy()},true);
