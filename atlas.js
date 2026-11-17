@@ -52,19 +52,14 @@ window.Atlas=(()=>{
  async function initialize(){let response=await fetch('data/fabric.json');if(!response.ok)throw Error('Fabric analysis unavailable');data=await response.json();let images=['buildings','major','local','walking'].map(name=>new Promise(resolve=>{let image=new Image();image.onload=()=>{masks[name]=image;resolve(true)};image.onerror=()=>resolve(false);image.src='assets/'+(name==='buildings'?'buildings':name)+'-mask.png'}));rastersReady=(await Promise.all(images)).every(Boolean);for(let id of windows.keys())refresh(id);localize();render();$('#enterAtlas').disabled=false;window.AtlasDebug={data,get active(){return active},get noteCount(){return Object.keys(notes).length}}}
  function skipIntro(){introToken++;$('#welcome').classList.add('gone');$('#welcome').setAttribute('aria-hidden','true')}
  async function welcome(){
-  const token=++introToken,cover=$('#welcome'),image=$('#montageImage'),caption=$('#montageCaption');
+  const cover=$('#welcome'),caption=$('#montageCaption'),source=$('#welcomeSource'),ar=Locale.language==='ar';
   cover.classList.remove('gone','settled');cover.removeAttribute('aria-hidden');localize();
-  // Frames captured from the atlas itself (prep/welcome_frames.py): each one is a finding, not a photo.
-  const ar=Locale.language==='ar',frames=[['welcome-2.jpg',ar?'12,712 رحلة باص في يوم واحد':'12,712 bus trips in one day'],['welcome-1.jpg',ar?'كل مبنى في المدينة بارتفاعه، والمستكمَل بالأحمر':'every building at its height; the completed ones in red'],['welcome-3.jpg',ar?'17,512 بلوك: ثمانية أنسجة':'17,512 blocks: eight fabrics'],['welcome-5.jpg',ar?'يوم صيفي: حرارة السطح والريح من البحر':'a summer day: surface heat and the sea wind'],['welcome-4.jpg',ar?'إلى أين يهاجر المولودون في المغرب':'where people born in Morocco live abroad']];
-  const show=([file,text])=>{image.src='assets/'+file;caption.textContent=text};
-  const final=frames[4];
-  if(matchMedia('(prefers-reduced-motion: reduce)').matches){show(final);cover.classList.add('settled');return}
-  // Preload the existing local assets so the rapid sequence does not show empty frames.
-  await Promise.all(frames.map(([file])=>new Promise(resolve=>{const img=new Image();const timeout=setTimeout(resolve,3000);img.onload=img.onerror=()=>{clearTimeout(timeout);resolve()};img.src='assets/'+file})));
-  if(token!==introToken)return;
-  const sequence=[...Array.from({length:3},()=>frames.slice(0,4)).flat(),final];
-  for(const frame of sequence){if(token!==introToken)return;show(frame);await new Promise(resolve=>setTimeout(resolve,90))}
-  if(token===introToken){show(final);cover.classList.add('settled')}
+  // One picture, no flicker (17.11.2026): the map drawn from the survey (prep/welcome_map.py), in the language of the booklet and the deck.
+  // 174 = the sites with status 'gone' in data/demolition_v4.json. The five old frames (welcome-1 to -5.jpg) stay in assets/, unused.
+  caption.dir=source.dir=ar?'rtl':'ltr';
+  caption.textContent=ar?'هُدم 174 موقعاً من أحياء الصفيح في الدار البيضاء، 2015–2026':'174 slum sites erased in Casablanca, 2015–2026';
+  source.textContent=ar?'رصد يدوي من إعداد الفريق على صور Esri World Imagery (Wayback) للأعوام 2015–2026. الطرق: مساهمو OpenStreetMap.':'Survey by the authors, traced by hand on Esri World Imagery (Wayback), pictures of 2015–2026. Roads: OpenStreetMap contributors.';
+  cover.classList.add('settled')
  }
  $('#enterAtlas').onclick=()=>{skipIntro();setMenu(false)};$('#skipMontage').onclick=()=>{skipIntro();setMenu(false)};localize();welcome();return A;
 })();
