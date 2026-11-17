@@ -193,3 +193,12 @@ body.tlOpen #moment13{top:auto!important;bottom:170px!important;max-height:calc(
 #tlYear .era{display:inline-flex}#tlYear .grow,#tlYear .km{display:block;line-height:1.7;background:#0b0b0bb3;padding:0 8px;width:max-content;margin:3px auto 0}
 body.tlOpen #moment13{top:150px!important;bottom:auto!important;max-height:calc(100vh - 170px - var(--tlh,260px))!important;overflow:auto}
 #chapterMenu .menuDemo small{color:#d4a73a}#chapterMenu .menuDemo span{color:#f4f2ec}
+/* language list under the one language button; Hebrew Explore menu reads right to left like the Arabic one */
+.headerActions{position:relative}
+#langMenu{position:absolute;top:100%;right:0;margin-top:3px;display:flex;flex-direction:column;align-items:stretch;z-index:5}
+#langMenu[hidden]{display:none}
+#langMenu button{background:#000;color:#fff;border:0;padding:3px 12px;font:700 13px/1.35 Arial,sans-serif;white-space:nowrap;text-align:center;cursor:pointer}
+#langMenu button:hover,#langMenu button[aria-current=true]{color:var(--accent)}
+html[lang=he] #chapterMenu{direction:rtl}
+html[lang=he] .navigator>button{text-align:right;font-weight:400}
+html[lang=he] .menuLabel{letter-spacing:0}

@@ -1,6 +1,6 @@
 /* Interface language never changes geometry, recorded names, IDs or exported measurements. */
 window.Locale=(()=>{
- let language='ar';try{language=localStorage.getItem('casa-dna-language')||'ar'}catch{}if(!['ar','en'].includes(language))language='ar';
+ let language='ar';try{language=localStorage.getItem('casa-dna-language')||'ar'}catch{}if(!['ar','en','he'].includes(language))language='ar';
  const dictionary={
  'CASABLANCA':'الدار البيضاء','URBAN DNA':'URBAN DNA / البصمة العمرانية','Explore':'اكتشف','ANALYSES':'التحليلات','WORKTABLE':'طاولة العمل','MAP':'الخريطة','OUTPUT / METHOD':'الإخراج والمنهج',
  'Urban fabrics':'الأنسجة العمرانية','Street networks':'شبكات الشوارع','Building DNA':'بصمة المبنى','Compare fabrics':'مقارنة الأنسجة','Layers':'الطبقات','Building register':'سجل المباني','Building record':'بطاقة المبنى','Draw samples':'تحديد العينات','Comparison':'المقارنة','Saved samples':'العينات المحفوظة','Stack windows':'تكديس النوافذ','Arrange side by side':'ترتيب للمقارنة','Export SVG ↓':'تصدير SVG ↓','Method & sources':'المنهج والمصادر','Play sequence':'تشغيل التسلسل','Pause sequence':'إيقاف التسلسل','Next analysis →':'التحليل التالي ←','Loading data…':'جارٍ تحميل البيانات…',
@@ -40,6 +40,9 @@ window.Locale=(()=>{
  'Close all windows':'إغلاق كل النوافذ','Reset map view':'إعادة ضبط الخريطة'
  };
  const memory=new WeakMap();
+ // Hebrew: only the Explore menu is translated; every other string stays English. Keys are the English source text.
+ const HE={'Explore':'גלה','Density':'צפיפות','Morphology':'מורפולוגיה','City centre':'מרכז העיר','Climate':'אקלים','Human dimension':'הממד האנושי','Historical development':'התפתחות היסטורית','Urban renewal':'התחדשות עירונית','Height / 3D':'גובה / 3D','Street networks':'רשתות רחובות','Building register':'מרשם המבנים','Worktable':'שולחן עבודה','Layers':'שכבות','Method & sources':'שיטה ומקורות','الهدم والخطر · Demolition + risk':'הריסה וסיכון · Demolition + risk','مقارنة السنين · Compare years':'השוואת שנים · Compare years'};
+ const he=s=>{const k=s.trim();return HE[k]===undefined?s:s.replace(k,HE[k])};
  function translate(s){if(language!=='ar')return s;let leading=s.match(/^\s*/)[0],trailing=s.match(/\s*$/)[0],key=s.trim();if(!key)return s;let out=dictionary[key];
   if(out===undefined){
    if(/^SAMPLE [AB]$/.test(key))out='العينة '+key.slice(-1);
@@ -60,9 +63,9 @@ window.Locale=(()=>{
    else out=key;
   }return leading+out+trailing;
  }
- function localize(root=document.body){const walker=document.createTreeWalker(root,NodeFilter.SHOW_TEXT);let node;while(node=walker.nextNode()){if(node.parentElement?.closest('script,style,[data-no-translate]'))continue;let entry=memory.get(node);if(!entry||node.nodeValue!==entry.last)entry={en:node.nodeValue,last:node.nodeValue};node.nodeValue=translate(entry.en);entry.last=node.nodeValue;memory.set(node,entry)}for(let el of root.querySelectorAll('[title],[placeholder],[aria-label]'))for(let attr of ['title','placeholder','aria-label']){if(!el.hasAttribute(attr))continue;let key='data-source-'+attr;if(!el.hasAttribute(key))el.setAttribute(key,el.getAttribute(attr));el.setAttribute(attr,translate(el.getAttribute(key)))}}
+ function localize(root=document.body){const walker=document.createTreeWalker(root,NodeFilter.SHOW_TEXT);let node;while(node=walker.nextNode()){if(node.parentElement?.closest('script,style,[data-no-translate]'))continue;let entry=memory.get(node);if(!entry||node.nodeValue!==entry.last)entry={en:node.nodeValue,last:node.nodeValue};node.nodeValue=language==='he'&&node.parentElement?.closest('#chapterMenu,#currentChapter')?he(entry.en):translate(entry.en);entry.last=node.nodeValue;memory.set(node,entry)}for(let el of root.querySelectorAll('[title],[placeholder],[aria-label]'))for(let attr of ['title','placeholder','aria-label']){if(!el.hasAttribute(attr))continue;let key='data-source-'+attr;if(!el.hasAttribute(key))el.setAttribute(key,el.getAttribute(attr));el.setAttribute(attr,translate(el.getAttribute(key)))}}
  function setLanguage(next){language=next;try{localStorage.setItem('casa-dna-language',language)}catch{}document.documentElement.lang=language;document.documentElement.dir=language==='ar'?'rtl':'ltr'}
- setLanguage(language);return {get language(){return language},translate,localize,setLanguage,extend:entries=>Object.assign(dictionary,entries)};
+ setLanguage(language);return {get language(){return language},translate,localize,setLanguage,extend:entries=>Object.assign(dictionary,entries),pick:(ar,en)=>language==='ar'?ar:language==='he'?(HE[en]??en):en,label:()=>language.toUpperCase()};
 })();
 
 window.Locale.extend({'AERIAL / SWIPE / STUDY BOUNDARIES ↗':'التصوير / المقارنة / حدود الدراسة ↗'});

@@ -129,9 +129,18 @@ nav.addEventListener('focusout',e=>{if(!nav.contains(e.relatedTarget))setMenu(fa
 document.addEventListener('pointerdown',e=>{if(!nav.contains(e.target))setMenu(false)});
 $('#chapterMenu').addEventListener('click',e=>{if(e.target.closest('button')&&!e.target.closest('[data-submenu],[data-menu-back]'))setMenu(false)});
 $$('[data-open-panel]').forEach(b=>b.onclick=()=>{if(!ready){toast('Datasets are still loading.');return}openWindow(b.dataset.openPanel);setMenu(false)});
-function applyLanguage(){document.title=Locale.language==='ar'?'الدار البيضاء — البصمة العمرانية':'CASABLANCA — Urban DNA';for(let id of windows.keys())refresh(id);Locale.localize();if(window.Atlas)Atlas.localize();$('#language').textContent=Locale.language==='ar'?'EN':'عربي';$('#language').setAttribute('lang',Locale.language==='ar'?'en':'ar');$('#language').setAttribute('title',Locale.language==='ar'?'English':'العربية');render()}
+function applyLanguage(){document.title=Locale.language==='ar'?'الدار البيضاء — البصمة العمرانية':'CASABLANCA — Urban DNA';for(let id of windows.keys())refresh(id);Locale.localize();if(window.Atlas)Atlas.localize();$('#language').textContent=Locale.label();render()}
 $('#language').dataset.noTranslate='';
-$('#language').onclick=()=>{Locale.setLanguage(Locale.language==='ar'?'en':'ar');applyLanguage()};
+// One language button: it opens a short list (العربية · English · עברית); pick one.
+const langMenu=document.createElement('div');langMenu.id='langMenu';langMenu.hidden=true;langMenu.dataset.noTranslate='';
+langMenu.innerHTML='<button data-lang="ar" lang="ar">العربية</button><button data-lang="en" lang="en">English</button><button data-lang="he" lang="he">עברית</button>';
+$('.headerActions').appendChild(langMenu);$('#language').setAttribute('aria-haspopup','true');
+function setLangMenu(open){langMenu.hidden=!open;$('#language').setAttribute('aria-expanded',String(open));if(open){setMenu(false);for(const b of langMenu.children)b.setAttribute('aria-current',String(b.dataset.lang===Locale.language))}}
+$('#language').onclick=()=>setLangMenu(langMenu.hidden);
+langMenu.onclick=e=>{const b=e.target.closest('[data-lang]');if(!b)return;setLangMenu(false);if(b.dataset.lang!==Locale.language){Locale.setLanguage(b.dataset.lang);applyLanguage()}};
+document.addEventListener('pointerdown',e=>{if(!e.target.closest('#language,#langMenu'))setLangMenu(false)});
+document.addEventListener('keydown',e=>{if(e.key==='Escape')setLangMenu(false)});
+nav.addEventListener('pointerenter',()=>setLangMenu(false));
 applyLanguage();
 
 let byId=new Map();

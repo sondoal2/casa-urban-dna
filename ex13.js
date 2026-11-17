@@ -861,8 +861,8 @@ window.Ex13=(()=>{
  document.addEventListener('click',e=>{const b=e.target.closest('[data-ex13-3d]');if(!b)return;e.preventDefault();e.stopPropagation();open('density');
   switching=switching.then(()=>{if(topic?.id!=='density')return;state.pop.on=false;state.height.on=false;showBuildings=true;view.x=-1800;view.y=18300;view.s=.3;setTilt(true);fill();render()})},true);
  // Language switch: retitle open windows and move them to the new side at once, keeping layer state.
- new MutationObserver(()=>{if(topic){const sp=specsFor(topic);wins.forEach((el,i)=>{const s=sp.find(x=>x[0]===el.dataset.ex);if(s)el.querySelector('.wintitle').innerHTML=`<small>1.3</small>${s[1]}`;placeWin(el,i)})}fill();document.querySelectorAll('[data-ex13]').forEach(b=>{const t=TOPICS.find(x=>x.id===b.dataset.ex13);b.querySelector('span').textContent=L(t.t[0],t.t[1])})}).observe(document.documentElement,{attributes:true,attributeFilter:['lang','dir']});
- document.querySelectorAll('[data-ex13]').forEach(b=>{const t=TOPICS.find(x=>x.id===b.dataset.ex13);b.querySelector('span').textContent=L(t.t[0],t.t[1])});
+ new MutationObserver(()=>{if(topic){const sp=specsFor(topic);wins.forEach((el,i)=>{const s=sp.find(x=>x[0]===el.dataset.ex);if(s)el.querySelector('.wintitle').innerHTML=`<small>1.3</small>${s[1]}`;placeWin(el,i)})}fill();document.querySelectorAll('[data-ex13]').forEach(b=>{const t=TOPICS.find(x=>x.id===b.dataset.ex13);b.querySelector('span').textContent=Locale.pick(t.t[0],t.t[1])})}).observe(document.documentElement,{attributes:true,attributeFilter:['lang','dir']});
+ document.querySelectorAll('[data-ex13]').forEach(b=>{const t=TOPICS.find(x=>x.id===b.dataset.ex13);b.querySelector('span').textContent=Locale.pick(t.t[0],t.t[1])});
  /* ---------- the four study squares: their own plan, in every chapter ----------
     Drawn in the language of the 4-fabrics presentation: light paper, buildings grey by storeys (GBA height
     ÷ 3 m), streets in brown. Zoomed out, each square blooms as a plate beside it with a leader line;
