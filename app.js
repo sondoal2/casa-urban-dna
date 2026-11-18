@@ -47,7 +47,7 @@ const glb=!!(window.Ex13?.active&&window.City3D?.ready&&!window.Imagery?.state.e
   if(window.ObservedLoss)ObservedLoss.paint(ctx,bounds);
   if(window.ChangeScan)ChangeScan.paint(ctx,bounds);if(window.PreciseScan)PreciseScan.paint(ctx,bounds);if(window.DemoReview)DemoReview.paint(ctx,bounds);
  }
- for(let b of [hovered,selected]){if(!b)continue;if(!b.path)b.path=pathFor(b.r);ctx.fillStyle=b===selected?'#ff4d24':'#b57b43';ctx.fill(b.path,'evenodd');ctx.lineWidth=1.4/view.s;ctx.strokeStyle=light?'#111':'#fff';ctx.stroke(b.path)}ctx.restore();
+ for(let b of [hovered,selected]){if(!b)continue;if(!b.path)b.path=pathFor(b.r);ctx.fillStyle=b===selected?'#eae9e7':'#b57b43';ctx.fill(b.path,'evenodd');ctx.lineWidth=1.4/view.s;ctx.strokeStyle=light?'#111':'#fff';ctx.stroke(b.path)}ctx.restore();
  for(let key of ['A','B']){let s=samples[key];if(s)drawBox(s.box,key)}if(draft)drawBox(draft,drawMode||'A');
  let raw=110/view.s,pow=10**Math.floor(Math.log10(raw)),nice=[1,2,5,10].map(n=>n*pow).find(n=>n>=raw)||pow*10;$('#scale').textContent=(nice>=1000?fmt(nice/1000,1)+' km':fmt(nice)+' m')+' ━';
 }

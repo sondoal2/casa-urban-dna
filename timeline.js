@@ -46,7 +46,7 @@ window.Timeline13=(()=>{
  function paintExtents(ctx,s){const E=extents().filter(e=>e.y<=year);if(!E.length)return;const cur=E.at(-1),prev=E.at(-2),P=e=>e.f.p||(e.f.p=pathFromRings(e.f.r));
   E.slice(0,-1).forEach((e,i)=>{ctx.strokeStyle=`rgba(170,168,160,${(.15+.45*(i+1)/E.length).toFixed(2)})`;ctx.lineWidth=.9/s;ctx.setLineDash(e.traced?[]:[5/s,4/s]);ctx.stroke(P(e))});ctx.setLineDash([]);
   ctx.fillStyle='rgba(244,242,236,.08)';ctx.fill(P(cur),'evenodd');
-  if(prev){ctx.save();ctx.clip(P(cur),'evenodd');const pp=new Path2D();pp.rect(-1e6,-1e6,2e6,2e6);pp.addPath(P(prev));ctx.fillStyle='rgba(255,77,36,.34)';ctx.fill(pp,'evenodd');ctx.restore()}
+  if(prev){ctx.save();ctx.clip(P(cur),'evenodd');const pp=new Path2D();pp.rect(-1e6,-1e6,2e6,2e6);pp.addPath(P(prev));ctx.fillStyle='rgba(234,233,231,.34)';ctx.fill(pp,'evenodd');ctx.restore()}
   ctx.strokeStyle='#f4f2ec';ctx.lineWidth=1.6/s;ctx.stroke(P(cur))}
  function pathFromRings(rings){const p=new Path2D();for(const r of rings)r.forEach((v,i)=>i?p.lineTo(v[0],-v[1]):p.moveTo(v[0],-v[1]));return p}
  const FAM={artdeco:'#ffd166',neomoorish:'#ff8a5b',modern:'#7ad7ff'};
@@ -68,7 +68,7 @@ window.Timeline13=(()=>{
   rows.forEach((row,i)=>{g+=`<text x="110" y="${y+14}" class="tl">${L(...row.name)}${row.ext?' · km²':''}</text>`;
    // Extent circles on one line; labels alternate between a top and a bottom line so neighbours never collide.
    if(row.ext){extents().forEach((e,j)=>{const r=Math.max(3,Math.min(13,Math.sqrt(e.km2)*1.1)),cy=y+rowH,ly=j%2?y+rowH*2-2:y+9;g+=`<circle cx="${x(e.y,w)}" cy="${cy}" r="${r}" fill="none" stroke="${e.y<=year?'#f4f2ec':'#4a4a46'}" stroke-width="1"/><line x1="${x(e.y,w)}" x2="${x(e.y,w)}" y1="${j%2?cy+r:cy-r}" y2="${j%2?ly-8:ly+2}" stroke="#4a4a46"/><text x="${x(e.y,w)+3}" y="${ly}" class="tv">${e.y} · ${fmt(e.km2,e.km2<10?1:0)}</text>`})}
-   else row.items.forEach(({bar:[a,b,ar,en,fam],lane})=>{const on=year>=a&&year<=b,sel=fam&&family===fam,yy=y+lane*rowH;g+=`<g class="bar${fam?' fam':''}" data-fam="${fam||''}" data-y="${a}"><rect x="${x(a,w)}" y="${yy+11}" width="${Math.max(4,x(b,w)-x(a,w))}" height="${sel?3:2}" fill="${sel?'#ff4d24':on?'#f4f2ec':'#3a3a37'}"/><rect x="${x(a,w)}" y="${yy}" width="${Math.max(4,x(b,w)-x(a,w))}" height="${rowH}" fill="transparent"/><text x="${x(a,w)+1}" y="${yy+9}" class="tb" fill="${on?'#f4f2ec':'#6e6d69'}" style="fill:${on?'#f4f2ec':'#6e6d69'}">${L(ar,en)}</text></g>`});
+   else row.items.forEach(({bar:[a,b,ar,en,fam],lane})=>{const on=year>=a&&year<=b,sel=fam&&family===fam,yy=y+lane*rowH;g+=`<g class="bar${fam?' fam':''}" data-fam="${fam||''}" data-y="${a}"><rect x="${x(a,w)}" y="${yy+11}" width="${Math.max(4,x(b,w)-x(a,w))}" height="${sel?3:2}" fill="${sel?'#eae9e7':on?'#f4f2ec':'#3a3a37'}"/><rect x="${x(a,w)}" y="${yy}" width="${Math.max(4,x(b,w)-x(a,w))}" height="${rowH}" fill="transparent"/><text x="${x(a,w)+1}" y="${yy+9}" class="tb" fill="${on?'#f4f2ec':'#6e6d69'}" style="fill:${on?'#f4f2ec':'#6e6d69'}">${L(ar,en)}</text></g>`});
    y+=row.lanes*rowH});
   const cx=x(year,w);g+=`<line x1="${cx}" x2="${cx}" y1="4" y2="${top+total+4}" class="cur"/><rect x="${cx-22}" y="2" width="44" height="16" rx="3" class="curb"/><text x="${cx}" y="14" class="cury">${year}</text>`;
   return `<svg class="chrono" viewBox="0 0 ${w} ${top+total+8}" width="100%" data-w="${w}" direction="ltr" style="direction:ltr">${g}</svg>`}
@@ -78,7 +78,7 @@ window.Timeline13=(()=>{
  function render(){if(!panel)return;const w=Math.max(520,panel.clientWidth-26);panel.querySelector('.tlChart').innerHTML=svg(w);panel.querySelector('.tlBody').innerHTML=card();bigYear();document.body.style.setProperty('--tlh',panel.offsetHeight+'px')}
  // The year, large and quiet over the map (as in the reference): the number, and one line for its era.
  function bigYear(){let el=document.getElementById('tlYear');if(!el){el=document.createElement('div');el.id='tlYear';document.body.appendChild(el)}const e=eraOf(year),E=extents().filter(x=>x.y<=year),cur=E.at(-1),first=E[0];const grow=cur?(cur!==first?L(`المدينة المبنية ≈${fmt(cur.km2,0)} كم² · ${(cur.km2/first.km2).toFixed(0)}× ما كانت في ${first.y}`,`built city ≈${fmt(cur.km2,0)} km² · ${(cur.km2/first.km2).toFixed(0)}× what it was in ${first.y}`):L(`المدينة المبنية ≈${fmt(cur.km2,1)} كم²`,`built city ≈${fmt(cur.km2,1)} km²`)):'';
-  el.innerHTML=`<span class="y">${year}</span><span class="era">${e[0]}–${e[1]} · ${L(...e[3]).split(/[.،,]/)[0]}</span>${grow?`<span class="grow"><i class="gNew"></i>${L('أحمر: ما أُضيف منذ السجل السابق','red: added since the previous record')} · <i class="gOld"></i>${L('رمادي: الحدود الأقدم','grey: older edges')}</span><span class="km">${grow}</span>`:''}`}
+  el.innerHTML=`<span class="y">${year}</span><span class="era">${e[0]}–${e[1]} · ${L(...e[3]).split(/[.،,]/)[0]}</span>${grow?`<span class="grow"><i class="gNew"></i>${L('أبيض: ما أُضيف منذ السجل السابق','white: added since the previous record')} · <i class="gOld"></i>${L('رمادي: الحدود الأقدم','grey: older edges')}</span><span class="km">${grow}</span>`:''}`}
  function setYear(y){year=Math.max(Y0,Math.min(Y1,Math.round(y)));render();onChange()}
  // The city's growth plays on its own from 1900 to today, looping, until the visitor stops it or drags the axis.
  let playTimer=null;

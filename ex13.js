@@ -882,10 +882,10 @@ window.Ex13=(()=>{
  function paintSquares(ctx){const S_=squares();if(!S_||window.Ex13World)return;sqHit.length=0;
   ctx.save();ctx.setTransform(1,0,0,1,0,0);const dpr=Math.min(devicePixelRatio||1,1.5);ctx.setTransform(dpr,0,0,dpr,0,0);
   for(const sq of S_){const b=sq.f.b,[x0,y0]=screen(b[0],b[3]),[x1,y1]=screen(b[2],b[1]),P=x1-x0;let X,Y,Z;
-   if(true){const hist=topic?.id==='history';ctx.globalAlpha=hist?.6:1;ctx.strokeStyle=hist?'#8a8983':'#ff4d24';ctx.lineWidth=hist?1:1.5;ctx.strokeRect(x0,y0,Math.max(P,6),Math.max(P,6));ctx.font='600 10px "Readex Pro",sans-serif';ctx.fillStyle=hist?'#8a8983':'#ff866a';ctx.textAlign='left';ctx.direction='ltr';ctx.fillText(sq.q[1],x0,y0-4);ctx.globalAlpha=1;sqHit.push([x0-4,y0-14,Math.max(P,10)+8,Math.max(P,10)+18,sq]);continue}
-   if(P>=120&&tilt){ctx.strokeStyle='#ff4d24';ctx.lineWidth=2;ctx.strokeRect(x0,y0,P,P);sqHit.push([x0,y0,P,P,sq]);continue}if(P>=120){X=x0;Y=y0;Z=P}else{Z=128;X=Math.min(Math.max(8,(x0+x1)/2+sq.q[4][0]-Z/2),innerWidth-Z-8);Y=Math.min(Math.max(X<300?190:40,(y0+y1)/2+sq.q[4][1]-Z/2),innerHeight-Z-50);
-    ctx.strokeStyle='#ff4d24';ctx.lineWidth=1;ctx.beginPath();ctx.moveTo((x0+x1)/2,(y0+y1)/2);ctx.lineTo(X+Z/2,Y+Z/2);ctx.stroke();ctx.strokeRect(x0,y0,P,P)}
-   ctx.drawImage(planCanvas(sq,Z>300?840:420),X,Y,Z,Z);ctx.strokeStyle='#ff4d24';ctx.lineWidth=1.5;ctx.strokeRect(X,Y,Z,Z);
+   if(true){const hist=topic?.id==='history';ctx.globalAlpha=hist?.6:1;ctx.strokeStyle=hist?'#8a8983':'#eae9e7';ctx.lineWidth=hist?1:1.5;ctx.strokeRect(x0,y0,Math.max(P,6),Math.max(P,6));ctx.font='600 10px "Readex Pro",sans-serif';ctx.fillStyle=hist?'#8a8983':'#eae9e7';ctx.textAlign='left';ctx.direction='ltr';ctx.fillText(sq.q[1],x0,y0-4);ctx.globalAlpha=1;sqHit.push([x0-4,y0-14,Math.max(P,10)+8,Math.max(P,10)+18,sq]);continue}
+   if(P>=120&&tilt){ctx.strokeStyle='#eae9e7';ctx.lineWidth=2;ctx.strokeRect(x0,y0,P,P);sqHit.push([x0,y0,P,P,sq]);continue}if(P>=120){X=x0;Y=y0;Z=P}else{Z=128;X=Math.min(Math.max(8,(x0+x1)/2+sq.q[4][0]-Z/2),innerWidth-Z-8);Y=Math.min(Math.max(X<300?190:40,(y0+y1)/2+sq.q[4][1]-Z/2),innerHeight-Z-50);
+    ctx.strokeStyle='#eae9e7';ctx.lineWidth=1;ctx.beginPath();ctx.moveTo((x0+x1)/2,(y0+y1)/2);ctx.lineTo(X+Z/2,Y+Z/2);ctx.stroke();ctx.strokeRect(x0,y0,P,P)}
+   ctx.drawImage(planCanvas(sq,Z>300?840:420),X,Y,Z,Z);ctx.strokeStyle='#eae9e7';ctx.lineWidth=1.5;ctx.strokeRect(X,Y,Z,Z);
    ctx.font='600 11px "Readex Pro","Noto Kufi Arabic",sans-serif';ctx.textAlign='left';ctx.direction='ltr';const t=`${sq.q[1]} — ${L(sq.q[2],sq.q[3])}`,w=ctx.measureText(t).width+10;ctx.fillStyle='#0e0e0e';ctx.fillRect(X,Y-17,w,17);ctx.fillStyle='#fff';ctx.fillText(t,X+5,Y-5);
    sqHit.push([X,Y-17,Z,Z+17,sq])}
   ctx.restore()}
