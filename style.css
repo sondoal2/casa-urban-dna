@@ -8,17 +8,17 @@ body.dark .brand.lockup{background:#0e0e0ec9;color:#fff;padding:5px 7px}body.dar
 #swipeDivider{position:fixed;top:0;bottom:0;width:22px;margin-left:-11px;background:linear-gradient(90deg,transparent 10px,#fff 10px,#fff 12px,transparent 12px);padding:0;z-index:5;cursor:ew-resize;touch-action:none;color:#fff;direction:ltr}#swipeDivider>span{position:absolute;top:50%;left:-6px;width:34px;height:34px;background:#111;border:1px solid #fff;display:grid;place-items:center;font:20px Arial}#swipeDivider[hidden],#swipeCaption[hidden],#imageryAttribution[hidden]{display:none}#swipeCaption{position:fixed;top:115px;left:50%;transform:translateX(-50%);font-size:9px;line-height:1.7;background:#111d;color:#eee;padding:5px 9px;z-index:4;pointer-events:none;max-width:55vw;text-align:center}#imageryAttribution{position:fixed;bottom:0;right:0;z-index:4;padding:3px 6px;background:#111d;color:#aaa;font:8px/1.5 Arial,sans-serif;max-width:65vw;direction:ltr}#imageryAttribution a{color:#ddd}.win[data-id=aerial] .winbody{scrollbar-width:thin;scrollbar-color:#666 #151515}
 @media(max-width:700px){#swipeCaption{top:95px;max-width:85vw;width:max-content;font-size:8px}#imageryAttribution{max-width:100vw;font-size:7px}#activeMode{bottom:48px}}
 /* v0.5 — rapid full-background introduction, held on the final image */
-/* Intro (17.11.2026): the language of the booklet and the deck. Black Bean ground, one huge vertical title bleeding off the left edge, one huge Cinnabar number,
+/* Intro (17.11.2026): the language of the booklet and the deck. Black Bean ground, one huge vertical title bleeding off the left edge, one huge yellow number (yellow = erased only, palette of 18.11.2026),
    the map (assets/welcome-map.svg, prep/welcome_map.py) as a panel bleeding off the right. Flat colours only, no gradients. */
 #welcome{display:block;padding:0;isolation:isolate;overflow:hidden;background:#001410;color:#eae9e7;font-family:"Segoe UI","Readex Pro","Helvetica Neue",Arial,sans-serif;--col:calc(7.8vh + 6vw);--m:4.4vh}
 #welcome .montage{position:absolute;top:0;right:0;bottom:0;left:38.5vw;width:auto;height:auto;max-width:none;pointer-events:none}
 #welcome .montage img{display:block;width:100%;height:100%;object-fit:cover;object-position:left center;filter:none;opacity:1;transition:none}
 #welcome .welcomeTitle{position:absolute;left:-.04em;bottom:var(--m);direction:ltr;font-size:min(11.6vh,17vw);font-weight:300;line-height:1;letter-spacing:.01em;white-space:nowrap;writing-mode:vertical-rl;transform:rotate(180deg);pointer-events:none}
 #welcome .welcomeCol{position:absolute;left:var(--col);top:2vh;width:min(34vw,600px);direction:ltr;display:flex;flex-direction:column;align-items:flex-start}
-#welcome .welcomeNum{font-size:38vh;font-weight:300;line-height:.8;letter-spacing:-.02em;margin-left:-.05em;color:#e34525;pointer-events:none}
+#welcome .welcomeNum{font-size:38vh;font-weight:300;line-height:.8;letter-spacing:-.02em;margin-left:-.05em;color:#FFC20E;pointer-events:none}
 #welcome #montageCaption{margin:5vh 0 0;font-size:clamp(16px,3.3vh,38px);font-weight:400;line-height:1.3;text-align:left}
 #welcome #enterAtlas{position:static;margin-top:5vh;padding:0 0 .4em;background:none;border:0;border-bottom:1px solid #808183;color:#eae9e7;font-family:inherit;font-size:max(14px,2.1vh);font-weight:400;line-height:1;cursor:pointer}
-#welcome #enterAtlas:hover,#welcome #enterAtlas:focus-visible{color:#e34525;border-bottom-color:#e34525;outline:0}
+#welcome #enterAtlas:hover,#welcome #enterAtlas:focus-visible{color:#eae9e7;border-bottom-color:#eae9e7;outline:0}
 #welcome .welcomeFoot{position:absolute;left:var(--col);bottom:var(--m);width:min(30vw,520px);direction:ltr}
 #welcome .welcomeName{display:flex;flex-wrap:wrap;align-items:baseline;gap:.3em 1.4em;font-size:max(13px,1.9vh);line-height:1.2}
 #welcome .welcomeName span{white-space:nowrap}

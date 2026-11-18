@@ -422,8 +422,8 @@ window.Ex13=(()=>{
    for(let n=0;n<28;n++){const a=windAng(px,py,M,0);px+=Math.sin(a)*90;py+=Math.cos(a)*90;if(!inF([px,py]))break;p.push([px,py]);f+=gwaAt(px,py)}
    if(p.length>4)wLines.push({p,f:Math.max(0,Math.min(1,(f/p.length-1)/(4.3-1)))})}
   return wLines}
- let tick=0;
- function windLoop(){windRaf=requestAnimationFrame(windLoop);if(!windOn||!state.wind.on){octx.clearRect(0,0,overlay.width,overlay.height);return}
+ let tick=0,windCleared=false;   // speed: the idle wind / bus loops used to clear a full-screen canvas every frame forever; now they clear once
+ function windLoop(){windRaf=requestAnimationFrame(windLoop);if(!windOn||!state.wind.on){if(!windCleared){octx.clearRect(0,0,overlay.width,overlay.height);windCleared=true}return}windCleared=false;
   // A quiet vector field: one small arrow every 56 px, pointing where the wind goes, longer where it is faster
   // (Global Wind Atlas); a soft band of light travels through the field downwind, so it reads as moving air.
   octx.clearRect(0,0,overlay.width,overlay.height);if(!wind)return;tick+=1;const M=mean(),G=56,K=window.TiltK||1;octx.lineCap='round';
@@ -441,13 +441,13 @@ window.Ex13=(()=>{
  // Real trips (prep/bus_trips.py): each weekday GTFS trip leaves its terminus at the scheduled minute and
  // runs its line's shape at one network speed, so buses never appear mid-street, merge or overtake; a bus
  // vanishes only at its last stop. Clock: 1 s on screen = 1 min of the day, starting at the chosen hour.
- let busOn=false,busRaf=0,bcan=null,bctx=null,buses=null,busTrips=null,busClock=8*3600,busLast=0;
+ let busCleared=false,busOn=false,busRaf=0,bcan=null,bctx=null,buses=null,busTrips=null,busClock=8*3600,busLast=0;
  const BUS_TAIL_S=30*60,BUS_RATE=60;
  function prepBuses(){if(!busTrips)return;buses=busTrips.shapes.map(f=>{const pts=[[f[0],f[1]]];for(let i=2;i<f.length;i+=2){const p=pts[pts.length-1];pts.push([p[0]+f[i],p[1]+f[i+1]])}
   const cum=[0];for(let i=1;i<pts.length;i++)cum.push(cum[i-1]+Math.hypot(pts[i][0]-pts[i-1][0],pts[i][1]-pts[i-1][1]));return{pts,cum,len:cum.at(-1)}})}
  function seek(r,d){let lo=0,hi=r.cum.length-1;while(hi-lo>1){const m=(lo+hi)>>1;if(r.cum[m]<d)lo=m;else hi=m}return lo}
  function pointAt(r,i,d){const a=r.pts[i],b=r.pts[i+1],t=(d-r.cum[i])/Math.max(1e-6,r.cum[i+1]-r.cum[i]);return[a[0]+(b[0]-a[0])*t,a[1]+(b[1]-a[1])*t]}
- function busLoop(){busRaf=requestAnimationFrame(busLoop);if(!bctx)return;bctx.clearRect(0,0,bcan.width,bcan.height);if(!busOn||!topic||!state.busflow.on||!buses)return;
+ function busLoop(){busRaf=requestAnimationFrame(busLoop);if(!bctx)return;if(!busOn||!topic||!state.busflow.on||!buses){if(!busCleared){bctx.clearRect(0,0,bcan.width,bcan.height);busCleared=true}return}busCleared=false;bctx.clearRect(0,0,bcan.width,bcan.height);
   // Movement only: the map goes black under the buses, so the light comes from the buses alone.
   bctx.fillStyle='rgba(0,0,0,.88)';bctx.fillRect(0,0,bcan.width,bcan.height);
   bctx.save();if(clipFrame){const [x0,y0]=screen(FRAME[0],FRAME[3]),[x1,y1]=screen(FRAME[2],FRAME[1]);bctx.beginPath();bctx.rect(x0,y0,x1-x0,y1-y0);bctx.clip()}

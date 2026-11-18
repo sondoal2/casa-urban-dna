@@ -42,13 +42,22 @@ window.Threats=(()=>{let T=null,cv=null,cx=null,on=true,DM=null,upTo=9999,showDM
  // reviewed demolition (data/demolition_v4.json, WORKFLOW_رصد_الهدم.md): only sites checked by eye, coloured by the phase
  // in which they disappeared — 2015–2021 slow · 2021–2023 first acceleration · 2024–2026 World Cup wave. Automatic
  // detections and the older mixed files (demolition.json, demolition_v3.json) are never shown to the public.
- const PH=[{to:2021,col:'#ff4d24',ar:'2015–2021 · تباطؤ',en:'2015–2021 · slow'},{to:2023,col:'#ff4d24',ar:'2021–2023 · التسارع الأول',en:'2021–2023 · first acceleration'},{to:9999,col:'#ff4d24',ar:'2024–2026 · موجة المونديال',en:'2024–2026 · World Cup wave'}];
+ const PH=[{to:2021,col:'#FFC20E',ar:'2015–2021 · تباطؤ',en:'2015–2021 · slow'},{to:2023,col:'#FFC20E',ar:'2021–2023 · التسارع الأول',en:'2021–2023 · first acceleration'},{to:9999,col:'#FFC20E',ar:'2024–2026 · موجة المونديال',en:'2024–2026 · World Cup wave'}];
  const TY={slum:['تفكيك صفيح','slum clearance'],project:['إخلاء لمشروع','clearance for a project'],collapse:['انهيار','collapse'],rebuild:['هدم وإعادة بناء','demolished and rebuilt']};
  fetch('data/demolition_v4.json?v='+Date.now().toString().slice(0,7)).then(r=>r.ok?r.json():null).catch(()=>null).then(d=>{if(!d?.sites?.length)return;
   DM={meta:d,PH,g:d.sites.filter(s=>(s.status||'gone')!=='standing').map(s=>{const ph=PH.findIndex(p=>s.gone<=p.to),rings=[s.ring,...(s.holes||[])],xs=s.ring.map(p=>p[0]),ys=s.ring.map(p=>p[1]);return{...s,ph,rings,ha:s.area/1e4,b:[Math.min(...xs),Math.min(...ys),Math.max(...xs),Math.max(...ys)]}})};if(typeof windows!=='undefined'&&windows.has('changeScan'))refresh('changeScan')}).catch(()=>{});
  function start(){if(cv||!T)return;cv=document.createElement('canvas');cv.id='threatLayer';document.body.appendChild(cv);cx=cv.getContext('2d');const fitC=()=>{cv.width=innerWidth;cv.height=innerHeight};fitC();addEventListener('resize',fitC);requestAnimationFrame(loop)}
  const near=(x,y,R)=>x>-R*3&&y>-R*3&&x<cv.width+R*3&&y<cv.height+R*3;
- function loop(t){requestAnimationFrame(loop);if(!cx)return;cx.clearRect(0,0,cv.width,cv.height);if(!on||!T||window.Ex13World||typeof screen!=='function'||typeof view==='undefined')return;
+ // Speed (18.11.2026): this loop used to clear and repaint a full-screen canvas on EVERY frame, even with the layer off or the map standing still.
+ // Now: nothing is touched while the layer is off (one clear), and with it on the layer is repainted only when the map moved, the year changed or
+ // a layer was toggled, plus 20 frames a second while a threatened site pulses.
+ let drawn=false,lastSig='',lastObj=null,lastT=0;
+ function loop(t){requestAnimationFrame(loop);if(!cx)return;
+  if(!on||!T||window.Ex13World||typeof screen!=='function'||typeof view==='undefined'){if(drawn){cx.clearRect(0,0,cv.width,cv.height);drawn=false;lastSig=''}return}
+  const p0=screen(0,0),p1=screen(1000,1000),sig=[Math.round(p0[0]*4),Math.round(p0[1]*4),Math.round(p1[0]*4),Math.round(p1[1]*4),cv.width,cv.height,showDM,upTo,DM?DM.g.length:0,WS?1:0,Locale.language].join('|'),obj=[T,DM,WS];
+  const same=drawn&&sig===lastSig&&lastObj&&obj.every((o,i)=>o===lastObj[i]),pulsing=(T&&T.threatened&&T.threatened.length>0)||(showDM&&DM&&DM.g.some(g=>g.status==='threatened'));
+  if(same&&(!pulsing||t-lastT<50))return;
+  lastSig=sig;lastObj=obj;lastT=t;drawn=true;cx.clearRect(0,0,cv.width,cv.height);
   // demolished: gold — traced outline where we have one, else a dashed circle at the documented place
   for(const s of T.demolished){cx.strokeStyle='rgba(244,242,236,.85)';cx.fillStyle='rgba(244,242,236,.06)';cx.lineWidth=1.1;
    if(s.rings){cx.beginPath();for(const r of s.rings)r.forEach((p,i)=>{const [x,y]=screen(p[0],p[1]);i?cx.lineTo(x,y):cx.moveTo(x,y)});cx.closePath();cx.fill('evenodd');cx.stroke()}
@@ -62,9 +71,11 @@ window.Threats=(()=>{let T=null,cv=null,cx=null,on=true,DM=null,upTo=9999,showDM
    const ln=(rs,dash,w)=>{cx.lineCap='round';cx.lineJoin='round';const tr=()=>{cx.beginPath();for(const r of rs)r.forEach((p,i)=>{const [x,y]=screen(p[0],p[1]);i?cx.lineTo(x,y):cx.moveTo(x,y)})};cx.setLineDash([]);tr();cx.strokeStyle='rgba(90,169,255,.28)';cx.lineWidth=w+10;cx.stroke();tr();cx.strokeStyle='rgba(90,169,255,.5)';cx.lineWidth=w+4;cx.stroke();cx.setLineDash(dash);tr();cx.strokeStyle='#f4f2ec';cx.lineWidth=w;cx.stroke();cx.setLineDash([])};
    ln(WS.hidden,[7,6],2);ln(WS.visible,[],3.2);
    for(const d of WS.damaged_2010){const [x,y]=screen(d.p[0],d.p[1]);if(!near(x,y,8))continue;cx.fillStyle='#f4f2ec';cx.strokeStyle='#5aa9ff';cx.lineWidth=2.5;cx.beginPath();cx.moveTo(x,y-6);cx.lineTo(x+6,y);cx.lineTo(x,y+6);cx.lineTo(x-6,y);cx.closePath();cx.fill();cx.stroke()}}
-  if(DM&&showDM)for(const g of DM.g){if(g.status!=='threatened'&&g.gone>upTo)continue;cx.beginPath();for(const r of g.rings){r.forEach((p,i)=>{const [x,y]=screen(p[0],p[1]);i?cx.lineTo(x,y):cx.moveTo(x,y)});cx.closePath()}if(g.status==='threatened'){cx.setLineDash([5,4]);cx.strokeStyle='rgba(255,77,36,'+(0.55+0.45*Math.sin(t/300))+')';cx.lineWidth=1.6;cx.stroke();cx.setLineDash([]);continue}const col=PH[g.ph]?.col||'#ff4d24';cx.fillStyle=col+'b0';cx.fill('evenodd');cx.strokeStyle=col;cx.lineWidth=1.4;cx.stroke();
+  if(DM&&showDM)for(const g of DM.g){if(g.status!=='threatened'&&g.gone>upTo)continue;cx.beginPath();for(const r of g.rings){r.forEach((p,i)=>{const [x,y]=screen(p[0],p[1]);i?cx.lineTo(x,y):cx.moveTo(x,y)});cx.closePath()}if(g.status==='threatened'){cx.setLineDash([5,4]);cx.strokeStyle='rgba(234,233,231,'+(0.55+0.45*Math.sin(t/300))+')';cx.lineWidth=1.6;cx.stroke();cx.setLineDash([]);continue}
+   // erased = yellow only (palette of 18.11.2026); the two periods are told apart by shape, not colour: 2015-21 an outline, 2022-26 a solid fill
+   const col=PH[g.ph]?.col||'#FFC20E';if(g.ph>0){cx.fillStyle=col;cx.fill('evenodd')}cx.strokeStyle=col;cx.lineWidth=1.4;cx.stroke();
    // tiny cities: keep a visible mark when the polygon is under a few pixels
-   const [x0,y0]=screen(g.b[0],g.b[3]),[x1,y1]=screen(g.b[2],g.b[1]);if(x1-x0<5){cx.fillStyle=PH[g.ph]?.col||'#ff4d24';cx.beginPath();cx.arc((x0+x1)/2,(y0+y1)/2,2.2,0,7);cx.fill()}}
+   const [x0,y0]=screen(g.b[0],g.b[3]),[x1,y1]=screen(g.b[2],g.b[1]);if(x1-x0<5){cx.fillStyle=PH[g.ph]?.col||'#FFC20E';cx.beginPath();cx.arc((x0+x1)/2,(y0+y1)/2,2.2,0,7);cx.fill()}}
   // 1:500 frame proposed for exercise 2.1: the four sites cleared 2023-2026 beside the still-visible stretch of the wadi
   // (D0230, D0234, D0231, D0232); 420 x 297 m = one A1 sheet at 1:500. Carrieres Centrales kept as a reference square.
   if(DM&&showDM){const ar=Locale.language==='ar',ids=['D0230','D0234','D0231','D0232'],gs=ids.map(i=>DM.g.find(z=>z.id===i)).filter(Boolean);
@@ -74,10 +85,10 @@ window.Threats=(()=>{let T=null,cv=null,cx=null,on=true,DM=null,upTo=9999,showDM
    if(gs.length){const mx=gs.reduce((a,g)=>a+(g.b[0]+g.b[2])/2,0)/gs.length,my=gs.reduce((a,g)=>a+(g.b[1]+g.b[3])/2,0)/gs.length;
     box(mx,my,210,148.5,'1:500 · A1 · '+(ar?'ضفة الوادي الظاهر · 2023–2026':'bank of the visible wadi · 2023–2026'))}
    box(3495,17598,100,100,'1:500 · '+(ar?'مرجع: كاريان سنطرال':'ref: Carrières Centrales'))}
-  // threatened: red, pulsing
+  // threatened: White Echo, pulsing (yellow is for what was erased, nothing else)
   for(const s of T.threatened){const [x,y]=screen(s.x,s.y),R=Math.max(10,s.r*view.s);if(!near(x,y,R))continue;
-   for(let k=0;k<2;k++){const ph=(((t/2400)+k/2+Math.abs(s.x%7)/7)%1+1)%1,rr=R*(.6+ph*1.4);cx.strokeStyle=`rgba(255,77,36,${(1-ph)*.75})`;cx.lineWidth=1.5;cx.setLineDash(s.approx?[4,4]:[]);cx.beginPath();cx.arc(x,y,rr,0,7);cx.stroke()}
-   cx.setLineDash([]);cx.fillStyle='#ff4d24';cx.beginPath();cx.arc(x,y,3,0,7);cx.fill()}
+   for(let k=0;k<2;k++){const ph=(((t/2400)+k/2+Math.abs(s.x%7)/7)%1+1)%1,rr=R*(.6+ph*1.4);cx.strokeStyle=`rgba(234,233,231,${(1-ph)*.75})`;cx.lineWidth=1.5;cx.setLineDash(s.approx?[4,4]:[]);cx.beginPath();cx.arc(x,y,rr,0,7);cx.stroke()}
+   cx.setLineDash([]);cx.fillStyle='#EAE9E7';cx.beginPath();cx.arc(x,y,3,0,7);cx.fill()}
   // incidents: a small triangle (filled = collapse, outline = controversy)
   for(const s of T.incidents){const [x,y]=screen(s.x,s.y);if(!near(x,y,10))continue;cx.beginPath();cx.moveTo(x,y-8);cx.lineTo(x+7,y+5);cx.lineTo(x-7,y+5);cx.closePath();
    if(s.kind==='controversy'){cx.strokeStyle='#f4f2ec';cx.lineWidth=1.4;cx.stroke()}else{cx.fillStyle='#f4f2ec';cx.fill();cx.strokeStyle='#0e0e0e';cx.lineWidth=1;cx.stroke()}}}

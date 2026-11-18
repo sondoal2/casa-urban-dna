@@ -64,7 +64,7 @@ window.YearCompare=(()=>{
   d.sites.push(site);
   d.phases.forEach((p,k)=>{p.ha=Math.round(d.sites.filter(s=>(s.status||'gone')==='gone'&&s.gone&&s.gone<=p.to&&(k===0||s.gone>d.phases[k-1].to)).reduce((a,s)=>a+s.area,0)/1e3)/10});
   const r=await fetch('/__save/demolition_v4.json',{method:'POST',body:JSON.stringify(d)});if(!r.ok)throw 0;
-  drawn.push({ring,col:gone?'#ff4d24':penSt.status==='threatened'?'#ffd23c':'#e8e6df'});pen=null;penForm=false;penSt.note='';draw();
+  drawn.push({ring,col:gone?'#FFC20E':penSt.status==='threatened'?'#EAE9E7':'#808183'});pen=null;penForm=false;penSt.note='';draw();
   if(typeof toast==='function')toast(L(`انحفظ ${site.id} · ${(site.area/1e4).toFixed(2)} هكتار · حدّثي الصفحة عشان يدخل في الأرقام`,`Saved ${site.id} · ${(site.area/1e4).toFixed(2)} ha · reload to update the numbers`))
  }catch{if(msg)msg.textContent=L('ما انحفظ · لازم الأطلس يكون مفتوح من السيرفر المحلي','Not saved · open the atlas from the local server')}}
  addEventListener('click',e=>{if(!on||!placing||e.target.id!=='map')return;e.stopImmediatePropagation();const [x,y]=world(e.clientX,e.clientY);const n=st.marks.length+1;st.marks.push({id:'m'+Date.now(),x,y,ar:'علامة '+n,en:'Mark '+n});saveM();placing=false;document.getElementById('map').style.cursor='';draw()},true);
