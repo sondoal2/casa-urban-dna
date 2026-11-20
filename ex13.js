@@ -69,6 +69,7 @@ window.Ex13=(()=>{
   busflow:{t:['خطوط الباص · التداخل والنبض','Bus lines · overlap + pulse'],type:'busflow',src:'Studio GIS layers: Bus_Routes_Colored, Bus_Street_Overlap (Casabus, OSM)',frame:true},
   reloc:{t:['الترحيل بعد هدم الصفيح (حالات موثقة)','Rehousing after slum clearance (documented cases)'],type:'reloc',src:'Le Matin 2007; Toutain 2016 (Springer); Jeune Afrique 2008; "Losing or Gaining Home?" (2020) · positions OSM',frame:false},
   renewal:{t:['التجديد الحضري · مواقع ومشاريع','Urban renewal · sites and projects'],type:'renewal',src:'Studio GIS packages per arrondissement (Boundary + Renewal sites / Intervention zones, File GDB) · arrondissements OSM admin_level 10 · prep/renewal_layer.py',frame:false},
+  plans:{t:['تصاميم التهيئة الرسمية · الوكالة الحضرية','Official land-use plans · Agence urbaine'],type:'plans',src:'Agence urbaine de Casablanca, plans d’aménagement published on carto.auc.ma (DOCUMENTS_URBANISME), copied 20.11.2026 · georeferenced (EPSG:26191) and tiled z12–16 · 16 of 32 plans; the others returned blank or need a login',frame:false},
   markets:{t:['الأسواق المعروفة (رسمية وغير رسمية)','Known markets (formal and informal)'],type:'markets',src:'Overture places (market names) · OSM · Derb Ghallef: CESEM/Economia 2008, CGEM, Wikipedia — locations approximate, hence the halo',frame:true},
   parking:{t:['المواقف · وحصّتها من كل مركز','Car parks · and their share of each centre'],type:'parking',src:'Studio GIS packages parking.lpkx (OSM amenity=parking, 336 polygons) + Centers_And_Parking_Final.lpkx (parking area per centre)',frame:true},
   photos:{t:['صور الشارع · Mapillary (اضغط نقطة)','Street photos · Mapillary (click a dot)'],type:'photos',src:'Mapillary contributors, CC BY-SA 4.0 · shown in the Mapillary viewer, not copied',frame:true},
@@ -97,7 +98,7 @@ window.Ex13=(()=>{
   {id:'climate',n:'04',t:['المناخ','Climate'],q:['أين الحرّ وأين أقل — وبكم درجة؟','Where is it hot, where less — and by how much?'],layers:['heat','ndvi','flood','water','buried','contours','wind'],form:['حقل متصل + خطوط تساوٍ','Continuous field + isolines'],play:['heat','ndvi','flood','contours']},
   {id:'human',n:'05',t:['البعد الإنساني','Human dimension'],q:['أين الناس فعلًا — أين يشترون ويلتقون؟','Where are people actually — buying, meeting?'],layers:['dots','overture','markets','photos','nightlights','busflow','busstops','rwi','reloc','emigration'],form:['كثافة نقاط','Dot density']},
   {id:'history',n:'06',t:['التطور التاريخي','Historical development'],q:['كيف نمت المدينة، ومن خطّطها، وبأي لغة معمارية؟','How did the city grow, who planned it, and in which architectural language?'],layers:['histext','histmig','histbuild','histplan'],form:['مخطط زمني بمسارات متوازية + امتدادات','Chart of time in parallel streams + extents']},
-  {id:'renewal',n:'07',t:['التجديد الحضري','Urban renewal'],q:['أين تُعاد كتابة المدينة اليوم، ومن يقرر، ولمن؟','Where is the city being rewritten today, who decides, and for whom?'],layers:['renewal','reloc'],form:['مواقع مخططة + حدود المقاطعات','Hatched sites + arrondissement edges']}
+  {id:'renewal',n:'07',t:['التجديد الحضري','Urban renewal'],q:['أين تُعاد كتابة المدينة اليوم، ومن يقرر، ولمن؟','Where is the city being rewritten today, who decides, and for whom?'],layers:['plans','renewal','reloc'],form:['مواقع مخططة + حدود المقاطعات','Hatched sites + arrondissement edges']}
  ];
  const state={};Object.keys(LAYERS).forEach(k=>state[k]={on:false,op:1});
  let order=[];
@@ -295,6 +296,7 @@ window.Ex13=(()=>{
  function clipCasa(ctx){const p=new Path2D();for(const f of data.layers.boundary.features)p.addPath(f.p||(f.p=pathOf(f.r)));ctx.clip(p)}
  const vis=(f,b)=>!f.b||overlap(f.b,b);
  const draw={
+  plans(ctx,k,def,b,s){if(window.Imagery?.drawPlansLayer)Imagery.drawPlansLayer(ctx,b,1)},
   grid(ctx,k,def,b,s){if(k==='built'){const P=[0,1,2,3,4,5,6].map(i=>i?hatch(ctx,C_LG,Math.max(2.2,9-i*1.15),45,1):null);for(const f of data.layers[k].features){if(!vis(f,b))continue;const i=Math.round(classOf(f.v,def.breaks)*6);if(!i)continue;ctx.fillStyle=P[i];ctx.fill(f.p||(f.p=pathOf(f.r)))}return}const fn=R[def.ramp];ctx.lineWidth=.7/s;for(const f of data.layers[k].features){if(!vis(f,b))continue;const c=fn(classOf(f.v,def.breaks)),p=f.p||(f.p=pathOf(f.r));ctx.fillStyle=ctx.strokeStyle=c;ctx.fill(p);ctx.stroke(p)}},
   value(ctx,k,def,b,s){const fn=R[def.ramp];ctx.lineWidth=.7/s;for(const f of data.layers[k].features){if(!vis(f,b))continue;const c=fn((f.v-def.min)/(def.max-def.min)),p=f.p||(f.p=pathOf(f.r));ctx.fillStyle=ctx.strokeStyle=c;ctx.fill(p);ctx.stroke(p)}},
   fill(ctx,k,def,b){ctx.fillStyle=k==='flood'?hatch(ctx,C_BLUE,5,45,1.2):def.color;if(k!=='flood')ctx.globalAlpha*=def.alpha;for(const f of data.layers[k].features)if(vis(f,b))ctx.fill(f.p||(f.p=pathOf(f.r)),'evenodd')},
@@ -471,7 +473,7 @@ window.Ex13=(()=>{
 
  /* ---------- legend ---------- */
  const swatch=c=>`<i style="background:${c}"></i>`;
- function legend(k){const d=LAYERS[k],u=d.unit?L(d.unit[0],d.unit[1]):'';
+ function legend(k){const d=LAYERS[k],u=d.unit?L(d.unit[0],d.unit[1]):'';if(d.type==='plans'){const c=window.Imagery?.plansCatalog||[];return `<div class="lg"><small>${L('تصاميم التهيئة المصادق عليها كما نشرتها الوكالة الحضرية (الخريطة فقط؛ الضابطة نص منفصل). على الخريطة: ','Approved plans d’aménagement as published by the Agence urbaine (map sheet only; the règlement is a separate text). On the map: ')}${c.filter(p=>p.onMap).map(p=>(Locale.language==='ar'?p.ar:p.fr)+(p.year?' '+p.year:'')).join(Locale.language==='ar'?'، ':', ')}</small></div>`}
   if(d.type==='grid'){const br=d.breaks;return `<div class="lg">${br.map((v,i)=>`<span>${swatch(R[d.ramp](i/(br.length-1)))}${i===br.length-1?'≥ '+v:v+'–'+br[i+1]}</span>`).join('')}<small>${u}</small></div>`}
   if(d.type==='value'){const n=8,ticks=[...Array(n+1)].map((_,i)=>d.min+(d.max-d.min)*i/n);return `<div class="lg grad"><b style="background:linear-gradient(90deg,${ticks.map((v,i)=>R[d.ramp](i/n)).join(',')})"></b><div>${ticks.filter((_,i)=>i%2===0).map(v=>`<span>${k==='ndvi'?v.toFixed(2):Math.round(v)}</span>`).join('')}</div><small>${u}${k==='heat'?L(' · القيم الأصلية 21–57؛ التدرّج يبدأ من 30 لإظهار الفروق',' · source values 21–57; the ramp starts at 30 to show the differences'):''}</small></div>`}
   if(d.type==='rwi'&&distD){rwiClass(0);const lab=[L('الأفقر نسبيًا','poorest')+' 20%','','','',L('الأغنى نسبيًا','richest')+' 20%'];return `<div class="lg">${[0,1,2,3,4].map(i=>`<span><em class="circ" style="border-radius:0;background:rgba(217,215,207,${.03+i*.09});outline:1px solid #555"></em>${L('فئة','class')} ${i+1}${lab[i]?' · '+lab[i]:''}</span>`).join('')}<small>${u} · ${L('خمس فئات متساوية العدد داخل الإطار، والتهشير يكثف مع الثروة. دقة ≈2.4 كم.','five equal-count classes inside the frame; hatching gets denser with wealth. ≈2.4 km.')}</small></div>`}
@@ -568,7 +570,8 @@ window.Ex13=(()=>{
   history:[{l:['histext'],t:['كيف امتدت المدينة: من النواة إلى الحلقات','How the city spread: from the core to rings']},
    {l:['histplan','histbuild'],t:['الخرائط الأصلية والمباني المؤرخة','The original plans and the dated buildings']},
    {l:['histmig'],t:['حركة السكن داخل المدينة','Moves within the city']},{concl:true}],
-  renewal:[{l:['renewal'],t:['11 موقعًا في 6 مقاطعات: ترميم، إخلاء، وتنمية كبيرة','11 sites in 6 arrondissements: restoration, clearance, large development']},
+  renewal:[{l:['plans','renewal'],t:['تصاميم التهيئة الرسمية فوق الخريطة: 16 تصميمًا من الوكالة الحضرية، والمواقع فوقها','The official plans on the map: 16 plans from the Agence urbaine, with the sites on top']},
+   {l:['renewal'],t:['11 موقعًا في 6 مقاطعات: ترميم، إخلاء، وتنمية كبيرة','11 sites in 6 arrondissements: restoration, clearance, large development']},
    {l:['renewal','reloc'],t:['حين يعني التجديد هدمًا: إلى أين رُحّل الناس','When renewal means demolition: where people were moved']},{concl:true}]};
  let mi=0;
  const moments=()=>MOMENTS[topic?.id]||[];
